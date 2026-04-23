@@ -49,26 +49,29 @@ export default function Hero() {
           </span>
         </div>
 
-        <div className="relative grid grid-cols-2 gap-3 md:gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
-          <div
-            className="flex justify-end md:justify-end animate-fade-up order-2 md:order-none"
-            style={{ animationDelay: "120ms" }}
-          >
-            <DateTag />
-          </div>
-
+        <div className="relative grid grid-cols-1 gap-3 md:gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
           <div
             ref={logoWrapRef}
-            className="col-span-2 md:col-span-1 order-1 md:order-none flex justify-center transition-transform duration-300 ease-out"
+            className="flex justify-center transition-transform duration-300 ease-out md:col-start-2 md:row-start-1"
           >
             <LogoWithRings />
           </div>
 
-          <div
-            className="flex justify-start md:justify-start animate-fade-up order-3 md:order-none"
-            style={{ animationDelay: "240ms" }}
-          >
-            <LocalTag />
+          {/* Wrapper mobile: flex centralizado. Desktop: vira transparente (contents) e cada tag vai para sua coluna */}
+          <div className="flex flex-row items-end justify-center gap-3 md:contents">
+            <div
+              className="flex-shrink-0 animate-fade-up md:flex md:justify-end md:col-start-1 md:row-start-1"
+              style={{ animationDelay: "120ms" }}
+            >
+              <DateTag />
+            </div>
+
+            <div
+              className="flex-shrink-0 animate-fade-up md:flex md:justify-start md:col-start-3 md:row-start-1"
+              style={{ animationDelay: "240ms" }}
+            >
+              <LocalTag />
+            </div>
           </div>
         </div>
 
