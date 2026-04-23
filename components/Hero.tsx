@@ -33,7 +33,7 @@ export default function Hero() {
   return (
     <section
       ref={heroRef}
-      className="relative min-h-[100svh] flex items-center justify-center pt-20 md:pt-24 pb-4 md:pb-6 px-6 overflow-hidden noise"
+      className="relative min-h-[100svh] flex items-center justify-center pt-20 md:pt-24 pb-4 md:pb-6 px-6 overflow-hidden"
     >
       <BackgroundFx />
 
@@ -49,16 +49,25 @@ export default function Hero() {
           </span>
         </div>
 
-        <div className="relative grid md:grid-cols-[1fr_auto_1fr] items-center gap-3 md:gap-4">
-          <div className="flex justify-center md:justify-end animate-fade-up" style={{ animationDelay: "120ms" }}>
+        <div className="relative grid grid-cols-2 gap-3 md:gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
+          <div
+            className="flex justify-end md:justify-end animate-fade-up order-2 md:order-none"
+            style={{ animationDelay: "120ms" }}
+          >
             <DateTag />
           </div>
 
-          <div ref={logoWrapRef} className="flex justify-center transition-transform duration-300 ease-out">
+          <div
+            ref={logoWrapRef}
+            className="col-span-2 md:col-span-1 order-1 md:order-none flex justify-center transition-transform duration-300 ease-out"
+          >
             <LogoWithRings />
           </div>
 
-          <div className="flex justify-center md:justify-start animate-fade-up" style={{ animationDelay: "240ms" }}>
+          <div
+            className="flex justify-start md:justify-start animate-fade-up order-3 md:order-none"
+            style={{ animationDelay: "240ms" }}
+          >
             <LocalTag />
           </div>
         </div>
@@ -117,21 +126,80 @@ function LogoWithRings() {
         />
       </div>
 
-      {/* orbiting satellites */}
+      {/* orbiting satellites — formas pequenas em outline */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden>
+        {/* Quadrado (amarelo) */}
         <div className="absolute top-1/2 left-1/2 w-0 h-0">
-          <div className="animate-orbit">
-            <div className="w-3 h-3 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-sol-yellow shadow-glow" />
+          <div className="animate-orbit" style={{ animationDuration: "24s" }}>
+            <div className="w-2 h-2 -translate-x-1/2 -translate-y-1/2 border border-sol-yellow/50" />
           </div>
         </div>
-        <div className="absolute top-1/2 left-1/2 w-0 h-0" style={{ animationDelay: "-7s" }}>
-          <div className="animate-orbit" style={{ animationDuration: "26s" }}>
-            <div className="w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-sol-pink/90 shadow-[0_0_20px_rgba(232,121,249,0.8)]" />
+
+        {/* Círculo (rosa) */}
+        <div className="absolute top-1/2 left-1/2 w-0 h-0">
+          <div className="animate-orbit" style={{ animationDuration: "28s", animationDelay: "-5s" }}>
+            <div className="w-2 h-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-sol-pink/50" />
           </div>
         </div>
+
+        {/* Triângulo (teal) */}
         <div className="absolute top-1/2 left-1/2 w-0 h-0">
-          <div className="animate-orbit" style={{ animationDuration: "34s", animationDirection: "reverse" }}>
-            <div className="w-3 h-3 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-sol-teal shadow-[0_0_16px_rgba(20,184,166,0.8)]" />
+          <div className="animate-orbit" style={{ animationDuration: "32s", animationDelay: "-12s" }}>
+            <svg
+              className="w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 text-sol-teal/60"
+              viewBox="0 0 10 10"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinejoin="round"
+            >
+              <polygon points="5,1 9,9 1,9" />
+            </svg>
+          </div>
+        </div>
+
+        {/* X (laranja) */}
+        <div className="absolute top-1/2 left-1/2 w-0 h-0">
+          <div
+            className="animate-orbit"
+            style={{
+              animationDuration: "30s",
+              animationDirection: "reverse",
+              animationDelay: "-8s",
+            }}
+          >
+            <svg
+              className="w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 text-sol-orange/55"
+              viewBox="0 0 10 10"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+            >
+              <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" />
+              <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Quadrado pequeno (roxo claro) */}
+        <div className="absolute top-1/2 left-1/2 w-0 h-0">
+          <div
+            className="animate-orbit"
+            style={{
+              animationDuration: "36s",
+              animationDirection: "reverse",
+              animationDelay: "-18s",
+            }}
+          >
+            <div className="w-1.5 h-1.5 -translate-x-1/2 -translate-y-1/2 border border-sol-purpleLight/55" />
+          </div>
+        </div>
+
+        {/* Círculo pequeno (amarelo) */}
+        <div className="absolute top-1/2 left-1/2 w-0 h-0">
+          <div className="animate-orbit" style={{ animationDuration: "22s", animationDelay: "-15s" }}>
+            <div className="w-1.5 h-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-sol-yellow/45" />
           </div>
         </div>
       </div>
@@ -139,21 +207,34 @@ function LogoWithRings() {
   );
 }
 
+function TagLabel({ text }: { text: string }) {
+  return (
+    <div className="flex items-center justify-center gap-2 mb-2">
+      <span className="h-px w-4 bg-gradient-to-r from-transparent to-sol-orange/60" />
+      <span className="font-display font-semibold text-[10px] md:text-[11px] tracking-[0.32em] uppercase text-white/60">
+        {text}
+      </span>
+      <span className="h-px w-4 bg-gradient-to-l from-transparent to-sol-orange/60" />
+    </div>
+  );
+}
+
 function DateTag() {
   return (
     <div className="relative group animate-float-slow">
-      <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-sol-orange/40 via-emerald-500/20 to-transparent blur-xl opacity-60 group-hover:opacity-100 transition" />
+      <TagLabel text="Data" />
+      <div className="absolute -inset-2 top-6 rounded-2xl bg-gradient-to-br from-sol-orange/40 via-emerald-500/20 to-transparent blur-xl opacity-60 group-hover:opacity-100 transition" />
 
       <div className="relative transform-gpu transition-transform duration-500 group-hover:-rotate-1 group-hover:scale-105">
 <div className="rounded-2xl overflow-hidden shadow-[0_18px_40px_-12px_rgba(0,0,0,0.5)]">
-          <div className="bg-white px-5 md:px-8 py-2.5 md:py-3.5 text-center">
-            <div className="font-display font-extrabold text-2xl md:text-4xl text-sol-purple leading-none tracking-tight">
+          <div className="bg-white px-3 md:px-8 py-2 md:py-3.5 text-center">
+            <div className="font-display font-extrabold text-xl md:text-4xl text-sol-purple leading-none tracking-tight">
               26 A 28
             </div>
           </div>
-          <div className="h-3 md:h-4 bg-[repeating-linear-gradient(135deg,#10b981_0,#10b981_8px,#064e3b_8px,#064e3b_16px)]" />
-          <div className="bg-sol-orange px-5 md:px-8 py-2 md:py-2.5 text-center">
-            <div className="font-display font-extrabold text-sm md:text-base text-sol-purple tracking-[0.25em]">
+          <div className="h-2.5 md:h-4 bg-[repeating-linear-gradient(135deg,#10b981_0,#10b981_8px,#064e3b_8px,#064e3b_16px)]" />
+          <div className="bg-sol-orange px-3 md:px-8 py-1.5 md:py-2.5 text-center">
+            <div className="font-display font-extrabold text-[11px] md:text-base text-sol-purple tracking-[0.2em] md:tracking-[0.25em]">
               DE JUNHO
             </div>
           </div>
@@ -166,19 +247,17 @@ function DateTag() {
 function LocalTag() {
   return (
     <div className="relative group animate-float-delayed">
-      <div className="text-sol-orange font-display font-bold text-[10px] md:text-xs tracking-[0.3em] mb-1.5 text-center">
-        LOCAL
-      </div>
+      <TagLabel text="Local" />
       <div className="absolute -inset-2 top-6 rounded-2xl bg-gradient-to-br from-sol-yellow/40 via-sol-pink/20 to-transparent blur-xl opacity-60 group-hover:opacity-100 transition" />
 
       <div className="relative transform-gpu transition-transform duration-500 group-hover:rotate-1 group-hover:scale-105">
 <div className="rounded-2xl overflow-hidden shadow-[0_18px_40px_-12px_rgba(0,0,0,0.5)]">
-          <div className="bg-white px-5 md:px-8 py-2.5 md:py-3.5 text-center">
-            <div className="font-display font-extrabold text-base md:text-xl text-sol-purple leading-none tracking-tight whitespace-nowrap">
+          <div className="bg-white px-3 md:px-8 py-2 md:py-3.5 text-center">
+            <div className="font-display font-extrabold text-xs md:text-xl text-sol-purple leading-none tracking-tight whitespace-nowrap">
               PRAIAMAR ARENA
             </div>
           </div>
-          <div className="h-3 md:h-4 bg-[repeating-linear-gradient(135deg,#ffc830_0,#ffc830_8px,#92400e_8px,#92400e_16px)]" />
+          <div className="h-2.5 md:h-4 bg-[repeating-linear-gradient(135deg,#ffc830_0,#ffc830_8px,#92400e_8px,#92400e_16px)]" />
         </div>
       </div>
     </div>

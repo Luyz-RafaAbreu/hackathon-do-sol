@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 
 const links = [
   { href: "#sobre", label: "Sobre" },
@@ -47,11 +47,22 @@ export default function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // bloqueia scroll do body quando menu mobile está aberto
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
+  // bloqueia scroll quando menu mobile está aberto
+  // aplica em html E body — alguns browsers não propagam um pro outro
+  useLayoutEffect(() => {
+    if (typeof document === "undefined") return;
+    const html = document.documentElement;
+    const body = document.body;
+    if (open) {
+      html.style.overflow = "hidden";
+      body.style.overflow = "hidden";
+    } else {
+      html.style.overflow = "";
+      body.style.overflow = "";
+    }
     return () => {
-      document.body.style.overflow = "";
+      html.style.overflow = "";
+      body.style.overflow = "";
     };
   }, [open]);
 
@@ -60,15 +71,15 @@ export default function Header() {
       {/* camada de fundo + blur — fade-in/out via opacidade (suave) */}
       <div
         aria-hidden
-        className={`pointer-events-none absolute inset-0 bg-sol-bgDeep/75 backdrop-blur-xl shadow-[0_8px_32px_-12px_rgba(0,0,0,0.6)] transition-opacity ease-out duration-700 ${
-          scrolled ? "opacity-100" : "opacity-0"
+        className={`pointer-events-none absolute inset-0 bg-sol-bgDeep/75 backdrop-blur-xl shadow-[0_8px_32px_-12px_rgba(0,0,0,0.6)] transition-opacity ease-out duration-500 ${
+          scrolled || open ? "opacity-100" : "opacity-0"
         }`}
       />
-      {/* linha gradiente na base */}
+      {/* linha gradiente na base — some quando o menu está aberto (junção visual) */}
       <div
         aria-hidden
-        className={`pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-sol-orange/50 to-transparent transition-opacity ease-out duration-700 ${
-          scrolled ? "opacity-100" : "opacity-0"
+        className={`pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-sol-orange/50 to-transparent transition-opacity ease-out duration-500 ${
+          scrolled && !open ? "opacity-100" : "opacity-0"
         }`}
       />
 
@@ -159,43 +170,122 @@ export default function Header() {
         </div>
       </nav>
 
-      {/* Menu mobile */}
+      {/* Menu mobile — overlay fullscreen */}
       <div
-        className={`md:hidden overflow-hidden transition-[max-height,opacity] duration-500 ease-in-out ${
-          open ? "max-h-[calc(100vh-4rem)] opacity-100" : "max-h-0 opacity-0"
+        className={`md:hidden fixed inset-x-0 top-16 bottom-0 z-40 transition-opacity duration-500 ease-out ${
+          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
+        aria-hidden={!open}
       >
-        <div className="bg-sol-bgDeep/95 backdrop-blur-xl border-t border-white/10">
-          <ul className="flex flex-col p-6 gap-1">
-            {links.map((l) => {
-              const isActive = active === l.href;
-              return (
-                <li key={l.href}>
-                  <a
-                    onClick={() => setOpen(false)}
-                    href={l.href}
-                    className={`flex items-center justify-between py-3 px-4 rounded-xl transition ${
-                      isActive
-                        ? "bg-white/[0.06] text-white"
-                        : "text-white/75 hover:text-white hover:bg-white/[0.04]"
+        {/* fundo semi-transparente com blur — combina com a estética do site */}
+        <div className="absolute inset-0 bg-sol-bgDeep/75 backdrop-blur-2xl" />
+        {/* gradientes decorativos pra textura */}
+        <div className="absolute inset-0 bg-gradient-to-b from-sol-purple/15 via-transparent to-sol-pink/5" />
+        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[80%] h-40 bg-sol-orange/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-20 -right-20 w-60 h-60 bg-sol-pink/10 blur-3xl pointer-events-none" />
+
+        {/* conteúdo */}
+        <div className="relative h-full flex flex-col overflow-y-auto">
+          <nav aria-label="Menu de navegação" className="flex-1 px-6 pt-8">
+            <ul className="flex flex-col gap-1">
+              {links.map((l, idx) => {
+                const isActive = active === l.href;
+                return (
+                  <li
+                    key={l.href}
+                    className={`transition-all duration-500 ${
+                      open
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 translate-y-4"
                     }`}
+                    style={{
+                      transitionDelay: open ? `${80 + idx * 50}ms` : "0ms",
+                    }}
                   >
-                    <span>{l.label}</span>
-                    {isActive && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-sol-orange" />
-                    )}
-                  </a>
-                </li>
-              );
-            })}
+                    <a
+                      onClick={() => setOpen(false)}
+                      href={l.href}
+                      className={`group flex items-center justify-between py-4 px-2 border-b border-white/5 transition ${
+                        isActive
+                          ? "text-white"
+                          : "text-white/75 hover:text-white"
+                      }`}
+                    >
+                      <span className="flex items-center gap-4">
+                        <span
+                          className={`font-display font-semibold text-xs tabular-nums transition ${
+                            isActive ? "text-sol-orange" : "text-white/30"
+                          }`}
+                        >
+                          0{idx + 1}
+                        </span>
+                        <span className="font-display font-semibold text-xl">
+                          {l.label}
+                        </span>
+                      </span>
+                      <span
+                        className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition ${
+                          isActive
+                            ? "bg-sol-orange/15 text-sol-orange"
+                            : "text-white/40 group-hover:text-sol-orange"
+                        }`}
+                      >
+                        <svg
+                          className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M5 12h14" />
+                          <path d="m12 5 7 7-7 7" />
+                        </svg>
+                      </span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+
+          {/* rodapé fixo: CTA + contato */}
+          <div
+            className={`px-6 pb-8 pt-6 border-t border-white/10 space-y-4 transition-all duration-500 ${
+              open ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            }`}
+            style={{
+              transitionDelay: open ? `${80 + links.length * 50 + 50}ms` : "0ms",
+            }}
+          >
             <a
               onClick={() => setOpen(false)}
               href="#inscricao"
-              className="btn-primary w-full mt-3"
+              className="btn-primary w-full"
             >
-              Inscreva-se
+              <span className="relative z-10">Inscreva-se agora</span>
+              <span className="relative z-10">→</span>
             </a>
-          </ul>
+
+            <div className="flex items-center justify-center gap-4 pt-2">
+              <a
+                href="https://instagram.com/hackathondosol"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white/60 hover:text-sol-orange transition text-xs tracking-[0.2em] uppercase font-semibold"
+              >
+                @hackathondosol
+              </a>
+              <span className="w-px h-3 bg-white/20" />
+              <a
+                href="mailto:hackathondosol@gmail.com"
+                className="text-white/60 hover:text-sol-orange transition text-xs font-medium"
+              >
+                Contato
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </header>
