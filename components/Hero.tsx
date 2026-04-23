@@ -44,12 +44,13 @@ export default function Hero() {
               <span className="absolute inline-flex h-full w-full rounded-full bg-sol-orange opacity-75 animate-ping" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-sol-orange" />
             </span>
-            Inscrições abertas — 160 vagas
+            <span>Inscrições abertas</span>
+            <span className="hidden sm:inline"> — 160 vagas</span>
           </span>
         </div>
 
         <div className="relative grid md:grid-cols-[1fr_auto_1fr] items-center gap-3 md:gap-4">
-          <div className="flex md:justify-end animate-fade-up" style={{ animationDelay: "120ms" }}>
+          <div className="flex justify-center md:justify-end animate-fade-up" style={{ animationDelay: "120ms" }}>
             <DateTag />
           </div>
 
@@ -57,7 +58,7 @@ export default function Hero() {
             <LogoWithRings />
           </div>
 
-          <div className="flex md:justify-start animate-fade-up" style={{ animationDelay: "240ms" }}>
+          <div className="flex justify-center md:justify-start animate-fade-up" style={{ animationDelay: "240ms" }}>
             <LocalTag />
           </div>
         </div>

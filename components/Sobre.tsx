@@ -26,10 +26,10 @@ export default function Sobre() {
           </p>
         </Reveal>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           {stats.map((s, i) => (
             <Reveal key={s.label} delay={100 * i}>
-              <div className="card text-center group relative overflow-hidden !p-5 md:!p-6">
+              <div className="card text-center group relative overflow-hidden !p-4 sm:!p-5 md:!p-6">
                 <div
                   className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${s.cor}`}
                 />
@@ -37,10 +37,10 @@ export default function Sobre() {
                   className={`absolute -top-14 -right-14 w-36 h-36 rounded-full bg-gradient-to-br ${s.cor} opacity-20 blur-2xl transition-all duration-700 group-hover:scale-150 group-hover:opacity-30`}
                 />
                 <div className="relative">
-                  <div className="font-display font-black text-4xl md:text-5xl text-gradient leading-none tracking-tight transition-transform duration-500 group-hover:scale-105 whitespace-nowrap">
+                  <div className="font-display font-black text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-gradient leading-none tracking-tight transition-transform duration-500 group-hover:scale-105 whitespace-nowrap">
                     {s.value}
                   </div>
-                  <div className="mt-3 text-[10px] md:text-xs font-semibold uppercase tracking-[0.22em] text-white/65">
+                  <div className="mt-2 md:mt-3 text-[9px] sm:text-[10px] md:text-xs font-semibold uppercase tracking-[0.18em] md:tracking-[0.22em] text-white/65">
                     {s.label}
                   </div>
                 </div>

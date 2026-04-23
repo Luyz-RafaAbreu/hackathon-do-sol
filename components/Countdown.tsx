@@ -42,11 +42,11 @@ export default function Countdown() {
       ];
 
   return (
-    <div className="flex items-center justify-center gap-2 md:gap-3">
+    <div className="flex items-center justify-center gap-1.5 md:gap-3">
       {items.map(([label, value], i) => (
-        <div key={label} className="flex items-center gap-2 md:gap-3">
-          <div className="flex flex-col items-center min-w-[56px] md:min-w-[76px]">
-            <div className="relative w-full rounded-xl border border-white/15 bg-white/5 backdrop-blur px-3 py-2 md:px-4 md:py-3 overflow-hidden">
+        <div key={label} className="flex items-center gap-1.5 md:gap-3">
+          <div className="flex flex-col items-center min-w-[52px] md:min-w-[76px]">
+            <div className="relative w-full rounded-xl border border-white/15 bg-white/5 backdrop-blur px-2.5 py-2 md:px-4 md:py-3 overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-sol-orange/10 via-transparent to-sol-pink/10" />
               <div
                 key={value}
