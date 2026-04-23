@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import Reveal from "./Reveal";
 
 type FormState = {
@@ -24,16 +24,23 @@ const initial: FormState = {
   motivacao: "",
 };
 
+type FormErrors = Partial<Record<keyof FormState | "comprovantes", string>>;
+
+const ACCEPTED_TYPES = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx";
+const MAX_FILES = 3;
+const MAX_FILE_SIZE_MB = 5;
+
 export default function Inscricao() {
   const [form, setForm] = useState<FormState>(initial);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [comprovantes, setComprovantes] = useState<File[]>([]);
+  const [errors, setErrors] = useState<FormErrors>({});
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle"
   );
   const [message, setMessage] = useState("");
 
   const validate = () => {
-    const e: Partial<Record<keyof FormState, string>> = {};
+    const e: FormErrors = {};
     if (form.nome.trim().length < 3) e.nome = "Informe seu nome completo.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       e.email = "E-mail inválido.";
@@ -45,6 +52,8 @@ export default function Inscricao() {
     if (!form.experiencia) e.experiencia = "Selecione sua experiência.";
     if (form.motivacao.trim().length < 20)
       e.motivacao = "Conte um pouco mais (mín. 20 caracteres).";
+    if (comprovantes.length === 0)
+      e.comprovantes = "Anexe ao menos um comprovante de atuação na área.";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -64,6 +73,7 @@ export default function Inscricao() {
       "Inscrição recebida! Em breve você receberá um e-mail de confirmação."
     );
     setForm(initial);
+    setComprovantes([]);
   };
 
   return (
@@ -82,6 +92,7 @@ export default function Inscricao() {
               "Inscrição 100% gratuita",
               "Confirmação enviada por e-mail",
               "Não é necessário ter equipe formada",
+              "Anexe comprovantes da sua atuação em tecnologia",
             ].map((t) => (
               <li key={t} className="flex gap-3 items-start">
                 <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-sol-orange/15 border border-sol-orange/40 flex items-center justify-center">
@@ -221,6 +232,12 @@ export default function Inscricao() {
             }
           />
 
+          <FileUploadField
+            files={comprovantes}
+            onChange={setComprovantes}
+            error={errors.comprovantes}
+          />
+
           <button
             type="submit"
             disabled={status === "loading"}
@@ -260,6 +277,181 @@ function Field({
       <label>{label}</label>
       {input}
       {error && <p className="text-red-300 text-xs mt-1">{error}</p>}
+    </div>
+  );
+}
+
+function FileUploadField({
+  files,
+  onChange,
+  error,
+}: {
+  files: File[];
+  onChange: (files: File[]) => void;
+  error?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [rejectMsg, setRejectMsg] = useState<string | null>(null);
+
+  const addFiles = (incoming: FileList | File[]) => {
+    setRejectMsg(null);
+    const arr = Array.from(incoming);
+    const valid: File[] = [];
+    const rejected: string[] = [];
+
+    for (const f of arr) {
+      if (f.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        rejected.push(`${f.name} (maior que ${MAX_FILE_SIZE_MB}MB)`);
+        continue;
+      }
+      valid.push(f);
+    }
+
+    const combined = [...files, ...valid].slice(0, MAX_FILES);
+    if (files.length + valid.length > MAX_FILES) {
+      rejected.push(`Máximo de ${MAX_FILES} arquivos — os excedentes foram ignorados.`);
+    }
+
+    if (rejected.length > 0) setRejectMsg(rejected.join(" · "));
+    onChange(combined);
+  };
+
+  const removeFile = (idx: number) => {
+    onChange(files.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div>
+      <label>Comprovante de atuação em tecnologia</label>
+      <p className="text-xs text-white/55 mb-2 -mt-1 normal-case tracking-normal font-normal">
+        Anexe diploma, currículo, certificado ou similar. Até {MAX_FILES}{" "}
+        arquivos (PDF, imagem ou Word, máx. {MAX_FILE_SIZE_MB}MB cada).
+      </p>
+
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
+        }}
+        onClick={() => inputRef.current?.click()}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        className={`group cursor-pointer rounded-xl border-2 border-dashed px-5 py-6 text-center transition ${
+          isDragging
+            ? "border-sol-orange bg-sol-orange/10"
+            : error
+            ? "border-red-400/50 bg-red-400/5"
+            : "border-white/15 bg-white/[0.03] hover:border-sol-orange/50 hover:bg-white/[0.06]"
+        }`}
+      >
+        <svg
+          className={`w-8 h-8 mx-auto mb-2 transition ${
+            isDragging ? "text-sol-orange" : "text-white/40 group-hover:text-sol-orange"
+          }`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="17 8 12 3 7 8" />
+          <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+        <p className="text-sm text-white/80 font-medium">
+          Clique para selecionar{" "}
+          <span className="text-white/50">ou arraste os arquivos aqui</span>
+        </p>
+
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept={ACCEPTED_TYPES}
+          onChange={(e) => {
+            if (e.target.files) addFiles(e.target.files);
+            e.target.value = "";
+          }}
+          className="hidden"
+        />
+      </div>
+
+      {files.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {files.map((f, i) => (
+            <li
+              key={`${f.name}-${i}`}
+              className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="shrink-0 w-7 h-7 rounded-lg bg-sol-orange/15 border border-sol-orange/30 flex items-center justify-center">
+                  <svg
+                    className="w-3.5 h-3.5 text-sol-orange"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm text-white/90 truncate font-medium">
+                    {f.name}
+                  </p>
+                  <p className="text-[11px] text-white/50">
+                    {(f.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeFile(i);
+                }}
+                aria-label={`Remover ${f.name}`}
+                className="shrink-0 w-7 h-7 rounded-lg text-white/50 hover:text-red-300 hover:bg-red-400/10 transition flex items-center justify-center"
+              >
+                <svg
+                  className="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {rejectMsg && (
+        <p className="text-amber-300 text-xs mt-2">⚠ {rejectMsg}</p>
+      )}
+      {error && <p className="text-red-300 text-xs mt-2">{error}</p>}
     </div>
   );
 }
