@@ -63,8 +63,14 @@ const config: Config = {
           "100%": { transform: "translateX(-50%)" },
         },
         orbit: {
-          "0%": { transform: "rotate(0deg) translateX(120px) rotate(0deg)" },
-          "100%": { transform: "rotate(360deg) translateX(120px) rotate(-360deg)" },
+          "0%": {
+            transform:
+              "rotate(0deg) translateX(var(--orbit-r, 120px)) rotate(0deg)",
+          },
+          "100%": {
+            transform:
+              "rotate(360deg) translateX(var(--orbit-r, 120px)) rotate(-360deg)",
+          },
         },
         tilt: {
           "0%,100%": { transform: "rotate(-1deg)" },

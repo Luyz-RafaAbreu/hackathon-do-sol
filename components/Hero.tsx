@@ -95,7 +95,7 @@ export default function Hero() {
 
 function LogoWithRings() {
   return (
-    <div className="relative w-[min(240px,36vh)] h-[min(240px,36vh)] sm:w-[min(280px,38vh)] sm:h-[min(280px,38vh)] md:w-[min(320px,38vh)] md:h-[min(320px,38vh)] lg:w-[min(380px,40vh)] lg:h-[min(380px,40vh)]">
+    <div className="relative w-[min(240px,36vh)] h-[min(240px,36vh)] sm:w-[min(280px,38vh)] sm:h-[min(280px,38vh)] md:w-[min(320px,38vh)] md:h-[min(320px,38vh)] lg:w-[min(380px,40vh)] lg:h-[min(380px,40vh)] [--orbit-r:calc(min(240px,36vh)/2)] sm:[--orbit-r:calc(min(280px,38vh)/2)] md:[--orbit-r:calc(min(320px,38vh)/2)] lg:[--orbit-r:calc(min(380px,40vh)/2)]">
       {/* conic gradient rotating ring */}
       <div className="absolute inset-0 rounded-full glow-ring opacity-60 animate-spin-slow" aria-hidden />
 
