@@ -34,7 +34,7 @@ export default function FloatingActions() {
         </svg>
       </button>
 
-      {/* WhatsApp / Contato */}
+      {/* WhatsApp / Contato — PLACEHOLDER: trocar número em href quando disponível */}
       <a
         href="https://wa.me/5584000000000?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20Hackathon%20do%20Sol."
         target="_blank"

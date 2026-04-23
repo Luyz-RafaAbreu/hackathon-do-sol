@@ -5,16 +5,20 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
-  title: "Hackathon do Sol | 26 a 28 de junho — Praiamar Arena",
+  title: "Hackathon do Sol | 26 a 28 de junho — Natal/RN",
   description:
-    "O Hackathon do Sol é um evento de inovação e tecnologia que reúne mentes criativas para construir soluções reais. 26 a 28 de junho, na Praiamar Arena, Natal/RN.",
+    "Hackathon do Sol — 26 a 28 de junho de 2026, na Praiamar Arena (Natal/RN). Três dias de imersão em código, design e inovação, com R$ 10 mil em premiação. Inscrições abertas.",
   keywords: [
     "Hackathon do Sol",
-    "hackathon",
+    "hackathon 2026",
+    "hackathon Natal",
+    "hackathon Rio Grande do Norte",
+    "hackathon nordeste",
     "inovação",
     "tecnologia",
+    "programação",
     "Praiamar Arena",
-    "Natal",
+    "Natal RN",
     "evento tech",
   ],
   icons: {
@@ -24,7 +28,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Hackathon do Sol — 26 a 28 de junho",
     description:
-      "Três dias de inovação, código e colaboração na Praiamar Arena, Natal/RN. Inscrições abertas.",
+      "Três dias de imersão em código, design e inovação em Natal/RN. R$ 10 mil em premiação. Inscrições abertas.",
     type: "website",
     locale: "pt_BR",
     siteName: "Hackathon do Sol",
@@ -34,7 +38,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Hackathon do Sol — 26 a 28 de junho",
     description:
-      "Três dias de inovação, código e colaboração na Praiamar Arena.",
+      "Três dias de imersão em código, design e inovação em Natal/RN. R$ 10 mil em premiação.",
     images: ["/imagens/og.jpg"],
   },
 };

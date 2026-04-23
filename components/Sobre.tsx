@@ -7,31 +7,43 @@ export default function Sobre() {
         <Reveal>
           <span className="eyebrow">Sobre o evento</span>
           <h2 className="section-title">
-            Onde <span className="text-gradient">ideias viram código</span> e
+            Onde <span className="text-gradient">ideias viram código</span> — e
             código vira impacto.
           </h2>
-          <p className="text-white/75 leading-relaxed mb-4">
-            O <strong>Hackathon do Sol</strong> é um encontro de mentes
-            criativas, desenvolvedores, designers e empreendedores que
-            acreditam no poder da tecnologia para transformar o mundo. Durante
-            três dias intensos, participantes se reúnem para resolver desafios
-            reais com soluções inovadoras.
+          <p className="text-white/75 leading-relaxed mb-4 text-[15px] md:text-base">
+            O <strong className="text-white">Hackathon do Sol</strong> reúne
+            desenvolvedores, designers e empreendedores em Natal para
+            transformar desafios reais em soluções tecnológicas. São três dias
+            de imersão, com equipes de quatro pessoas, mentorias ao longo do
+            evento e pitches avaliados por uma banca no domingo.
           </p>
-          <p className="text-white/75 leading-relaxed">
-            Mais do que uma competição, é uma experiência de colaboração,
-            aprendizado e networking, criando um ecossistema único onde a
-            próxima grande ideia pode nascer.
+          <p className="text-white/75 leading-relaxed text-[15px] md:text-base">
+            Mais que uma competição, é um ponto de encontro para quem constrói
+            a próxima geração de produtos digitais no Nordeste. Ao final, as
+            melhores equipes levam{" "}
+            <strong className="text-sol-orange">R$ 10 mil em premiação</strong>{" "}
+            e ganham visibilidade junto aos patrocinadores do evento.
           </p>
         </Reveal>
 
         <div className="grid grid-cols-2 gap-4">
           {stats.map((s, i) => (
             <Reveal key={s.label} delay={100 * i}>
-              <div className="card text-center group">
-                <div className="font-display font-bold text-3xl md:text-4xl text-gradient transition-transform duration-500 group-hover:scale-110">
-                  {s.value}
+              <div className="card text-center group relative overflow-hidden !p-5 md:!p-6">
+                <div
+                  className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${s.cor}`}
+                />
+                <div
+                  className={`absolute -top-14 -right-14 w-36 h-36 rounded-full bg-gradient-to-br ${s.cor} opacity-20 blur-2xl transition-all duration-700 group-hover:scale-150 group-hover:opacity-30`}
+                />
+                <div className="relative">
+                  <div className="font-display font-black text-4xl md:text-5xl text-gradient leading-none tracking-tight transition-transform duration-500 group-hover:scale-105 whitespace-nowrap">
+                    {s.value}
+                  </div>
+                  <div className="mt-3 text-[10px] md:text-xs font-semibold uppercase tracking-[0.22em] text-white/65">
+                    {s.label}
+                  </div>
                 </div>
-                <div className="text-sm text-white/60 mt-2">{s.label}</div>
               </div>
             </Reveal>
           ))}
@@ -42,8 +54,8 @@ export default function Sobre() {
 }
 
 const stats = [
-  { value: "72h", label: "de imersão" },
-  { value: "+200", label: "participantes" },
-  { value: "+15", label: "mentores" },
-  { value: "R$ 30k", label: "em premiação" },
+  { value: "3 dias", label: "de imersão", cor: "from-sol-yellow to-sol-orange" },
+  { value: "160", label: "vagas", cor: "from-sol-orange to-sol-pink" },
+  { value: "100%", label: "inscrição gratuita", cor: "from-sol-pink to-sol-purpleLight" },
+  { value: "R$ 10 mil", label: "em premiação", cor: "from-sol-purpleLight to-sol-teal" },
 ];

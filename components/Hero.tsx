@@ -33,7 +33,7 @@ export default function Hero() {
   return (
     <section
       ref={heroRef}
-      className="relative min-h-[100svh] flex items-center justify-center pt-20 pb-4 md:pb-6 px-6 overflow-hidden noise"
+      className="relative min-h-[100svh] flex items-center justify-center pt-20 md:pt-24 pb-4 md:pb-6 px-6 overflow-hidden noise"
     >
       <BackgroundFx />
 
@@ -44,7 +44,7 @@ export default function Hero() {
               <span className="absolute inline-flex h-full w-full rounded-full bg-sol-orange opacity-75 animate-ping" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-sol-orange" />
             </span>
-            Inscrições abertas — vagas limitadas
+            Inscrições abertas — 160 vagas
           </span>
         </div>
 
@@ -68,7 +68,7 @@ export default function Hero() {
 
         <div className="mt-2 md:mt-3 text-center animate-fade-up" style={{ animationDelay: "360ms" }}>
           <p className="text-sm md:text-base text-white/85 max-w-2xl mx-auto leading-snug">
-            Três dias de <span className="text-gradient-animated font-semibold">inovação, código e colaboração</span>. Bora codar sob o sol?
+            Três dias de <span className="text-gradient-animated font-semibold">inovação, código e colaboração</span> — do nascer ao pôr do sol.
           </p>
         </div>
 
@@ -105,11 +105,13 @@ function LogoWithRings() {
       {/* the logo, clipped to circle to lose the square background corners */}
       <div className="absolute inset-6 rounded-full overflow-hidden shadow-glowStrong bg-sol-bgDeep">
         <Image
-          src="/imagens/logo.webp"
+          src="/imagens/logo-hd.webp"
           alt="Hackathon do Sol"
-          width={480}
-          height={480}
+          width={1200}
+          height={1200}
           priority
+          quality={95}
+          sizes="(min-width: 1024px) 380px, (min-width: 768px) 320px, 280px"
           className="w-full h-full object-cover"
         />
       </div>
@@ -139,17 +141,20 @@ function LogoWithRings() {
 function DateTag() {
   return (
     <div className="relative group animate-float-slow">
-      <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-sol-orange/40 via-sol-teal/20 to-transparent blur-xl opacity-60 group-hover:opacity-100 transition" />
-      <div className="relative rounded-xl overflow-hidden shadow-2xl border-2 border-sol-teal/80 transform-gpu transition-transform duration-500 group-hover:-rotate-1 group-hover:scale-105">
-        <div className="bg-white px-5 md:px-7 py-2.5 md:py-3 text-center">
-          <div className="font-display font-extrabold text-2xl md:text-4xl text-sol-purple leading-none tracking-tight">
-            26 A 28
+      <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-sol-orange/40 via-emerald-500/20 to-transparent blur-xl opacity-60 group-hover:opacity-100 transition" />
+
+      <div className="relative transform-gpu transition-transform duration-500 group-hover:-rotate-1 group-hover:scale-105">
+<div className="rounded-2xl overflow-hidden shadow-[0_18px_40px_-12px_rgba(0,0,0,0.5)]">
+          <div className="bg-white px-5 md:px-8 py-2.5 md:py-3.5 text-center">
+            <div className="font-display font-extrabold text-2xl md:text-4xl text-sol-purple leading-none tracking-tight">
+              26 A 28
+            </div>
           </div>
-        </div>
-        <div className="h-2 bg-[repeating-linear-gradient(135deg,#14b8a6_0,#14b8a6_10px,transparent_10px,transparent_20px)]" />
-        <div className="bg-sol-orange px-5 md:px-7 py-1.5 md:py-2 text-center">
-          <div className="font-display font-bold text-xs md:text-sm text-sol-purple tracking-[0.25em]">
-            DE JUNHO
+          <div className="h-3 md:h-4 bg-[repeating-linear-gradient(135deg,#10b981_0,#10b981_8px,#064e3b_8px,#064e3b_16px)]" />
+          <div className="bg-sol-orange px-5 md:px-8 py-2 md:py-2.5 text-center">
+            <div className="font-display font-extrabold text-sm md:text-base text-sol-purple tracking-[0.25em]">
+              DE JUNHO
+            </div>
           </div>
         </div>
       </div>
@@ -164,13 +169,16 @@ function LocalTag() {
         LOCAL
       </div>
       <div className="absolute -inset-2 top-6 rounded-2xl bg-gradient-to-br from-sol-yellow/40 via-sol-pink/20 to-transparent blur-xl opacity-60 group-hover:opacity-100 transition" />
-      <div className="relative rounded-xl overflow-hidden shadow-2xl border-2 border-sol-teal/80 transform-gpu transition-transform duration-500 group-hover:rotate-1 group-hover:scale-105">
-        <div className="bg-white px-5 md:px-7 py-2.5 md:py-3 text-center">
-          <div className="font-display font-extrabold text-base md:text-xl text-sol-purple leading-none tracking-tight whitespace-nowrap">
-            PRAIAMAR ARENA
+
+      <div className="relative transform-gpu transition-transform duration-500 group-hover:rotate-1 group-hover:scale-105">
+<div className="rounded-2xl overflow-hidden shadow-[0_18px_40px_-12px_rgba(0,0,0,0.5)]">
+          <div className="bg-white px-5 md:px-8 py-2.5 md:py-3.5 text-center">
+            <div className="font-display font-extrabold text-base md:text-xl text-sol-purple leading-none tracking-tight whitespace-nowrap">
+              PRAIAMAR ARENA
+            </div>
           </div>
+          <div className="h-3 md:h-4 bg-[repeating-linear-gradient(135deg,#ffc830_0,#ffc830_8px,#92400e_8px,#92400e_16px)]" />
         </div>
-        <div className="h-2 bg-[repeating-linear-gradient(135deg,#ffc830_0,#ffc830_10px,transparent_10px,transparent_20px)]" />
       </div>
     </div>
   );
@@ -188,9 +196,6 @@ function BackgroundFx() {
       <div className="absolute top-1/3 right-10 w-64 h-64 rounded-full bg-sol-orange/15 blur-3xl animate-float-slow" aria-hidden />
       <div className="absolute bottom-1/4 left-10 w-72 h-72 rounded-full bg-sol-teal/15 blur-3xl animate-float-delayed" aria-hidden />
 
-      {/* geometric anchors — só 2 grandes, o canvas cuida do resto */}
-      <div className="hidden md:block absolute bottom-28 left-[16%] w-6 h-6 rotate-45 border-2 border-sol-teal/60" aria-hidden />
-      <div className="hidden md:block absolute bottom-20 right-[14%] w-8 h-8 rotate-45 border-2 border-sol-purpleLight/60 animate-float-slow" aria-hidden />
     </>
   );
 }

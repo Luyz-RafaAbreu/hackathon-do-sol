@@ -4,8 +4,10 @@ import { useEffect, useRef } from "react";
 type Particle = {
   x: number;
   y: number;
-  vx: number;
+  vx: number;       // velocidade induzida (ex: repulsão do mouse) — sofre fricção
   vy: number;
+  driftX: number;   // deriva natural persistente — não sofre fricção
+  driftY: number;
   r: number;
   color: string;
   baseAlpha: number;
@@ -40,8 +42,10 @@ export default function ParticlesCanvas() {
     const spawn = (): Particle => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.25,
-      vy: (Math.random() - 0.5) * 0.25,
+      vx: 0,
+      vy: 0,
+      driftX: (Math.random() - 0.5) * 0.35,
+      driftY: (Math.random() - 0.5) * 0.35,
       r: 0.8 + Math.random() * 1.4,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
       baseAlpha: 0.35 + Math.random() * 0.35,
@@ -59,7 +63,7 @@ export default function ParticlesCanvas() {
       // target count adapta ao viewport, capado pra nunca poluir
       const area = width * height;
       const target = Math.round(
-        Math.min(90, Math.max(40, area / 24000))
+        Math.min(110, Math.max(50, area / 20000))
       );
       if (particles.length < target) {
         for (let i = particles.length; i < target; i++) particles.push(spawn());
@@ -135,16 +139,36 @@ export default function ParticlesCanvas() {
           p.vy = (p.vy / speed) * maxSpeed;
         }
 
-        p.vx += (Math.random() - 0.5) * 0.01;
-        p.vy += (Math.random() - 0.5) * 0.01;
+        // deriva natural muda lentamente — dá sensação de flutuar no espaço
+        p.driftX += (Math.random() - 0.5) * 0.004;
+        p.driftY += (Math.random() - 0.5) * 0.004;
+        if (p.driftX > 0.5) p.driftX = 0.5;
+        else if (p.driftX < -0.5) p.driftX = -0.5;
+        if (p.driftY > 0.5) p.driftY = 0.5;
+        else if (p.driftY < -0.5) p.driftY = -0.5;
 
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
+        p.x += (p.vx + p.driftX) * dt;
+        p.y += (p.vy + p.driftY) * dt;
 
-        if (p.x < -5) p.x = width + 5;
-        else if (p.x > width + 5) p.x = -5;
-        if (p.y < -5) p.y = height + 5;
-        else if (p.y > height + 5) p.y = -5;
+        // mantém partículas dentro da viewport — reflete ao tocar a borda
+        if (p.x < 0) {
+          p.x = 0;
+          p.vx = Math.abs(p.vx);
+          p.driftX = Math.abs(p.driftX);
+        } else if (p.x > width) {
+          p.x = width;
+          p.vx = -Math.abs(p.vx);
+          p.driftX = -Math.abs(p.driftX);
+        }
+        if (p.y < 0) {
+          p.y = 0;
+          p.vy = Math.abs(p.vy);
+          p.driftY = Math.abs(p.driftY);
+        } else if (p.y > height) {
+          p.y = height;
+          p.vy = -Math.abs(p.vy);
+          p.driftY = -Math.abs(p.driftY);
+        }
       }
 
       // linhas entre partículas próximas

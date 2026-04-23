@@ -73,13 +73,33 @@ export default function Inscricao() {
           <span className="eyebrow">Inscrição</span>
           <h2 className="section-title">Garanta sua vaga</h2>
           <p className="text-white/75 leading-relaxed mb-6">
-            As vagas são limitadas. Preencha o formulário com seus dados e
-            entraremos em contato com as próximas etapas.
+            São apenas 160 vagas para todo o evento. Preencha seus dados
+            abaixo — a organização analisa as inscrições e envia a confirmação
+            por e-mail.
           </p>
           <ul className="space-y-3 text-white/80 text-sm">
-            <li className="flex gap-2 items-start"><span className="text-sol-orange">✓</span> Inscrição 100% gratuita</li>
-            <li className="flex gap-2 items-start"><span className="text-sol-orange">✓</span> Confirmação por e-mail</li>
-            <li className="flex gap-2 items-start"><span className="text-sol-orange">✓</span> Você pode se inscrever sem equipe formada</li>
+            {[
+              "Inscrição 100% gratuita",
+              "Confirmação enviada por e-mail",
+              "Não é necessário ter equipe formada",
+            ].map((t) => (
+              <li key={t} className="flex gap-3 items-start">
+                <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-sol-orange/15 border border-sol-orange/40 flex items-center justify-center">
+                  <svg
+                    className="w-3 h-3 text-sol-orange"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                </span>
+                <span>{t}</span>
+              </li>
+            ))}
           </ul>
         </Reveal>
 
@@ -111,7 +131,7 @@ export default function Inscricao() {
                   type="email"
                   value={form.email}
                   onChange={handle("email")}
-                  placeholder="voce@email.com"
+                  placeholder="você@email.com"
                   autoComplete="email"
                 />
               }
