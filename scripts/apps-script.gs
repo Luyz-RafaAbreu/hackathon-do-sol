@@ -311,7 +311,7 @@ function onEdit(e) {
 function sendApprovalEmail(to, name) {
   MailApp.sendEmail({
     to: to,
-    subject: `Sua inscrição no ${CONFIG.EVENT_NAME} foi aprovada!`,
+    subject: `Você está dentro — ${CONFIG.EVENT_NAME} confirmou sua vaga`,
     htmlBody: buildApprovalHTML(name),
     name: CONFIG.EMAIL_FROM_NAME,
   });
@@ -330,85 +330,315 @@ function sendRejectionEmail(to, name) {
 // Templates HTML dos e-mails
 // ============================================================================
 function buildApprovalHTML(name) {
+  const rawFirstName = String(name || "").trim().split(/\s+/)[0] || "";
+  const firstName = escapeHtml(rawFirstName);
+  const instagramHandle = CONFIG.EVENT_INSTAGRAM.replace("@", "");
+
   return `<!doctype html>
 <html lang="pt-BR">
-<body style="margin:0;padding:0;background:#0f0624;font-family:'Segoe UI',Inter,Arial,sans-serif;color:#ffffff">
-  <div style="max-width:560px;margin:0 auto;padding:24px">
-    <div style="text-align:center;padding:20px 0">
-      <div style="font-weight:bold;font-size:20px;letter-spacing:-0.5px">
-        Hackathon <span style="background:linear-gradient(90deg,#ffc830,#ff8c00);-webkit-background-clip:text;background-clip:text;color:transparent">do Sol</span>
-      </div>
-    </div>
-    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:32px 28px">
-      <div style="color:#ff8c00;font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;font-weight:600">
-        — Inscrição aprovada
-      </div>
-      <h1 style="font-weight:bold;font-size:26px;line-height:1.2;margin:0 0 18px">
-        Bem-vindo(a) ao <span style="background:linear-gradient(90deg,#ffc830,#ff8c00,#e879f9);-webkit-background-clip:text;background-clip:text;color:transparent">Hackathon do Sol</span>, ${escapeHtml(name)}!
-      </h1>
-      <p style="color:rgba(255,255,255,0.8);line-height:1.65;margin:16px 0;font-size:15px">
-        Sua inscrição foi aprovada e você está oficialmente confirmado(a) no evento.
-        Três dias intensos de inovação, código e colaboração pela frente — e
-        <strong style="color:#ffc830">${CONFIG.EVENT_PRIZE}</strong> em disputa.
-      </p>
-      <div style="background:rgba(255,140,0,0.08);border-left:3px solid #ff8c00;padding:16px 20px;margin:24px 0;border-radius:0 8px 8px 0">
-        <div style="font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:4px;letter-spacing:1px;text-transform:uppercase">Quando</div>
-        <div style="font-weight:600;margin-bottom:12px;font-size:15px">${CONFIG.EVENT_DATE}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:4px;letter-spacing:1px;text-transform:uppercase">Onde</div>
-        <div style="font-weight:600;font-size:15px">${CONFIG.EVENT_LOCATION}</div>
-      </div>
-      <p style="color:rgba(255,255,255,0.7);line-height:1.65;font-size:14px;margin:16px 0">
-        Em breve enviamos mais detalhes: cronograma completo, instruções de check-in,
-        dinâmica de formação de equipes e o que trazer. Fique atento(a) a este e-mail.
-      </p>
-      <div style="text-align:center;margin-top:28px">
-        <a href="${CONFIG.SITE_URL}" style="display:inline-block;background:#ff8c00;color:#000000;font-weight:600;padding:13px 28px;border-radius:999px;text-decoration:none;font-size:14px">
-          Acessar o site do evento
-        </a>
-      </div>
-    </div>
-    <div style="text-align:center;padding:22px 8px;color:rgba(255,255,255,0.4);font-size:11px;line-height:1.6">
-      Hackathon do Sol · ${CONFIG.EVENT_DATE} · ${CONFIG.EVENT_LOCATION}<br>
-      Instagram: ${CONFIG.EVENT_INSTAGRAM}
-    </div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sua vaga está confirmada</title>
+</head>
+<body style="margin:0;padding:0;background:#0f0624;font-family:'Inter','Segoe UI',Helvetica,Arial,sans-serif;color:#ffffff;-webkit-font-smoothing:antialiased">
+  <!-- preview text (aparece no inbox antes de abrir o email) -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0">
+    Sua inscrição foi confirmada. 26 a 28 de junho em Natal/RN. Te vemos lá.
   </div>
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#0f0624">
+    <tr>
+      <td align="center" style="padding:32px 16px 48px">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%">
+
+          <!-- Brand: mini sun + wordmark -->
+          <tr>
+            <td align="center" style="padding:8px 0 28px">
+              <div style="display:inline-block;width:38px;height:38px;border-radius:50%;background-color:#ff8c00;background:radial-gradient(circle,#fff7d4 0%,#ffd34f 28%,#ff8c00 68%,#ff6b00 100%);margin-bottom:14px"></div>
+              <div style="font-family:'Inter','Segoe UI',Helvetica,Arial,sans-serif;font-weight:800;font-size:19px;letter-spacing:-0.4px;color:#ffffff">
+                Hackathon
+                <span style="color:#ffa530;background:linear-gradient(90deg,#ffc830,#ff8c00);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">&nbsp;do Sol</span>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Main card -->
+          <tr>
+            <td style="background-color:#180a34;background:linear-gradient(180deg,rgba(255,255,255,0.05) 0%,rgba(255,255,255,0.02) 100%),#180a34;border:1px solid rgba(255,255,255,0.08);border-radius:18px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <!-- accent line top -->
+                <tr>
+                  <td style="height:3px;line-height:3px;font-size:3px;background:#ff8c00;background:linear-gradient(90deg,#ffc830,#ff8c00,#e879f9);border-top-left-radius:18px;border-top-right-radius:18px">&nbsp;</td>
+                </tr>
+                <tr>
+                  <td style="padding:40px 36px 36px">
+
+                    <!-- Eyebrow -->
+                    <div style="color:#ff8c00;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:700;margin-bottom:18px">
+                      ✦ &nbsp;Inscrição confirmada
+                    </div>
+
+                    <!-- Title -->
+                    <h1 style="margin:0 0 18px;font-family:'Inter','Segoe UI',Helvetica,Arial,sans-serif;font-weight:800;font-size:30px;line-height:1.15;letter-spacing:-0.6px;color:#ffffff">
+                      Você está dentro, ${firstName}.
+                    </h1>
+
+                    <!-- Intro -->
+                    <p style="margin:0 0 26px;color:rgba(255,255,255,0.8);font-size:15.5px;line-height:1.65">
+                      Sua inscrição foi aprovada. Agora você faz parte de uma comunidade
+                      que acredita que <strong style="color:#ffffff;font-weight:600">código, design e colaboração</strong> podem
+                      transformar a realidade — e em três dias vamos provar isso juntos.
+                    </p>
+
+                    <!-- Event details card -->
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 32px">
+                      <tr>
+                        <td style="background-color:#1f0e3d;background:rgba(255,140,0,0.07);border-left:3px solid #ff8c00;border-radius:0 10px 10px 0;padding:20px 22px">
+                          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                            <tr>
+                              <td style="padding-bottom:14px">
+                                <div style="color:rgba(255,255,255,0.55);font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:3px">Quando</div>
+                                <div style="color:#ffffff;font-weight:600;font-size:15px">${CONFIG.EVENT_DATE}</div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="padding-bottom:14px">
+                                <div style="color:rgba(255,255,255,0.55);font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:3px">Onde</div>
+                                <div style="color:#ffffff;font-weight:600;font-size:15px">${CONFIG.EVENT_LOCATION}</div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td>
+                                <div style="color:rgba(255,255,255,0.55);font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:3px">Prêmio</div>
+                                <div style="color:#ffffff;font-weight:600;font-size:15px">${CONFIG.EVENT_PRIZE}</div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Next steps header -->
+                    <div style="color:#ff8c00;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:700;margin-bottom:18px">
+                      — Próximos passos
+                    </div>
+
+                    <!-- Step 1 -->
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:14px">
+                      <tr>
+                        <td width="32" style="vertical-align:top;padding-top:1px">
+                          <div style="width:26px;height:26px;border-radius:50%;background:#ff8c00;color:#0f0624;font-weight:800;font-size:12.5px;text-align:center;line-height:26px">1</div>
+                        </td>
+                        <td style="padding-left:12px;color:rgba(255,255,255,0.78);font-size:14.5px;line-height:1.6">
+                          Em breve, um novo e-mail com o <strong style="color:#ffffff;font-weight:600">cronograma completo</strong>, instruções de check-in e a dinâmica de formação de equipes.
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Step 2 -->
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:14px">
+                      <tr>
+                        <td width="32" style="vertical-align:top;padding-top:1px">
+                          <div style="width:26px;height:26px;border-radius:50%;background:#ff8c00;color:#0f0624;font-weight:800;font-size:12.5px;text-align:center;line-height:26px">2</div>
+                        </td>
+                        <td style="padding-left:12px;color:rgba(255,255,255,0.78);font-size:14.5px;line-height:1.6">
+                          Comece a pensar nos <strong style="color:#ffffff;font-weight:600">desafios que te inspiram</strong> — e no tipo de gente com quem você gostaria de formar time. Vai rolar matching no primeiro dia.
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Step 3 -->
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td width="32" style="vertical-align:top;padding-top:1px">
+                          <div style="width:26px;height:26px;border-radius:50%;background:#ff8c00;color:#0f0624;font-weight:800;font-size:12.5px;text-align:center;line-height:26px">3</div>
+                        </td>
+                        <td style="padding-left:12px;color:rgba(255,255,255,0.78);font-size:14.5px;line-height:1.6">
+                          Prepare seu <strong style="color:#ffffff;font-weight:600">kit de sobrevivência</strong>: notebook, carregador, fones e uma boa dose de café. Três dias passam mais rápido do que parece.
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- CTA -->
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:36px 0 0">
+                      <tr>
+                        <td align="center">
+                          <a href="${CONFIG.SITE_URL}" style="display:inline-block;background:#ff8c00;color:#0f0624;font-weight:700;padding:14px 32px;border-radius:999px;text-decoration:none;font-size:14.5px;letter-spacing:0.2px">
+                            Acessar o site do evento &nbsp;→
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Support line -->
+                    <p style="margin:32px 0 0;padding-top:22px;border-top:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.55);font-size:13px;line-height:1.65">
+                      Dúvidas? <strong style="color:rgba(255,255,255,0.85);font-weight:600">Responda este e-mail</strong> —
+                      a equipe da organização lê todas as mensagens.
+                    </p>
+
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Signature -->
+          <tr>
+            <td align="center" style="padding:30px 24px 8px">
+              <p style="margin:0 0 6px;color:rgba(255,255,255,0.72);font-size:14px;line-height:1.5;font-style:italic">
+                Até lá, ${firstName}. Que comece a contagem regressiva.
+              </p>
+              <p style="margin:0;color:rgba(255,255,255,0.55);font-size:13px;font-weight:600">
+                — Equipe Hackathon do Sol
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:20px 16px 8px;color:rgba(255,255,255,0.35);font-size:11px;line-height:1.75">
+              ${CONFIG.EVENT_DATE}&nbsp; · &nbsp;${CONFIG.EVENT_LOCATION}<br>
+              <a href="https://instagram.com/${instagramHandle}" style="color:rgba(255,165,48,0.75);text-decoration:none">${CONFIG.EVENT_INSTAGRAM}</a>
+              &nbsp;·&nbsp;
+              <span style="color:rgba(255,255,255,0.4)">hackathondosol@gmail.com</span>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`;
 }
 
 function buildRejectionHTML(name) {
+  const rawFirstName = String(name || "").trim().split(/\s+/)[0] || "";
+  const firstName = escapeHtml(rawFirstName);
+  const instagramHandle = CONFIG.EVENT_INSTAGRAM.replace("@", "");
+
   return `<!doctype html>
 <html lang="pt-BR">
-<body style="margin:0;padding:0;background:#0f0624;font-family:'Segoe UI',Inter,Arial,sans-serif;color:#ffffff">
-  <div style="max-width:560px;margin:0 auto;padding:24px">
-    <div style="text-align:center;padding:20px 0">
-      <div style="font-weight:bold;font-size:20px;letter-spacing:-0.5px">
-        Hackathon <span style="background:linear-gradient(90deg,#ffc830,#ff8c00);-webkit-background-clip:text;background-clip:text;color:transparent">do Sol</span>
-      </div>
-    </div>
-    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:32px 28px">
-      <h1 style="font-weight:bold;font-size:22px;line-height:1.3;margin:0 0 16px">
-        Olá, ${escapeHtml(name)}
-      </h1>
-      <p style="color:rgba(255,255,255,0.8);line-height:1.65;margin:16px 0;font-size:15px">
-        Agradecemos muito o seu interesse em participar do Hackathon do Sol 2026.
-        Recebemos um número de inscrições bem acima das 160 vagas disponíveis, e
-        infelizmente não foi possível confirmar sua vaga nesta edição.
-      </p>
-      <p style="color:rgba(255,255,255,0.8);line-height:1.65;margin:16px 0;font-size:15px">
-        Vamos ficar felizes em te ver nas próximas edições. Acompanhe nosso Instagram
-        <a href="https://instagram.com/${CONFIG.EVENT_INSTAGRAM.replace("@", "")}" style="color:#ff8c00;text-decoration:none">${CONFIG.EVENT_INSTAGRAM}</a>
-        pra novidades sobre a comunidade e os próximos eventos.
-      </p>
-      <p style="color:rgba(255,255,255,0.65);line-height:1.65;font-size:14px;margin-top:24px">
-        Um forte abraço,<br>
-        <strong style="color:rgba(255,255,255,0.85)">Equipe Hackathon do Sol</strong>
-      </p>
-    </div>
-    <div style="text-align:center;padding:22px 8px;color:rgba(255,255,255,0.4);font-size:11px;line-height:1.6">
-      Hackathon do Sol · ${CONFIG.EVENT_DATE}
-    </div>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sobre sua inscrição no Hackathon do Sol</title>
+</head>
+<body style="margin:0;padding:0;background:#0f0624;font-family:'Inter','Segoe UI',Helvetica,Arial,sans-serif;color:#ffffff;-webkit-font-smoothing:antialiased">
+  <!-- preview text (aparece no inbox antes de abrir o email) -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0">
+    Obrigado pelo seu interesse no Hackathon do Sol 2026. Segue uma atualização sobre sua inscrição.
   </div>
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#0f0624">
+    <tr>
+      <td align="center" style="padding:32px 16px 48px">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%">
+
+          <!-- Brand: mini sun + wordmark -->
+          <tr>
+            <td align="center" style="padding:8px 0 28px">
+              <div style="display:inline-block;width:38px;height:38px;border-radius:50%;background-color:#ff8c00;background:radial-gradient(circle,#fff7d4 0%,#ffd34f 28%,#ff8c00 68%,#ff6b00 100%);margin-bottom:14px"></div>
+              <div style="font-family:'Inter','Segoe UI',Helvetica,Arial,sans-serif;font-weight:800;font-size:19px;letter-spacing:-0.4px;color:#ffffff">
+                Hackathon
+                <span style="color:#ffa530;background:linear-gradient(90deg,#ffc830,#ff8c00);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">&nbsp;do Sol</span>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Main card -->
+          <tr>
+            <td style="background-color:#180a34;background:linear-gradient(180deg,rgba(255,255,255,0.05) 0%,rgba(255,255,255,0.02) 100%),#180a34;border:1px solid rgba(255,255,255,0.08);border-radius:18px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <!-- accent line top: tom mais sóbrio que o approval -->
+                <tr>
+                  <td style="height:3px;line-height:3px;font-size:3px;background:#7c3aed;background:linear-gradient(90deg,#7c3aed,#e879f9,#7c3aed);border-top-left-radius:18px;border-top-right-radius:18px">&nbsp;</td>
+                </tr>
+                <tr>
+                  <td style="padding:40px 36px 36px">
+
+                    <!-- Eyebrow -->
+                    <div style="color:#ff8c00;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:700;margin-bottom:18px">
+                      ✦ &nbsp;Resultado da inscrição
+                    </div>
+
+                    <!-- Title -->
+                    <h1 style="margin:0 0 18px;font-family:'Inter','Segoe UI',Helvetica,Arial,sans-serif;font-weight:800;font-size:28px;line-height:1.2;letter-spacing:-0.5px;color:#ffffff">
+                      Obrigado pelo interesse, ${firstName}.
+                    </h1>
+
+                    <!-- Para 1 — contextualiza com transparência -->
+                    <p style="margin:0 0 18px;color:rgba(255,255,255,0.8);font-size:15.5px;line-height:1.65">
+                      Recebemos um número de inscrições bem acima das
+                      <strong style="color:#ffffff;font-weight:600">160 vagas</strong>
+                      disponíveis nesta edição. Cada formulário foi lido com atenção,
+                      e depois de analisar com cuidado, infelizmente não foi possível
+                      confirmar sua vaga desta vez.
+                    </p>
+
+                    <!-- Para 2 — acolhe -->
+                    <p style="margin:0 0 18px;color:rgba(255,255,255,0.8);font-size:15.5px;line-height:1.65">
+                      Isso não reflete o valor do que você construiu até aqui —
+                      é só uma questão de capacidade pra esta edição específica.
+                      A gente valoriza demais o tempo que você tirou pra se inscrever.
+                    </p>
+
+                    <!-- Para 3 — convite pra comunidade -->
+                    <p style="margin:0 0 26px;color:rgba(255,255,255,0.8);font-size:15.5px;line-height:1.65">
+                      Se quiser continuar por perto, a comunidade tá sempre ativa.
+                      Vem meetup, workshop e novas edições — e a gente adoraria ter
+                      você junto.
+                    </p>
+
+                    <!-- Soft CTA: Instagram -->
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 4px">
+                      <tr>
+                        <td align="center">
+                          <a href="https://instagram.com/${instagramHandle}" style="display:inline-block;background:rgba(255,255,255,0.06);border:1px solid rgba(255,140,0,0.4);color:#ff8c00;font-weight:600;padding:12px 24px;border-radius:999px;text-decoration:none;font-size:14px;letter-spacing:0.1px">
+                            Seguir ${CONFIG.EVENT_INSTAGRAM} &nbsp;→
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Support line -->
+                    <p style="margin:32px 0 0;padding-top:22px;border-top:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);font-size:13px;line-height:1.65">
+                      Se tiver qualquer feedback ou quiser conversar, pode responder
+                      este e-mail — a gente lê tudo.
+                    </p>
+
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Signature -->
+          <tr>
+            <td align="center" style="padding:30px 24px 8px">
+              <p style="margin:0 0 6px;color:rgba(255,255,255,0.72);font-size:14px;line-height:1.5;font-style:italic">
+                Um abraço solar, e até breve.
+              </p>
+              <p style="margin:0;color:rgba(255,255,255,0.55);font-size:13px;font-weight:600">
+                — Equipe Hackathon do Sol
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:20px 16px 8px;color:rgba(255,255,255,0.35);font-size:11px;line-height:1.75">
+              <a href="https://instagram.com/${instagramHandle}" style="color:rgba(255,165,48,0.75);text-decoration:none">${CONFIG.EVENT_INSTAGRAM}</a>
+              &nbsp;·&nbsp;
+              <span style="color:rgba(255,255,255,0.4)">hackathondosol@gmail.com</span>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`;
 }
