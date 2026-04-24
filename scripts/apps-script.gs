@@ -244,6 +244,13 @@ function doPost(e) {
       "",
     ]);
 
+    // Envia e-mail de confirmação imediata (best-effort — se falhar, não quebra a inscrição)
+    try {
+      sendConfirmationEmail(data.email, data.nome);
+    } catch (errMail) {
+      console.error("Falha ao enviar e-mail de confirmação:", errMail);
+    }
+
     return jsonResponse({ ok: true });
   } catch (err) {
     console.error(err);
@@ -321,6 +328,15 @@ function handleStatusChange(e) {
 // ============================================================================
 // Envio dos e-mails
 // ============================================================================
+function sendConfirmationEmail(to, name) {
+  MailApp.sendEmail({
+    to: to,
+    subject: `Recebemos sua inscrição — ${CONFIG.EVENT_NAME}`,
+    htmlBody: buildConfirmationHTML(name),
+    name: CONFIG.EMAIL_FROM_NAME,
+  });
+}
+
 function sendApprovalEmail(to, name) {
   MailApp.sendEmail({
     to: to,
@@ -342,6 +358,143 @@ function sendRejectionEmail(to, name) {
 // ============================================================================
 // Templates HTML dos e-mails
 // ============================================================================
+function buildConfirmationHTML(name) {
+  const rawFirstName = String(name || "").trim().split(/\s+/)[0] || "";
+  const firstName = escapeHtml(rawFirstName);
+  const instagramHandle = CONFIG.EVENT_INSTAGRAM.replace("@", "");
+
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Recebemos sua inscrição</title>
+</head>
+<body style="margin:0;padding:0;background:#0f0624;font-family:'Inter','Segoe UI',Helvetica,Arial,sans-serif;color:#ffffff;-webkit-font-smoothing:antialiased">
+  <!-- preview text (aparece no inbox antes de abrir) -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0">
+    Sua inscrição está na fila de análise. Em breve retornamos por e-mail.
+  </div>
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#0f0624">
+    <tr>
+      <td align="center" style="padding:32px 16px 48px">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%">
+
+          <!-- Brand: mini sun + wordmark -->
+          <tr>
+            <td align="center" style="padding:8px 0 28px">
+              <div style="display:inline-block;width:38px;height:38px;border-radius:50%;background-color:#ff8c00;background:radial-gradient(circle,#fff7d4 0%,#ffd34f 28%,#ff8c00 68%,#ff6b00 100%);margin-bottom:14px"></div>
+              <div style="font-family:'Inter','Segoe UI',Helvetica,Arial,sans-serif;font-weight:800;font-size:19px;letter-spacing:-0.4px;color:#ffffff">
+                Hackathon
+                <span style="color:#ffa530;background:linear-gradient(90deg,#ffc830,#ff8c00);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">&nbsp;do Sol</span>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Main card -->
+          <tr>
+            <td style="background-color:#180a34;background:linear-gradient(180deg,rgba(255,255,255,0.05) 0%,rgba(255,255,255,0.02) 100%),#180a34;border:1px solid rgba(255,255,255,0.08);border-radius:18px">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <!-- accent line top: gradient amarelo-pra-laranja, um tom ainda em aberto -->
+                <tr>
+                  <td style="height:3px;line-height:3px;font-size:3px;background:#ffc830;background:linear-gradient(90deg,#ffd34f,#ffc830,#ff8c00);border-top-left-radius:18px;border-top-right-radius:18px">&nbsp;</td>
+                </tr>
+                <tr>
+                  <td style="padding:40px 36px 36px">
+
+                    <!-- Eyebrow -->
+                    <div style="color:#ff8c00;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:700;margin-bottom:18px">
+                      ✦ &nbsp;Inscrição recebida
+                    </div>
+
+                    <!-- Title -->
+                    <h1 style="margin:0 0 18px;font-family:'Inter','Segoe UI',Helvetica,Arial,sans-serif;font-weight:800;font-size:28px;line-height:1.2;letter-spacing:-0.5px;color:#ffffff">
+                      Obrigado, ${firstName}!
+                    </h1>
+
+                    <!-- Para 1 -->
+                    <p style="margin:0 0 18px;color:rgba(255,255,255,0.8);font-size:15.5px;line-height:1.65">
+                      Sua inscrição pro <strong style="color:#ffffff;font-weight:600">${CONFIG.EVENT_NAME} 2026</strong>
+                      foi recebida com sucesso. Você tá oficialmente na lista
+                      de análise.
+                    </p>
+
+                    <!-- Para 2 -->
+                    <p style="margin:0 0 26px;color:rgba(255,255,255,0.8);font-size:15.5px;line-height:1.65">
+                      A equipe da organização vai ler cada inscrição com atenção
+                      e, em breve, você recebe um novo e-mail nesse mesmo endereço
+                      com o resultado. Não precisa fazer nada agora — a gente te
+                      avisa.
+                    </p>
+
+                    <!-- Event info card -->
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 28px">
+                      <tr>
+                        <td style="background-color:#1f0e3d;background:rgba(255,140,0,0.06);border-left:3px solid #ff8c00;border-radius:0 10px 10px 0;padding:18px 22px">
+                          <div style="color:rgba(255,255,255,0.55);font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:3px">
+                            Só pra lembrar
+                          </div>
+                          <div style="color:#ffffff;font-weight:600;font-size:14.5px;line-height:1.55">
+                            ${CONFIG.EVENT_DATE} &nbsp;·&nbsp; ${CONFIG.EVENT_LOCATION}
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Soft CTA -->
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td align="center">
+                          <a href="https://instagram.com/${instagramHandle}" style="display:inline-block;background:rgba(255,255,255,0.06);border:1px solid rgba(255,140,0,0.4);color:#ff8c00;font-weight:600;padding:12px 24px;border-radius:999px;text-decoration:none;font-size:14px;letter-spacing:0.1px">
+                            Seguir ${CONFIG.EVENT_INSTAGRAM} &nbsp;→
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Support line -->
+                    <p style="margin:30px 0 0;padding-top:22px;border-top:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.55);font-size:13px;line-height:1.65">
+                      Qualquer dúvida, é só <strong style="color:rgba(255,255,255,0.85);font-weight:600">responder este e-mail</strong>
+                      — a organização lê todas as mensagens.
+                    </p>
+
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Signature -->
+          <tr>
+            <td align="center" style="padding:30px 24px 8px">
+              <p style="margin:0 0 6px;color:rgba(255,255,255,0.72);font-size:14px;line-height:1.5;font-style:italic">
+                Até breve, ${firstName}.
+              </p>
+              <p style="margin:0;color:rgba(255,255,255,0.55);font-size:13px;font-weight:600">
+                — Equipe Hackathon do Sol
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:20px 16px 8px;color:rgba(255,255,255,0.35);font-size:11px;line-height:1.75">
+              ${CONFIG.EVENT_DATE}&nbsp; · &nbsp;${CONFIG.EVENT_LOCATION}<br>
+              <a href="https://instagram.com/${instagramHandle}" style="color:rgba(255,165,48,0.75);text-decoration:none">${CONFIG.EVENT_INSTAGRAM}</a>
+              &nbsp;·&nbsp;
+              <span style="color:rgba(255,255,255,0.4)">hackathondosol@gmail.com</span>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 function buildApprovalHTML(name) {
   const rawFirstName = String(name || "").trim().split(/\s+/)[0] || "";
   const firstName = escapeHtml(rawFirstName);
