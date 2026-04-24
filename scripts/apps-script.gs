@@ -252,9 +252,22 @@ function doPost(e) {
 }
 
 // ============================================================================
-// onEdit — trigger nativo, dispara quando você muda o Status
+// handleStatusChange — dispara quando você muda o Status na planilha
+// ----------------------------------------------------------------------------
+// IMPORTANTE: esta função precisa ser instalada como trigger MANUAL porque
+// simple triggers (`onEdit`) não têm permissão pra enviar e-mail via Gmail.
+//
+// Como instalar (uma vez só):
+//   1. No editor do Apps Script, barra lateral → ícone de relógio "Acionadores"
+//   2. Clica em "+ Adicionar acionador" (canto inferior direito)
+//   3. Configura:
+//      - Função: handleStatusChange
+//      - Implantação: Head
+//      - Origem do evento: Da planilha
+//      - Tipo de evento: Ao editar
+//   4. Salvar → autoriza permissões (Gmail incluso desta vez)
 // ============================================================================
-function onEdit(e) {
+function handleStatusChange(e) {
   try {
     const range = e.range;
     const sheet = range.getSheet();
