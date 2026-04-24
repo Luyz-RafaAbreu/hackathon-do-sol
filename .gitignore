@@ -6,3 +6,6 @@ out
 .DS_Store
 
 .vercel
+
+# build artifacts locais
+tsconfig.tsbuildinfo

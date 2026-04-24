@@ -66,14 +66,50 @@ export default function Inscricao() {
     ev.preventDefault();
     if (!validate()) return;
     setStatus("loading");
-    // Demo: apenas feedback visual, sem envio real
-    await new Promise((r) => setTimeout(r, 1200));
-    setStatus("success");
-    setMessage(
-      "Inscrição recebida! Em breve você receberá um e-mail de confirmação."
-    );
-    setForm(initial);
-    setComprovantes([]);
+    setMessage("");
+
+    const fd = new FormData();
+    (Object.keys(form) as (keyof FormState)[]).forEach((k) => {
+      fd.append(k, form[k]);
+    });
+    comprovantes.forEach((f) => fd.append("comprovantes", f));
+
+    // honeypot — preenchido só por bots (humano nunca vê este campo)
+    const honeypot = (ev.currentTarget as HTMLFormElement).elements.namedItem(
+      "website"
+    ) as HTMLInputElement | null;
+    if (honeypot) fd.append("website", honeypot.value);
+
+    try {
+      const res = await fetch("/api/inscricao", {
+        method: "POST",
+        body: fd,
+      });
+      const result = (await res.json()) as {
+        ok: boolean;
+        message?: string;
+      };
+      if (res.ok && result.ok) {
+        setStatus("success");
+        setMessage(
+          result.message ||
+            "Inscrição recebida! Em breve você receberá um e-mail."
+        );
+        setForm(initial);
+        setComprovantes([]);
+      } else {
+        setStatus("error");
+        setMessage(
+          result.message ||
+            "Não foi possível enviar sua inscrição. Tente novamente."
+        );
+      }
+    } catch {
+      setStatus("error");
+      setMessage(
+        "Erro de conexão. Verifique sua internet e tente novamente."
+      );
+    }
   };
 
   return (
@@ -120,6 +156,20 @@ export default function Inscricao() {
           noValidate
           className="card space-y-4"
         >
+          {/* honeypot anti-bot — escondido visualmente e da leitura de tela */}
+          <div aria-hidden className="hidden" style={{ position: "absolute", left: "-9999px" }}>
+            <label>
+              Não preencha este campo
+              <input
+                type="text"
+                name="website"
+                tabIndex={-1}
+                autoComplete="off"
+                defaultValue=""
+              />
+            </label>
+          </div>
+
           <Field
             label="Nome completo"
             error={errors.nome}
@@ -349,7 +399,7 @@ function FileUploadField({
             inputRef.current?.click();
           }
         }}
-        className={`group cursor-pointer rounded-xl border-2 border-dashed px-5 py-6 text-center transition ${
+        className={`group cursor-pointer rounded-xl border-[0.125rem] border-dashed px-5 py-6 text-center transition ${
           isDragging
             ? "border-sol-orange bg-sol-orange/10"
             : error
@@ -416,7 +466,7 @@ function FileUploadField({
                   <p className="text-sm text-white/90 truncate font-medium">
                     {f.name}
                   </p>
-                  <p className="text-[11px] text-white/50">
+                  <p className="text-[0.6875rem] text-white/50">
                     {(f.size / 1024 / 1024).toFixed(2)} MB
                   </p>
                 </div>

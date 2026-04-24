@@ -16,6 +16,15 @@ html {
   scroll-behavior: smooth;
   /* reserva o espaço da scrollbar sempre — evita "salto" quando o menu mobile trava o scroll */
   scrollbar-gutter: stable;
+  /* Escala acima de 1080p para preenchimento adequado em monitores grandes.
+     A curva cruza exatamente 16px em 1920px (1080p preservado) e sobe forte depois:
+       720p  (1280px) → 16px (clamp mínimo)
+       1080p (1920px) → 16px (curva = 16 aqui)
+       1440p (2560px) → ~25px
+       4K    (3840px) → ~42px (conteúdo ocupa ~87% do viewport)
+       5K+   (4800px+) → 48px (clamp máximo)
+     Como todo o layout usa rem, escala tipografia, padding, gap e max-w proporcionalmente. */
+  font-size: clamp(16px, calc(1.35vw - 10px), 48px);
 }
 
 ::selection {
@@ -24,14 +33,14 @@ html {
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 0.625rem;
 }
 ::-webkit-scrollbar-track {
   background: #0f0624;
 }
 ::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, #7c3aed, #ff8c00);
-  border-radius: 10px;
+  border-radius: 0.625rem;
 }
 
 body {
@@ -48,7 +57,7 @@ body {
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-  background-size: 48px 48px;
+  background-size: 3rem 3rem;
 }
 
 .text-gradient {
@@ -70,11 +79,11 @@ body {
 @layer components {
   .btn-primary {
     @apply relative inline-flex items-center justify-center gap-2 rounded-full bg-sol-orange text-black font-semibold px-7 py-3 transition-all duration-300 overflow-hidden;
-    box-shadow: 0 8px 24px -8px rgba(255, 140, 0, 0.6);
+    box-shadow: 0 0.5rem 1.5rem -0.5rem rgba(255, 140, 0, 0.6);
   }
   .btn-primary:hover {
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 16px 40px -8px rgba(255, 140, 0, 0.8), 0 0 24px rgba(255, 140, 0, 0.4);
+    transform: translateY(-0.125rem) scale(1.02);
+    box-shadow: 0 1rem 2.5rem -0.5rem rgba(255, 140, 0, 0.8), 0 0 1.5rem rgba(255, 140, 0, 0.4);
   }
   .btn-primary::before {
     content: "";
@@ -93,8 +102,8 @@ body {
   }
   .btn-secondary:hover {
     @apply border-sol-pink text-sol-pink;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px -8px rgba(232, 121, 249, 0.5);
+    transform: translateY(-0.125rem);
+    box-shadow: 0 0.5rem 1.5rem -0.5rem rgba(232, 121, 249, 0.5);
   }
 }
 
@@ -102,21 +111,21 @@ body {
   @apply relative rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 transition-all duration-500;
 }
 .card:hover {
-  transform: translateY(-6px);
+  transform: translateY(-0.375rem);
   border-color: rgba(124, 58, 237, 0.55);
   background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 20px 60px -20px rgba(124, 58, 237, 0.6);
+  box-shadow: 0 1.25rem 3.75rem -1.25rem rgba(124, 58, 237, 0.6);
 }
 .card::before {
   content: "";
   position: absolute;
-  inset: -1px;
+  inset: -0.0625rem;
   border-radius: inherit;
   background: linear-gradient(135deg, rgba(255, 140, 0, 0.4), rgba(232, 121, 249, 0.4), rgba(20, 184, 166, 0.4));
   opacity: 0;
   transition: opacity 0.5s;
   z-index: -1;
-  filter: blur(8px);
+  filter: blur(0.5rem);
 }
 .card:hover::before {
   opacity: 1;
@@ -127,11 +136,11 @@ body {
 }
 
 .eyebrow {
-  @apply relative inline-flex items-center gap-2 uppercase tracking-[0.3em] text-[11px] text-sol-orange font-semibold mb-4;
+  @apply relative inline-flex items-center gap-2 uppercase tracking-[0.3em] text-[0.6875rem] text-sol-orange font-semibold mb-4;
 }
 .eyebrow::before {
   content: "";
-  @apply inline-block w-6 h-[2px] bg-gradient-to-r from-sol-orange to-transparent rounded-full;
+  @apply inline-block w-6 h-[0.125rem] bg-gradient-to-r from-sol-orange to-transparent rounded-full;
 }
 
 .section-title {
@@ -146,7 +155,7 @@ input, textarea, select {
   @apply w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:border-sol-orange focus:ring-2 focus:ring-sol-orange/30 focus:bg-white/[0.06] hover:border-white/20 transition-all duration-300;
 }
 input:focus, textarea:focus, select:focus {
-  box-shadow: 0 0 0 4px rgba(255, 140, 0, 0.08), 0 8px 24px -12px rgba(255, 140, 0, 0.3);
+  box-shadow: 0 0 0 0.25rem rgba(255, 140, 0, 0.08), 0 0.5rem 1.5rem -0.75rem rgba(255, 140, 0, 0.3);
 }
 
 label {
@@ -156,7 +165,7 @@ label {
 /* Scroll reveal — set by components/Reveal.tsx */
 .reveal {
   opacity: 0;
-  transform: translateY(30px);
+  transform: translateY(1.875rem);
   transition: opacity 0.8s ease, transform 0.8s ease;
 }
 .reveal.reveal-in {
@@ -164,10 +173,10 @@ label {
   transform: translateY(0);
 }
 
-/* Glow ring used behind logo */
+/* Glow ring used behind logo — blur em rem para escalar com o logo em telas grandes */
 .glow-ring {
   background: conic-gradient(from 0deg, #ff8c00, #e879f9, #7c3aed, #14b8a6, #ffc830, #ff8c00);
-  filter: blur(18px);
+  filter: blur(1.125rem);
 }
 
 /* Marquee helpers */
@@ -194,3 +203,174 @@ label {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ==========================================================================
+   Cursor custom — 4 shapes contextuais (arrow/hand/text/loading)
+   ========================================================================== */
+
+/* container: ponto-zero no mouse. Cada shape se posiciona em cima via top/left
+   negativo equivalente ao seu hotspot — swap entre shapes sem deslocar o ponto
+   clicável. */
+.cursor-cc {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  will-change: transform;
+  transition: opacity 0.3s ease;
+}
+
+/* cada shape — tamanho fixo em px (não escala com rem), glow próximo */
+.cc-shape {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  filter:
+    drop-shadow(0 0 3px rgba(255, 255, 255, 0.7))
+    drop-shadow(0 0 8px rgba(255, 255, 255, 0.25))
+    drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
+}
+
+/* posicionamento de cada shape de modo que seu hotspot fique em (0, 0) — mouse */
+/* arrow: hotspot na ponta (2, 2) de 24x24 → ~1.83px em display 22x22 */
+.cc-arrow {
+  top: -1.83px;
+  left: -1.83px;
+  transform-origin: 8.3% 8.3%; /* 2/24 */
+}
+/* text: hotspot central (12, 12) */
+.cc-text {
+  top: -11px;
+  left: -11px;
+  transform-origin: 50% 50%;
+}
+/* loading: hotspot central (12, 12) */
+.cc-loading {
+  top: -11px;
+  left: -11px;
+  transform-origin: 50% 50%;
+}
+
+/* halo contínuo — radial glow atrás do cursor que respira suavemente.
+   centrado no ponto de clique (ponta da seta = hotspot do mouse) */
+.cc-aura {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 64px;
+  height: 64px;
+  margin: -32px 0 0 -32px;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(255, 255, 255, 0.1) 45%,
+    transparent 75%
+  );
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.cursor-cc.mode-hand .cc-aura {
+  animation: cursor-aura-breathe 2.2s ease-in-out infinite;
+}
+@keyframes cursor-aura-breathe {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+/* ondas pulsantes — ripples emanam do ponto de clique (hotspot/ponta da seta) */
+.cc-pulse {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 68px;
+  height: 68px;
+  margin: -34px 0 0 -34px;
+  border: 2.2px solid rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+  box-shadow:
+    0 0 8px rgba(255, 255, 255, 0.3),
+    inset 0 0 6px rgba(255, 255, 255, 0.25);
+}
+
+.cursor-cc.mode-hand .cc-pulse {
+  animation: cursor-pulse-ripple 1.6s cubic-bezier(0, 0.55, 0.45, 1) infinite;
+}
+
+/* segundo pulse começa na metade do ciclo — efeito contínuo de ondas */
+.cursor-cc.mode-hand .cc-pulse-2 {
+  animation-delay: -0.8s;
+}
+
+@keyframes cursor-pulse-ripple {
+  0% {
+    transform: scale(0.18);
+    opacity: 0;
+    border-width: 2.8px;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+    border-width: 0.4px;
+  }
+}
+
+/* visibilidade das shapes — seta fica visível em mode-arrow E mode-hand */
+.cursor-cc.mode-arrow .cc-arrow,
+.cursor-cc.mode-hand .cc-arrow,
+.cursor-cc.mode-text .cc-text,
+.cursor-cc.mode-loading .cc-loading {
+  opacity: 1;
+}
+
+/* seta ganha glow extra quando está sobre elemento clicável */
+.cursor-cc.mode-hand .cc-arrow {
+  filter:
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 0 11px rgba(255, 255, 255, 0.5))
+    drop-shadow(0 2px 5px rgba(0, 0, 0, 0.6));
+}
+
+/* click — shape ativa contrai rapidamente (origem no hotspot, ponto clicável fixo) */
+.cursor-cc.is-click .cc-shape {
+  transform: scale(0.85);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* oculta cursor nativo quando o custom está ativo */
+body.has-custom-cursor,
+body.has-custom-cursor * {
+  cursor: none !important;
+}
+
+/* touch devices / mobile — bloqueia o custom e restaura cursor nativo */
+@media (hover: none), (pointer: coarse) {
+  .cursor-cc {
+    display: none !important;
+  }
+  body.has-custom-cursor,
+  body.has-custom-cursor * {
+    cursor: auto !important;
+  }
+}
+

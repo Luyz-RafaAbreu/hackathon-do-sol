@@ -10,14 +10,14 @@ export default function Sobre() {
             Onde <span className="text-gradient">ideias viram código</span> — e
             código vira impacto.
           </h2>
-          <p className="text-white/75 leading-relaxed mb-4 text-[15px] md:text-base">
+          <p className="text-white/75 leading-relaxed mb-4 text-[0.9375rem] md:text-base">
             O <strong className="text-white">Hackathon do Sol</strong> reúne
             desenvolvedores, designers e empreendedores em Natal para
             transformar desafios reais em soluções tecnológicas. São três dias
             de imersão, com equipes de quatro pessoas, mentorias ao longo do
             evento e pitches avaliados por uma banca no domingo.
           </p>
-          <p className="text-white/75 leading-relaxed text-[15px] md:text-base">
+          <p className="text-white/75 leading-relaxed text-[0.9375rem] md:text-base">
             Mais que uma competição, é um ponto de encontro para quem constrói
             a próxima geração de produtos digitais no Nordeste. Ao final, as
             melhores equipes levam{" "}
@@ -40,7 +40,7 @@ export default function Sobre() {
                   <div className="font-display font-black text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-gradient leading-none tracking-tight transition-transform duration-500 group-hover:scale-105 whitespace-nowrap">
                     {s.value}
                   </div>
-                  <div className="mt-2 md:mt-3 text-[9px] sm:text-[10px] md:text-xs font-semibold uppercase tracking-[0.18em] md:tracking-[0.22em] text-white/65">
+                  <div className="mt-2 md:mt-3 text-[0.5625rem] sm:text-[0.625rem] md:text-xs font-semibold uppercase tracking-[0.18em] md:tracking-[0.22em] text-white/65">
                     {s.label}
                   </div>
                 </div>

@@ -32,7 +32,7 @@ export default function Patrocinadores() {
               {patrocinadores.map((p, i) => (
                 <div
                   key={i}
-                  className="group h-20 min-w-[200px] px-8 flex items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] text-white/85 text-sm font-medium transition-all duration-500 hover:border-sol-orange/50 hover:from-white/[0.1] hover:text-white hover:-translate-y-1 hover:shadow-[0_20px_40px_-20px_rgba(255,140,0,0.4)]"
+                  className="group h-20 min-w-[12.5rem] px-8 flex items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] text-white/85 text-sm font-medium transition-all duration-500 hover:border-sol-orange/50 hover:from-white/[0.1] hover:text-white hover:-translate-y-1 hover:shadow-[0_1.25rem_2.5rem_-1.25rem_rgba(255,140,0,0.4)]"
                 >
                   <span className="font-display tracking-wide text-center leading-tight">
                     {p.nome}
@@ -42,7 +42,7 @@ export default function Patrocinadores() {
 
               <a
                 href="mailto:hackathondosol@gmail.com?subject=Proposta%20de%20patroc%C3%ADnio%20%E2%80%94%20Hackathon%20do%20Sol"
-                className="group h-20 min-w-[200px] px-8 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-sol-orange/40 bg-sol-orange/5 text-sol-orange text-sm font-semibold transition-all duration-500 hover:border-sol-orange hover:bg-sol-orange/10 hover:-translate-y-1 hover:shadow-[0_20px_40px_-20px_rgba(255,140,0,0.5)]"
+                className="group h-20 min-w-[12.5rem] px-8 flex items-center justify-center gap-2 rounded-2xl border-[0.125rem] border-dashed border-sol-orange/40 bg-sol-orange/5 text-sol-orange text-sm font-semibold transition-all duration-500 hover:border-sol-orange hover:bg-sol-orange/10 hover:-translate-y-1 hover:shadow-[0_1.25rem_2.5rem_-1.25rem_rgba(255,140,0,0.5)]"
               >
                 <span>Seja patrocinador</span>
                 <span className="inline-block transition-transform group-hover:translate-x-1">

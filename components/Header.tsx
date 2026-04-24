@@ -71,7 +71,7 @@ export default function Header() {
       {/* camada de fundo + blur — fade-in/out via opacidade (suave) */}
       <div
         aria-hidden
-        className={`pointer-events-none absolute inset-0 bg-sol-bgDeep/75 backdrop-blur-xl shadow-[0_8px_32px_-12px_rgba(0,0,0,0.6)] transition-opacity ease-out duration-500 ${
+        className={`pointer-events-none absolute inset-0 bg-sol-bgDeep/75 backdrop-blur-xl shadow-[0_0.5rem_2rem_-0.75rem_rgba(0,0,0,0.6)] transition-opacity ease-out duration-500 ${
           scrolled || open ? "opacity-100" : "opacity-0"
         }`}
       />
@@ -97,7 +97,7 @@ export default function Header() {
               alt="Hackathon do Sol"
               width={40}
               height={40}
-              className="relative rounded-full"
+              className="relative rounded-full w-full h-full object-cover"
               priority
             />
           </div>
@@ -153,7 +153,7 @@ export default function Header() {
           >
             <span
               className={`absolute w-5 h-0.5 bg-white rounded-full transition-all duration-300 ${
-                open ? "rotate-45" : "-translate-y-[6px]"
+                open ? "rotate-45" : "-translate-y-[0.375rem]"
               }`}
             />
             <span
@@ -163,7 +163,7 @@ export default function Header() {
             />
             <span
               className={`absolute w-5 h-0.5 bg-white rounded-full transition-all duration-300 ${
-                open ? "-rotate-45" : "translate-y-[6px]"
+                open ? "-rotate-45" : "translate-y-[0.375rem]"
               }`}
             />
           </button>

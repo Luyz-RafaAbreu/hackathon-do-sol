@@ -23,7 +23,7 @@ export default function ScrollProgress() {
     >
       <div
         className="h-full bg-gradient-to-r from-sol-orange via-sol-pink to-sol-purpleLight transition-[width] duration-150"
-        style={{ width: `${pct}%`, boxShadow: "0 0 12px rgba(255,140,0,0.8)" }}
+        style={{ width: `${pct}%`, boxShadow: "0 0 0.75rem rgba(255,140,0,0.8)" }}
       />
     </div>
   );

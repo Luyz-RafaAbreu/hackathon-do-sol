@@ -16,7 +16,10 @@ export default function Hero() {
       const rect = el.getBoundingClientRect();
       const x = (e.clientX - rect.left) / rect.width - 0.5;
       const y = (e.clientY - rect.top) / rect.height - 0.5;
-      logo.style.transform = `translate3d(${x * 18}px, ${y * 18}px, 0)`;
+      // 1.125rem ≈ 18px em 1080p/720p, escala em 4K
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const d = 1.125 * rem;
+      logo.style.transform = `translate3d(${x * d}px, ${y * d}px, 0)`;
     };
     const onLeave = () => {
       logo.style.transform = "translate3d(0,0,0)";
@@ -39,7 +42,7 @@ export default function Hero() {
 
       <div className="relative z-10 w-full max-w-6xl mx-auto">
         <div className="text-center mb-2 md:mb-3 animate-fade-up">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 backdrop-blur px-4 py-1 text-[10px] md:text-xs uppercase tracking-[0.3em] text-white/80">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 backdrop-blur px-4 py-1 text-[0.625rem] md:text-xs uppercase tracking-[0.3em] text-white/80">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full rounded-full bg-sol-orange opacity-75 animate-ping" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-sol-orange" />
@@ -108,12 +111,28 @@ export default function Hero() {
 
 function LogoWithRings() {
   return (
-    <div className="relative w-[min(240px,36vh)] h-[min(240px,36vh)] sm:w-[min(280px,38vh)] sm:h-[min(280px,38vh)] md:w-[min(320px,38vh)] md:h-[min(320px,38vh)] lg:w-[min(380px,40vh)] lg:h-[min(380px,40vh)] [--orbit-r:calc(min(240px,36vh)/2)] sm:[--orbit-r:calc(min(280px,38vh)/2)] md:[--orbit-r:calc(min(320px,38vh)/2)] lg:[--orbit-r:calc(min(380px,40vh)/2)]">
+    <div className="relative w-[min(15rem,36vh)] h-[min(15rem,36vh)] sm:w-[min(17.5rem,38vh)] sm:h-[min(17.5rem,38vh)] md:w-[min(20rem,38vh)] md:h-[min(20rem,38vh)] lg:w-[min(23.75rem,40vh)] lg:h-[min(23.75rem,40vh)] [--orbit-r:calc(min(15rem,36vh)/2)] sm:[--orbit-r:calc(min(17.5rem,38vh)/2)] md:[--orbit-r:calc(min(20rem,38vh)/2)] lg:[--orbit-r:calc(min(23.75rem,40vh)/2)]">
       {/* conic gradient rotating ring */}
       <div className="absolute inset-0 rounded-full glow-ring opacity-60 animate-spin-slow" aria-hidden />
 
-      {/* secondary dashed ring rotating reverse */}
-      <div className="absolute inset-4 rounded-full border-2 border-dashed border-white/20 animate-spin-reverse" aria-hidden />
+      {/* secondary dashed ring rotating reverse — SVG para que traço e espaçamento
+          sejam relativos ao tamanho do círculo (viewBox %) e escalem proporcionalmente */}
+      <svg
+        className="absolute inset-4 animate-spin-reverse"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <circle
+          cx="50"
+          cy="50"
+          r="49.7"
+          fill="none"
+          stroke="rgba(255,255,255,0.2)"
+          strokeWidth="0.57"
+          strokeDasharray="1.3 1"
+        />
+      </svg>
 
       {/* the logo, clipped to circle to lose the square background corners */}
       <div className="absolute inset-6 rounded-full overflow-hidden shadow-glowStrong bg-sol-bgDeep">
@@ -214,7 +233,7 @@ function TagLabel({ text }: { text: string }) {
   return (
     <div className="flex items-center justify-center gap-2 mb-2">
       <span className="h-px w-4 bg-gradient-to-r from-transparent to-sol-orange/60" />
-      <span className="font-display font-semibold text-[10px] md:text-[11px] tracking-[0.32em] uppercase text-white/60">
+      <span className="font-display font-semibold text-[0.625rem] md:text-[0.6875rem] tracking-[0.32em] uppercase text-white/60">
         {text}
       </span>
       <span className="h-px w-4 bg-gradient-to-l from-transparent to-sol-orange/60" />
@@ -229,15 +248,15 @@ function DateTag() {
       <div className="absolute -inset-2 top-6 rounded-2xl bg-gradient-to-br from-sol-orange/40 via-emerald-500/20 to-transparent blur-xl opacity-60 group-hover:opacity-100 transition" />
 
       <div className="relative transform-gpu transition-transform duration-500 group-hover:-rotate-1 group-hover:scale-105">
-<div className="rounded-2xl overflow-hidden shadow-[0_18px_40px_-12px_rgba(0,0,0,0.5)]">
+<div className="rounded-2xl overflow-hidden shadow-[0_1.125rem_2.5rem_-0.75rem_rgba(0,0,0,0.5)]">
           <div className="bg-white px-3 md:px-8 py-2 md:py-3.5 text-center">
             <div className="font-display font-extrabold text-xl md:text-4xl text-sol-purple leading-none tracking-tight">
               26 A 28
             </div>
           </div>
-          <div className="h-2.5 md:h-4 bg-[repeating-linear-gradient(135deg,#10b981_0,#10b981_8px,#064e3b_8px,#064e3b_16px)]" />
+          <div className="h-2.5 md:h-4 bg-[repeating-linear-gradient(135deg,#10b981_0,#10b981_0.5rem,#064e3b_0.5rem,#064e3b_1rem)]" />
           <div className="bg-sol-orange px-3 md:px-8 py-1.5 md:py-2.5 text-center">
-            <div className="font-display font-extrabold text-[11px] md:text-base text-sol-purple tracking-[0.2em] md:tracking-[0.25em]">
+            <div className="font-display font-extrabold text-[0.6875rem] md:text-base text-sol-purple tracking-[0.2em] md:tracking-[0.25em]">
               DE JUNHO
             </div>
           </div>
@@ -254,13 +273,13 @@ function LocalTag() {
       <div className="absolute -inset-2 top-6 rounded-2xl bg-gradient-to-br from-sol-yellow/40 via-sol-pink/20 to-transparent blur-xl opacity-60 group-hover:opacity-100 transition" />
 
       <div className="relative transform-gpu transition-transform duration-500 group-hover:rotate-1 group-hover:scale-105">
-<div className="rounded-2xl overflow-hidden shadow-[0_18px_40px_-12px_rgba(0,0,0,0.5)]">
+<div className="rounded-2xl overflow-hidden shadow-[0_1.125rem_2.5rem_-0.75rem_rgba(0,0,0,0.5)]">
           <div className="bg-white px-3 md:px-8 py-2 md:py-3.5 text-center">
             <div className="font-display font-extrabold text-xs md:text-xl text-sol-purple leading-none tracking-tight whitespace-nowrap">
               PRAIAMAR ARENA
             </div>
           </div>
-          <div className="h-2.5 md:h-4 bg-[repeating-linear-gradient(135deg,#ffc830_0,#ffc830_8px,#92400e_8px,#92400e_16px)]" />
+          <div className="h-2.5 md:h-4 bg-[repeating-linear-gradient(135deg,#ffc830_0,#ffc830_0.5rem,#92400e_0.5rem,#92400e_1rem)]" />
         </div>
       </div>
     </div>
@@ -274,8 +293,8 @@ function BackgroundFx() {
       <div className="absolute inset-0 bg-grid-fade" />
 
       {/* radial blobs */}
-      <div className="absolute -top-32 -left-32 w-[500px] h-[500px] rounded-full bg-sol-purpleLight/25 blur-3xl animate-pulse-slow" aria-hidden />
-      <div className="absolute -bottom-20 -right-20 w-[600px] h-[600px] rounded-full bg-sol-pink/20 blur-3xl animate-pulse-slow" aria-hidden />
+      <div className="absolute -top-32 -left-32 w-[31.25rem] h-[31.25rem] rounded-full bg-sol-purpleLight/25 blur-3xl animate-pulse-slow" aria-hidden />
+      <div className="absolute -bottom-20 -right-20 w-[37.5rem] h-[37.5rem] rounded-full bg-sol-pink/20 blur-3xl animate-pulse-slow" aria-hidden />
       <div className="absolute top-1/3 right-10 w-64 h-64 rounded-full bg-sol-orange/15 blur-3xl animate-float-slow" aria-hidden />
       <div className="absolute bottom-1/4 left-10 w-72 h-72 rounded-full bg-sol-teal/15 blur-3xl animate-float-delayed" aria-hidden />
 

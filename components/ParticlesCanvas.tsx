@@ -51,14 +51,30 @@ export default function ParticlesCanvas() {
       baseAlpha: 0.35 + Math.random() * 0.35,
     });
 
-    const resize = () => {
+    const applyResize = () => {
+      const prevWidth = width;
+      const prevHeight = height;
       width = window.innerWidth;
       height = window.innerHeight;
+      dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // reescala posições existentes proporcionalmente — evita acumulação
+      // de partículas na antiga borda quando a janela é expandida
+      if (prevWidth > 0 && prevHeight > 0) {
+        const sx = width / prevWidth;
+        const sy = height / prevHeight;
+        if (sx !== 1 || sy !== 1) {
+          for (let i = 0; i < particles.length; i++) {
+            particles[i].x *= sx;
+            particles[i].y *= sy;
+          }
+        }
+      }
 
       // target count adapta ao viewport, capado pra nunca poluir
       const area = width * height;
@@ -70,6 +86,15 @@ export default function ParticlesCanvas() {
       } else if (particles.length > target) {
         particles.length = target;
       }
+    };
+
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    const resize = () => {
+      if (resizeTimer !== null) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        resizeTimer = null;
+        applyResize();
+      }, 80);
     };
 
     const onMove = (e: MouseEvent) => {
@@ -192,8 +217,15 @@ export default function ParticlesCanvas() {
         }
       }
 
-      // linhas do cursor
+      // linhas do cursor — ligação com glow aditivo e pulso sutil
       if (mouse.active) {
+        ctx.save();
+        // "lighter" = blending aditivo: sobreposições somam luminosidade
+        ctx.globalCompositeOperation = "lighter";
+
+        // pulso leve na intensidade geral (respiração da ligação)
+        const pulse = 0.85 + 0.15 * Math.sin(t * 0.006);
+
         for (let i = 0; i < particles.length; i++) {
           const p = particles[i];
           const dx = p.x - mouse.x;
@@ -201,15 +233,55 @@ export default function ParticlesCanvas() {
           const dist2 = dx * dx + dy * dy;
           if (dist2 < CURSOR_LINK * CURSOR_LINK) {
             const dist = Math.sqrt(dist2);
-            const alpha = (1 - dist / CURSOR_LINK) * 0.5;
-            ctx.strokeStyle = `rgba(255, 140, 0, ${alpha})`;
-            ctx.lineWidth = 0.8;
+            // 0..1 — mais perto do cursor = mais intenso
+            const proximity = 1 - dist / CURSOR_LINK;
+            const alpha = proximity * pulse;
+
+            // camada 0: halo externo — glow bem difuso e largo
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.035})`;
+            ctx.lineWidth = 12;
             ctx.beginPath();
             ctx.moveTo(mouse.x, mouse.y);
             ctx.lineTo(p.x, p.y);
             ctx.stroke();
+
+            // camada 1: glow intermediário
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.09})`;
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(mouse.x, mouse.y);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+
+            // camada 2: linha nítida branca (núcleo)
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
+            ctx.lineWidth = 0.85;
+            ctx.beginPath();
+            ctx.moveTo(mouse.x, mouse.y);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+
+            // halo externo ao redor da partícula — glow expansivo
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.04})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 5 + proximity * 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // halo médio ao redor da partícula
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.09})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 2.5 + proximity * 3.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // ponto luminoso branco na partícula — endpoint (núcleo)
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.65})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 0.8 + proximity * 1, 0, Math.PI * 2);
+            ctx.fill();
           }
         }
+
+        ctx.restore();
       }
 
       // partículas
@@ -229,7 +301,7 @@ export default function ParticlesCanvas() {
       if (visible) raf = requestAnimationFrame(tick);
     };
 
-    resize();
+    applyResize();
     raf = requestAnimationFrame(tick);
 
     window.addEventListener("resize", resize);
@@ -241,6 +313,7 @@ export default function ParticlesCanvas() {
 
     return () => {
       cancelAnimationFrame(raf);
+      if (resizeTimer !== null) clearTimeout(resizeTimer);
       window.removeEventListener("resize", resize);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseleave", onLeave);

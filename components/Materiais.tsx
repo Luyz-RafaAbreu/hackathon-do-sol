@@ -50,7 +50,7 @@ export default function Materiais() {
             <div className="card group h-full relative overflow-hidden flex flex-col">
               {/* listra gradiente no topo */}
               <div
-                className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${m.cor}`}
+                className={`absolute inset-x-0 top-0 h-[0.125rem] bg-gradient-to-r ${m.cor}`}
               />
               {/* blob decorativo */}
               <div
@@ -62,7 +62,7 @@ export default function Materiais() {
                   <div className="text-4xl inline-block transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6">
                     {m.icon}
                   </div>
-                  <span className="relative inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.25em] font-semibold text-sol-orange bg-sol-orange/10 border border-sol-orange/30 rounded-full px-3 py-1">
+                  <span className="relative inline-flex items-center gap-1.5 text-[0.625rem] uppercase tracking-[0.25em] font-semibold text-sol-orange bg-sol-orange/10 border border-sol-orange/30 rounded-full px-3 py-1">
                     <span className="relative flex h-1.5 w-1.5">
                       <span className="absolute inline-flex h-full w-full rounded-full bg-sol-orange opacity-75 animate-ping" />
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-sol-orange" />

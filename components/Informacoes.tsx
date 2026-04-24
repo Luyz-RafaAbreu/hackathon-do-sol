@@ -58,7 +58,7 @@ export default function Informacoes() {
           <Reveal key={i.title} delay={idx * 80}>
             <div className="card group h-full relative overflow-hidden">
               <div
-                className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${i.cor}`}
+                className={`absolute inset-x-0 top-0 h-[0.125rem] bg-gradient-to-r ${i.cor}`}
               />
               <div
                 className={`absolute -top-16 -right-16 w-32 h-32 rounded-full bg-gradient-to-br ${i.cor} opacity-15 blur-2xl transition-all duration-700 group-hover:scale-150 group-hover:opacity-25`}

@@ -61,7 +61,7 @@ export default function FAQ() {
               <div
                 className={`group rounded-2xl border bg-white/[0.03] backdrop-blur-sm overflow-hidden transition-all duration-500 ${
                   isOpen
-                    ? "border-sol-orange/60 bg-white/[0.05] shadow-[0_10px_40px_-20px_rgba(255,140,0,0.6)]"
+                    ? "border-sol-orange/60 bg-white/[0.05] shadow-[0_0.625rem_2.5rem_-1.25rem_rgba(255,140,0,0.6)]"
                     : "border-white/10 hover:border-white/25 hover:bg-white/[0.04]"
                 }`}
               >
@@ -86,8 +86,7 @@ export default function FAQ() {
                     aria-hidden
                   >
                     <svg
-                      width="14"
-                      height="14"
+                      className="w-3.5 h-3.5"
                       viewBox="0 0 14 14"
                       fill="none"
                       stroke="currentColor"
@@ -104,7 +103,7 @@ export default function FAQ() {
                   }`}
                 >
                   <div className="overflow-hidden">
-                    <div className="px-5 md:px-6 pb-5 text-white/75 text-sm md:text-[15px] leading-relaxed border-t border-white/[0.06] pt-4">
+                    <div className="px-5 md:px-6 pb-5 text-white/75 text-sm md:text-[0.9375rem] leading-relaxed border-t border-white/[0.06] pt-4">
                       {f.a}
                     </div>
                   </div>

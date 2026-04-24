@@ -4,6 +4,10 @@ const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      screens: {
+        // breakpoint específico para telas curtas (ex: 720p = 1280x720)
+        "h-short": { raw: "(max-height: 800px)" },
+      },
       colors: {
         sol: {
           bg: "#1a0b3d",
@@ -22,9 +26,28 @@ const config: Config = {
         display: ["Space Grotesk", "Inter", "sans-serif"],
       },
       boxShadow: {
-        neon: "0 0 40px rgba(124, 58, 237, 0.55), 0 0 80px rgba(255, 140, 0, 0.2)",
-        glow: "0 0 24px rgba(255, 140, 0, 0.65)",
-        glowStrong: "0 0 60px rgba(255, 140, 0, 0.85), 0 0 120px rgba(232, 121, 249, 0.35)",
+        // customizados
+        neon: "0 0 2.5rem rgba(124, 58, 237, 0.55), 0 0 5rem rgba(255, 140, 0, 0.2)",
+        glow: "0 0 1.5rem rgba(255, 140, 0, 0.65)",
+        glowStrong: "0 0 3.75rem rgba(255, 140, 0, 0.85), 0 0 7.5rem rgba(232, 121, 249, 0.35)",
+        // sobrescreve os defaults do Tailwind (que vêm em px) para rem — escala com a base em 4K
+        sm: "0 0.0625rem 0.125rem 0 rgb(0 0 0 / 0.05)",
+        DEFAULT: "0 0.0625rem 0.1875rem 0 rgb(0 0 0 / 0.1), 0 0.0625rem 0.125rem -0.0625rem rgb(0 0 0 / 0.1)",
+        md: "0 0.25rem 0.375rem -0.0625rem rgb(0 0 0 / 0.1), 0 0.125rem 0.25rem -0.125rem rgb(0 0 0 / 0.1)",
+        lg: "0 0.625rem 0.9375rem -0.1875rem rgb(0 0 0 / 0.1), 0 0.25rem 0.375rem -0.25rem rgb(0 0 0 / 0.1)",
+        xl: "0 1.25rem 1.5625rem -0.3125rem rgb(0 0 0 / 0.1), 0 0.5rem 0.625rem -0.375rem rgb(0 0 0 / 0.1)",
+        "2xl": "0 1.5625rem 3.125rem -0.75rem rgb(0 0 0 / 0.25)",
+        inner: "inset 0 0.125rem 0.25rem 0 rgb(0 0 0 / 0.05)",
+      },
+      blur: {
+        // sobrescreve defaults (px) para rem — escala em telas grandes
+        sm: "0.25rem",
+        DEFAULT: "0.5rem",
+        md: "0.75rem",
+        lg: "1rem",
+        xl: "1.5rem",
+        "2xl": "2.5rem",
+        "3xl": "4rem",
       },
       backgroundImage: {
         "grid-fade":
@@ -44,14 +67,15 @@ const config: Config = {
         "orbit": "orbit 20s linear infinite",
         "tilt": "tilt 10s ease-in-out infinite",
         "gradient-x": "gradientX 6s ease infinite",
+        "sun-entry": "sunEntry 1.4s cubic-bezier(0.34, 1.56, 0.64, 1) both",
       },
       keyframes: {
         float: {
           "0%,100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-14px)" },
+          "50%": { transform: "translateY(-0.875rem)" },
         },
         fadeUp: {
-          "0%": { opacity: "0", transform: "translateY(24px)" },
+          "0%": { opacity: "0", transform: "translateY(1.5rem)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
         shimmer: {
@@ -79,6 +103,19 @@ const config: Config = {
         gradientX: {
           "0%,100%": { backgroundPosition: "0% 50%" },
           "50%": { backgroundPosition: "100% 50%" },
+        },
+        sunEntry: {
+          "0%": {
+            opacity: "0",
+            transform: "scale(0.4) rotate(-90deg)",
+          },
+          "70%": {
+            transform: "scale(1.08) rotate(8deg)",
+          },
+          "100%": {
+            opacity: "1",
+            transform: "scale(1) rotate(0deg)",
+          },
         },
       },
     },

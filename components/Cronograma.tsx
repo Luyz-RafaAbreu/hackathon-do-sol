@@ -71,14 +71,14 @@ export default function Cronograma() {
           <Reveal key={d.data} delay={i * 140}>
             <div className="card group relative overflow-hidden h-full">
               <div
-                className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${d.cor}`}
+                className={`absolute inset-x-0 top-0 h-[0.125rem] bg-gradient-to-r ${d.cor}`}
               />
               <div
                 className={`absolute -top-12 -right-12 w-48 h-48 rounded-full bg-gradient-to-br ${d.cor} opacity-20 blur-2xl transition-all duration-700 group-hover:scale-125 group-hover:opacity-35`}
               />
               <div className="relative">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="text-[10px] md:text-xs uppercase tracking-[0.3em] text-sol-orange font-semibold">
+                  <div className="text-[0.625rem] md:text-xs uppercase tracking-[0.3em] text-sol-orange font-semibold">
                     {d.data}
                   </div>
                   <div

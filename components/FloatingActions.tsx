@@ -40,7 +40,7 @@ export default function FloatingActions() {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Fale conosco no WhatsApp"
-        className="group relative w-14 h-14 rounded-full bg-[#25D366] text-white shadow-[0_10px_30px_-10px_rgba(37,211,102,0.8)] hover:scale-110 transition-all duration-300 flex items-center justify-center"
+        className="group relative w-14 h-14 rounded-full bg-[#25D366] text-white shadow-[0_0.625rem_1.875rem_-0.625rem_rgba(37,211,102,0.8)] hover:scale-110 transition-all duration-300 flex items-center justify-center"
       >
         <span className="absolute inset-0 rounded-full bg-[#25D366] animate-ping opacity-40" />
         <svg

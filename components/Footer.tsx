@@ -18,7 +18,7 @@ export default function Footer() {
                 alt="Hackathon do Sol"
                 width={40}
                 height={40}
-                className="relative rounded-full"
+                className="relative rounded-full w-full h-full object-cover"
               />
             </div>
             <span>

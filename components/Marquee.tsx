@@ -43,7 +43,7 @@ function Diamond({ index }: { index: number }) {
   const color = colors[index % colors.length];
   return (
     <svg
-      className={`w-4 h-4 md:w-5 md:h-5 shrink-0 ${color} drop-shadow-[0_0_8px_currentColor]`}
+      className={`w-4 h-4 md:w-5 md:h-5 shrink-0 ${color} drop-shadow-[0_0_0.5rem_currentColor]`}
       viewBox="0 0 24 24"
       fill="currentColor"
       aria-hidden
