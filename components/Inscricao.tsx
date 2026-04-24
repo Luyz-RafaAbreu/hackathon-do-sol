@@ -28,7 +28,7 @@ type FormErrors = Partial<Record<keyof FormState | "comprovantes", string>>;
 
 const ACCEPTED_TYPES = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx";
 const MAX_FILES = 3;
-const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_MB = 1;
 
 export default function Inscricao() {
   const [form, setForm] = useState<FormState>(initial);

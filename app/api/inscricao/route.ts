@@ -16,7 +16,9 @@ import { NextResponse } from "next/server";
 const WEBHOOK_URL = process.env.APPS_SCRIPT_WEBHOOK_URL;
 const WEBHOOK_SECRET = process.env.APPS_SCRIPT_WEBHOOK_SECRET;
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+// 1 MB/arquivo × 3 = 3 MB raw → ~4 MB em base64, cabe no limite de 4.5 MB do
+// Vercel Hobby. Ultrapassar esse orçamento causa erro 413 antes da API.
+const MAX_FILE_SIZE = 1 * 1024 * 1024;
 const MAX_FILES = 3;
 const ALLOWED_MIME = [
   "application/pdf",
@@ -105,7 +107,8 @@ export async function POST(req: Request) {
   const comprovantes: { name: string; type: string; data: string }[] = [];
   for (const file of files) {
     if (file.size > MAX_FILE_SIZE) {
-      return bad(`O arquivo "${file.name}" excede o limite de 5 MB.`);
+      const mb = (MAX_FILE_SIZE / 1024 / 1024).toFixed(0);
+      return bad(`O arquivo "${file.name}" excede o limite de ${mb} MB.`);
     }
     if (file.type && !ALLOWED_MIME.includes(file.type)) {
       return bad(`Tipo de arquivo não aceito: ${file.name}`);
@@ -145,6 +148,13 @@ export async function POST(req: Request) {
       | { ok: boolean; error?: string }
       | null;
     if (!result?.ok) {
+      // Email duplicado → 409 com mensagem clara pro usuário
+      if (result?.error === "duplicate_email") {
+        return bad(
+          "Este e-mail já foi usado em outra inscrição. Se você não se inscreveu, entre em contato com a organização.",
+          409
+        );
+      }
       console.error("[inscricao] Apps Script retornou erro:", result?.error);
       return bad(
         "Sua inscrição não pôde ser registrada. Tente novamente.",

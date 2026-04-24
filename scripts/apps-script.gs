@@ -183,6 +183,20 @@ function doPost(e) {
       });
     }
 
+    // Dedup — rejeita se o email já existe (coluna D / col 4).
+    // Feito ANTES do upload pra não gastar cota do Drive à toa.
+    const emailLower = String(data.email).trim().toLowerCase();
+    const lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      const emailsRange = sheet.getRange(2, 4, lastRow - 1, 1).getValues();
+      const alreadyRegistered = emailsRange.some(function (row) {
+        return String(row[0] || "").trim().toLowerCase() === emailLower;
+      });
+      if (alreadyRegistered) {
+        return jsonResponse({ ok: false, error: "duplicate_email" });
+      }
+    }
+
     // Subir arquivos pro Drive
     let fileLinks = "";
     if (Array.isArray(data.comprovantes) && data.comprovantes.length > 0) {
