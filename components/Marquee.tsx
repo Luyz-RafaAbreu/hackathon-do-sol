@@ -26,7 +26,7 @@ export default function Marquee() {
             key={i}
             className="flex items-center gap-10 md:gap-16 shrink-0 pr-10 md:pr-16"
           >
-            <span className="font-display font-bold text-xl md:text-3xl text-white/85 whitespace-nowrap tracking-widest hover:text-sol-orange transition-colors duration-300 cursor-default">
+            <span className="font-mono font-medium text-base md:text-2xl text-white/85 whitespace-nowrap tracking-[0.18em] hover:text-sol-orange transition-colors duration-300 cursor-default">
               {k}
             </span>
             <Diamond index={i} />

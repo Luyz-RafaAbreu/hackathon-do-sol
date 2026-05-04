@@ -3,6 +3,8 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { Check, UploadCloud, FileText, X } from "lucide-react";
 import { FIELD_MAX_LENGTH } from "@/lib/limits";
 import Reveal from "./Reveal";
+import MagneticButton from "./MagneticButton";
+import NotARobotCheckbox from "./NotARobotCheckbox";
 
 type FormState = {
   nome: string;
@@ -28,7 +30,7 @@ const initial: FormState = {
   motivacao: "",
 };
 
-type FormErrors = Partial<Record<keyof FormState | "comprovantes", string>>;
+type FormErrors = Partial<Record<keyof FormState | "comprovantes" | "robot", string>>;
 
 const UFS: ReadonlyArray<readonly [string, string]> = [
   ["AC", "Acre"],
@@ -85,6 +87,8 @@ function formatPhone(value: string): string {
 export default function Inscricao() {
   const [form, setForm] = useState<FormState>(initial);
   const [comprovantes, setComprovantes] = useState<File[]>([]);
+  // ⚠ Decorativo — só UI, sem proteção real. Ver NotARobotCheckbox.tsx.
+  const [robotChecked, setRobotChecked] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle"
@@ -176,6 +180,9 @@ export default function Inscricao() {
         )} MB. O total não pode passar de ${MAX_TOTAL_SIZE_MB} MB.`;
       }
     }
+    if (!robotChecked) {
+      e.robot = "Confirme que você não é um robô.";
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -222,6 +229,7 @@ export default function Inscricao() {
         );
         setForm(initial);
         setComprovantes([]);
+        setRobotChecked(false);
       } else {
         setStatus("error");
         setMessage(
@@ -479,13 +487,28 @@ export default function Inscricao() {
             error={errors.comprovantes}
           />
 
-          <button
-            type="submit"
-            disabled={status === "loading"}
-            className="btn-primary w-full disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {status === "loading" ? "Enviando..." : "Enviar inscrição"}
-          </button>
+          <div>
+            <NotARobotCheckbox
+              checked={robotChecked}
+              onChange={(v) => {
+                setRobotChecked(v);
+                if (v) setErrors((prev) => ({ ...prev, robot: undefined }));
+              }}
+            />
+            {errors.robot && (
+              <p className="text-red-300 text-xs mt-2">{errors.robot}</p>
+            )}
+          </div>
+
+          <MagneticButton strength={10} radius={120} className="w-full">
+            <button
+              type="submit"
+              disabled={status === "loading"}
+              className="btn-primary w-full disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {status === "loading" ? "Enviando..." : "Enviar inscrição"}
+            </button>
+          </MagneticButton>
 
           {status === "success" && (
             <div

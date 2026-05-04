@@ -29,6 +29,13 @@ const config: Config = {
           "system-ui",
           "sans-serif",
         ],
+        mono: [
+          "var(--font-mono)",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "monospace",
+        ],
       },
       boxShadow: {
         // customizados

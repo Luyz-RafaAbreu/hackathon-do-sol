@@ -1,5 +1,5 @@
 import Reveal from "./Reveal";
-import TiltCard from "./TiltCard";
+import StatCard from "./StatCard";
 
 export default function Sobre() {
   return (
@@ -30,22 +30,13 @@ export default function Sobre() {
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
           {stats.map((s, i) => (
             <Reveal key={s.label} delay={100 * i}>
-              <TiltCard className="card text-center group relative overflow-hidden !p-4 sm:!p-5 md:!p-6">
-                <div
-                  className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${s.cor}`}
-                />
-                <div
-                  className={`absolute -top-14 -right-14 w-36 h-36 rounded-full bg-gradient-to-br ${s.cor} opacity-20 blur-2xl transition-all duration-700 group-hover:scale-150 group-hover:opacity-30`}
-                />
-                <div className="relative">
-                  <div className="font-display font-black text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-gradient leading-none tracking-tight transition-transform duration-500 group-hover:scale-105 whitespace-nowrap">
-                    {s.value}
-                  </div>
-                  <div className="mt-2 md:mt-3 text-[0.5625rem] sm:text-[0.625rem] md:text-xs font-semibold uppercase tracking-[0.18em] md:tracking-[0.22em] text-white/65">
-                    {s.label}
-                  </div>
-                </div>
-              </TiltCard>
+              <StatCard
+                value={s.value}
+                prefix={s.prefix}
+                suffix={s.suffix}
+                label={s.label}
+                cor={s.cor}
+              />
             </Reveal>
           ))}
         </div>
@@ -54,9 +45,18 @@ export default function Sobre() {
   );
 }
 
-const stats = [
-  { value: "3 dias", label: "de imersão", cor: "from-sol-yellow to-sol-orange" },
-  { value: "160", label: "vagas", cor: "from-sol-orange to-sol-pink" },
-  { value: "100%", label: "inscrição gratuita", cor: "from-sol-pink to-sol-purpleLight" },
-  { value: "R$ 10 mil", label: "em premiação", cor: "from-sol-purpleLight to-sol-teal" },
+// Valor numérico separado de prefix/suffix — permite o counter animar só o
+// número. Texto final renderizado é idêntico ao original ("3 dias", "160",
+// "100%", "R$ 10 mil").
+const stats: {
+  value: number;
+  prefix?: string;
+  suffix?: string;
+  label: string;
+  cor: string;
+}[] = [
+  { value: 3, suffix: " dias", label: "de imersão", cor: "from-sol-yellow to-sol-orange" },
+  { value: 160, label: "vagas", cor: "from-sol-orange to-sol-pink" },
+  { value: 100, suffix: "%", label: "inscrição gratuita", cor: "from-sol-pink to-sol-purpleLight" },
+  { value: 10, prefix: "R$ ", suffix: " mil", label: "em premiação", cor: "from-sol-purpleLight to-sol-teal" },
 ];

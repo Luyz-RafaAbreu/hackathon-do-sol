@@ -2,6 +2,7 @@
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
+import MagneticButton from "./MagneticButton";
 import { BLUR } from "@/lib/blur-data";
 
 const links = [
@@ -158,12 +159,11 @@ export default function Header() {
 
         {/* Ações à direita */}
         <div className="flex items-center gap-2">
-          <a
-            href="#inscricao"
-            className="hidden md:inline-flex btn-primary !px-5 !py-2 text-sm"
-          >
-            Inscreva-se
-          </a>
+          <MagneticButton className="hidden md:inline-block">
+            <a href="#inscricao" className="btn-primary !px-5 !py-2 text-sm">
+              Inscreva-se
+            </a>
+          </MagneticButton>
 
           {/* Hamburger animado */}
           <button
