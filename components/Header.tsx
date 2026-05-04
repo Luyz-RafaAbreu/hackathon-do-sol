@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import MagneticButton from "./MagneticButton";
 import { BLUR } from "@/lib/blur-data";
@@ -14,6 +15,13 @@ const links = [
 ];
 
 export default function Header() {
+  const pathname = usePathname();
+  const isHome = pathname === "/";
+  // Quando não está na home, anchors precisam apontar pra `/#sobre` etc.
+  // pra navegar de volta à home + scroll. O botão "Inscreva-se" sempre vai
+  // pra `/inscricao` (página dedicada).
+  const hrefFor = (anchor: string) => (isHome ? anchor : "/" + anchor);
+
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string>("");
@@ -106,7 +114,7 @@ export default function Header() {
       <nav className="relative max-w-7xl mx-auto flex items-center justify-between px-6 md:px-10 h-16 md:h-20">
         {/* Logo */}
         <a
-          href="#"
+          href="/"
           className="group relative flex items-center gap-3 font-display font-bold text-base md:text-lg"
         >
           <div className="relative w-10 h-10 rounded-full overflow-hidden transition-transform duration-500 group-hover:scale-105">
@@ -138,7 +146,7 @@ export default function Header() {
             return (
               <li key={l.href}>
                 <a
-                  href={l.href}
+                  href={hrefFor(l.href)}
                   className={`relative inline-flex items-center px-4 py-2 rounded-lg transition-colors duration-300 ${
                     isActive
                       ? "text-white"
@@ -160,7 +168,7 @@ export default function Header() {
         {/* Ações à direita */}
         <div className="flex items-center gap-2">
           <MagneticButton className="hidden md:inline-block">
-            <a href="#inscricao" className="btn-primary !px-5 !py-2 text-sm">
+            <a href="/inscricao" className="btn-primary !px-5 !py-2 text-sm">
               Inscreva-se
             </a>
           </MagneticButton>
@@ -225,7 +233,7 @@ export default function Header() {
                   >
                     <a
                       onClick={() => setOpen(false)}
-                      href={l.href}
+                      href={hrefFor(l.href)}
                       className={`group flex items-center justify-between py-4 px-2 border-b border-white/5 transition ${
                         isActive
                           ? "text-white"
@@ -274,7 +282,7 @@ export default function Header() {
           >
             <a
               onClick={() => setOpen(false)}
-              href="#inscricao"
+              href="/inscricao"
               className="btn-primary group w-full"
             >
               <span className="relative z-10">Inscreva-se agora</span>

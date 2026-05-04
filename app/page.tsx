@@ -8,7 +8,6 @@ import Sobre from "@/components/Sobre";
 import Informacoes from "@/components/Informacoes";
 import Cronograma from "@/components/Cronograma";
 import Materiais from "@/components/Materiais";
-import Inscricao from "@/components/Inscricao";
 import FAQ from "@/components/FAQ";
 import Patrocinadores from "@/components/Patrocinadores";
 import Footer from "@/components/Footer";
@@ -26,7 +25,6 @@ export default function Home() {
         <Informacoes />
         <Cronograma />
         <Materiais />
-        <Inscricao />
         <FAQ />
         <Patrocinadores />
         <Footer />

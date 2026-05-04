@@ -1,8 +1,7 @@
 "use client";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Check, UploadCloud, FileText, X } from "lucide-react";
+import { UploadCloud, FileText, X, ArrowRight } from "lucide-react";
 import { FIELD_MAX_LENGTH } from "@/lib/limits";
-import Reveal from "./Reveal";
 import MagneticButton from "./MagneticButton";
 import NotARobotCheckbox from "./NotARobotCheckbox";
 
@@ -246,39 +245,22 @@ export default function Inscricao() {
   };
 
   return (
-    <section id="inscricao" className="section">
-      <div className="grid lg:grid-cols-5 gap-10">
-        <Reveal className="lg:col-span-2">
-          <span className="eyebrow">Inscrição</span>
-          <h2 className="section-title">Garanta sua vaga</h2>
-          <p className="text-white/75 leading-relaxed mb-6">
-            São apenas 160 vagas para todo o evento. Preencha seus dados
-            abaixo — a organização analisa as inscrições e envia a confirmação
-            por e-mail.
-          </p>
-          <ul className="space-y-3 text-white/80 text-sm">
-            {[
-              "Inscrição 100% gratuita",
-              "Confirmação enviada por e-mail",
-              "Não é necessário ter equipe formada",
-              "Anexe comprovantes da sua atuação em tecnologia",
-            ].map((t) => (
-              <li key={t} className="flex gap-3 items-start">
-                <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-sol-orange/15 border border-sol-orange/40 flex items-center justify-center">
-                  <Check className="w-3 h-3 text-sol-orange" strokeWidth={3} />
-                </span>
-                <span>{t}</span>
-              </li>
-            ))}
-          </ul>
-        </Reveal>
-
-        <Reveal className="lg:col-span-3" delay={120}>
-        <form
-          onSubmit={onSubmit}
-          noValidate
-          className="card space-y-4"
-        >
+    <section id="inscricao" className="relative px-6 md:px-10 max-w-3xl mx-auto pb-20 md:pb-24">
+      <form
+        onSubmit={onSubmit}
+        noValidate
+        className="relative rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 md:p-8 space-y-4 overflow-hidden"
+      >
+          {/* Barra gradient no topo do card — accent solar */}
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-[0.125rem] bg-gradient-to-r from-sol-yellow via-sol-orange to-sol-pink"
+          />
+          {/* Glow sutil no canto */}
+          <div
+            aria-hidden
+            className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-sol-orange/8 blur-3xl pointer-events-none"
+          />
           {/* honeypot anti-bot — escondido visualmente E pra leitor de tela.
               Não usamos display:none porque alguns bots inteligentes ignoram
               campos com display:none; a posição absoluta off-screen + aria-hidden
@@ -303,6 +285,8 @@ export default function Inscricao() {
               aria-hidden="true"
             />
           </div>
+
+          <SectionHeader number="01" label="Identificação" />
 
           <Field
             label="Nome completo"
@@ -421,6 +405,8 @@ export default function Inscricao() {
             }
           />
 
+          <SectionHeader number="02" label="Experiência" />
+
           <div className="grid md:grid-cols-2 gap-4">
             <Field
               label="Área de atuação"
@@ -481,11 +467,15 @@ export default function Inscricao() {
             }
           />
 
+          <SectionHeader number="03" label="Comprovantes" />
+
           <FileUploadField
             files={comprovantes}
             onChange={setComprovantes}
             error={errors.comprovantes}
           />
+
+          <SectionHeader number="04" label="Confirmação" />
 
           <div>
             <NotARobotCheckbox
@@ -504,9 +494,17 @@ export default function Inscricao() {
             <button
               type="submit"
               disabled={status === "loading"}
-              className="btn-primary w-full disabled:opacity-60 disabled:cursor-not-allowed"
+              className="btn-primary group w-full disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {status === "loading" ? "Enviando..." : "Enviar inscrição"}
+              <span className="relative z-10">
+                {status === "loading" ? "Enviando..." : "Enviar inscrição"}
+              </span>
+              {status !== "loading" && (
+                <ArrowRight
+                  className="relative z-10 w-4 h-4 transition-transform group-hover:translate-x-1"
+                  strokeWidth={2.5}
+                />
+              )}
             </button>
           </MagneticButton>
 
@@ -526,9 +524,7 @@ export default function Inscricao() {
               ✕ {message}
             </div>
           )}
-        </form>
-        </Reveal>
-      </div>
+      </form>
     </section>
   );
 }
@@ -547,6 +543,31 @@ function Field({
       <label>{label}</label>
       {input}
       {error && <p className="text-red-300 text-xs mt-1">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Header de seção dentro do form — divide os blocos visualmente sem
+ * mudar a estrutura. Numero (mono) + traço + label uppercase + linha
+ * gradiente que atravessa o card.
+ */
+function SectionHeader({ number, label }: { number: string; label: string }) {
+  return (
+    <div className="flex items-center gap-3 pt-3 first:pt-0">
+      <span className="font-mono text-[0.625rem] text-sol-orange/90 font-semibold tabular-nums">
+        {number}
+      </span>
+      <span aria-hidden className="font-mono text-sol-orange/40 text-xs">
+        ─
+      </span>
+      <span className="font-mono text-[0.625rem] uppercase tracking-[0.22em] text-white/75 font-medium whitespace-nowrap">
+        {label}
+      </span>
+      <span
+        aria-hidden
+        className="flex-1 h-px bg-gradient-to-r from-sol-orange/40 via-sol-orange/15 to-transparent"
+      />
     </div>
   );
 }

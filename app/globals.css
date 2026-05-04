@@ -106,24 +106,55 @@ body {
 }
 
 @layer components {
+  /* btn-primary: presença premium por richness visual, não por animação.
+     Gradient vertical (claro no topo → escuro no fundo) dá sensação 3D,
+     highlight branco interno no topo simula luz vindo de cima, sombra
+     abaixo "respira" devagar — botão parece sólido e vivo, sem distrair. */
   .btn-primary {
-    @apply relative inline-flex items-center justify-center gap-2 rounded-full bg-sol-orange text-black font-semibold px-7 py-3 transition-all duration-300 overflow-hidden;
-    box-shadow: 0 0.5rem 1.5rem -0.5rem rgba(255, 140, 0, 0.6);
+    @apply relative inline-flex items-center justify-center gap-2 rounded-full text-black font-semibold px-7 py-3 transition-transform duration-300 overflow-hidden;
+    background: linear-gradient(180deg, #ffb240 0%, #ff8c00 55%, #ff6b00 100%);
+    box-shadow:
+      0 0.625rem 2rem -0.5rem rgba(255, 140, 0, 0.6),
+      inset 0 0.0625rem 0 rgba(255, 255, 255, 0.45),
+      inset 0 -0.125rem 0.25rem rgba(255, 107, 0, 0.5);
+    animation: btn-primary-glow 3.6s ease-in-out infinite;
   }
   .btn-primary:hover {
-    transform: translateY(-0.125rem) scale(1.02);
-    box-shadow: 0 1rem 2.5rem -0.5rem rgba(255, 140, 0, 0.8), 0 0 1.5rem rgba(255, 140, 0, 0.4);
+    transform: translateY(-0.125rem) scale(1.03);
+    animation: none;
+    box-shadow:
+      0 1rem 3rem -0.5rem rgba(255, 140, 0, 0.95),
+      0 0 2rem rgba(255, 140, 0, 0.45),
+      inset 0 0.0625rem 0 rgba(255, 255, 255, 0.55),
+      inset 0 -0.125rem 0.25rem rgba(255, 107, 0, 0.5);
   }
   .btn-primary::before {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%);
+    background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.5) 50%, transparent 65%);
     transform: translateX(-120%);
     transition: transform 0.8s ease;
   }
   .btn-primary:hover::before {
     transform: translateX(120%);
+  }
+  /* Sombra inferior respira — única animação idle, sutilíssima. Mantém
+     o highlight interno e a sombra interna fixos, só a glow externa
+     expande de leve. Botão parece "pulsar de calor" sem qualquer ring. */
+  @keyframes btn-primary-glow {
+    0%, 100% {
+      box-shadow:
+        0 0.625rem 2rem -0.5rem rgba(255, 140, 0, 0.6),
+        inset 0 0.0625rem 0 rgba(255, 255, 255, 0.45),
+        inset 0 -0.125rem 0.25rem rgba(255, 107, 0, 0.5);
+    }
+    50% {
+      box-shadow:
+        0 0.75rem 2.5rem -0.5rem rgba(255, 140, 0, 0.8),
+        inset 0 0.0625rem 0 rgba(255, 255, 255, 0.5),
+        inset 0 -0.125rem 0.25rem rgba(255, 107, 0, 0.5);
+    }
   }
 
   .btn-secondary {

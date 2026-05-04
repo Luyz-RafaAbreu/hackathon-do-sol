@@ -133,7 +133,7 @@ export default function Hero() {
           style={{ animationDelay: "600ms" }}
         >
           <MagneticButton>
-            <a href="#inscricao" className="btn-primary group text-sm md:text-base">
+            <a href="/inscricao" className="btn-primary group text-sm md:text-base">
               <span className="relative z-10">Inscreva-se agora</span>
               <ArrowRight
                 className="relative z-10 w-4 h-4 transition-transform group-hover:translate-x-1"

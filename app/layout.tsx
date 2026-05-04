@@ -59,7 +59,7 @@ const eventJsonLd = {
   },
   offers: {
     "@type": "Offer",
-    url: `${EVENT.SITE_URL}/#inscricao`,
+    url: `${EVENT.SITE_URL}/inscricao`,
     price: "0",
     priceCurrency: "BRL",
     availability: "https://schema.org/InStock",
