@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useState } from "react";
+import { BLUR } from "@/lib/blur-data";
 
 const links = [
   { href: "#sobre", label: "Sobre" },
@@ -33,7 +34,12 @@ export default function Header() {
 
     if (!sections.length) return;
 
-    const onScroll = () => {
+    let rafId = 0;
+    let pending = false;
+
+    const compute = () => {
+      rafId = 0;
+      pending = false;
       const y = window.scrollY + 200;
       let current = "";
       for (const s of sections) {
@@ -42,9 +48,21 @@ export default function Header() {
       setActive(current);
     };
 
-    onScroll();
+    // Bate scroll events em ~60Hz (1 cálculo por frame). Sem isso o handler
+    // roda toda vez que o navegador dispara scroll (100-200x/seg em hardware
+    // bom), repetindo offsetTop reads e loop por nada.
+    const onScroll = () => {
+      if (pending) return;
+      pending = true;
+      rafId = requestAnimationFrame(compute);
+    };
+
+    compute();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   // bloqueia scroll quando menu mobile está aberto
@@ -99,6 +117,8 @@ export default function Header() {
               height={40}
               className="relative rounded-full w-full h-full object-cover"
               priority
+              placeholder="blur"
+              blurDataURL={BLUR.logo}
             />
           </div>
           <span className="hidden sm:inline whitespace-nowrap">

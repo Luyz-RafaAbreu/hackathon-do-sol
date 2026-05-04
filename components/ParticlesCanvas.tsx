@@ -39,6 +39,23 @@ export default function ParticlesCanvas() {
     let particles: Particle[] = [];
     const mouse = { x: -9999, y: -9999, active: false };
 
+    // Spatial grid: divide a tela em células do tamanho de LINK_RADIUS pra
+    // reduzir o loop de pares de O(n²) pra ~O(n). Como CELL_SIZE = LINK_RADIUS,
+    // qualquer par dentro do raio sempre cai em células vizinhas — nenhuma
+    // linha some, a aparência fica idêntica.
+    const CELL_SIZE = 110;
+    let cols = 0;
+    let rows = 0;
+    let grid: Particle[][] = [];
+
+    // Frame rate adaptativo: quando o mouse fica parado por mais de 1.5s,
+    // baixamos a renderização pra 30fps (pulando 1 frame em cada 2). O dt
+    // compensa automaticamente, então as partículas se movem na mesma
+    // velocidade — visualmente igual.
+    const IDLE_MS = 1500;
+    let lastInteraction = performance.now();
+    let frameCounter = 0;
+
     const spawn = (): Particle => ({
       x: Math.random() * width,
       y: Math.random() * height,
@@ -86,6 +103,13 @@ export default function ParticlesCanvas() {
       } else if (particles.length > target) {
         particles.length = target;
       }
+
+      // (Re)constrói o grid pro novo tamanho — arrays vazios reusados a cada
+      // frame pra evitar pressão no GC.
+      cols = Math.ceil(width / CELL_SIZE) + 1;
+      rows = Math.ceil(height / CELL_SIZE) + 1;
+      grid = new Array(cols * rows);
+      for (let i = 0; i < grid.length; i++) grid[i] = [];
     };
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -101,6 +125,7 @@ export default function ParticlesCanvas() {
       mouse.x = e.clientX;
       mouse.y = e.clientY;
       mouse.active = true;
+      lastInteraction = performance.now();
     };
     const onLeave = () => {
       mouse.active = false;
@@ -113,6 +138,7 @@ export default function ParticlesCanvas() {
       mouse.x = t.clientX;
       mouse.y = t.clientY;
       mouse.active = true;
+      lastInteraction = performance.now();
     };
 
     const REPEL_RADIUS = 120;
@@ -134,12 +160,24 @@ export default function ParticlesCanvas() {
 
     const tick = (now?: number) => {
       const t = now ?? performance.now();
+
+      // Frame skip quando idle: mouse parado, sem repulsão ativa. dt no
+      // próximo frame renderizado dobra naturalmente, compensando o pulo.
+      const idle = !mouse.active || t - lastInteraction > IDLE_MS;
+      if (idle && (frameCounter++ & 1)) {
+        if (visible) raf = requestAnimationFrame(tick);
+        return;
+      }
+
       const dt = Math.min(32, t - last) / 16.67; // 60fps = 1.0
       last = t;
 
       ctx.clearRect(0, 0, width, height);
 
-      // update
+      // Limpa células do grid pra repopular sem realocar arrays
+      for (let i = 0; i < grid.length; i++) grid[i].length = 0;
+
+      // update + popula grid
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
 
@@ -194,25 +232,74 @@ export default function ParticlesCanvas() {
           p.vy = -Math.abs(p.vy);
           p.driftY = -Math.abs(p.driftY);
         }
+
+        // posiciona no grid
+        const cx = Math.max(0, Math.min(cols - 1, Math.floor(p.x / CELL_SIZE)));
+        const cy = Math.max(0, Math.min(rows - 1, Math.floor(p.y / CELL_SIZE)));
+        grid[cy * cols + cx].push(p);
       }
 
-      // linhas entre partículas próximas
-      for (let i = 0; i < particles.length; i++) {
-        const a = particles[i];
-        for (let j = i + 1; j < particles.length; j++) {
-          const b = particles[j];
-          const dx = a.x - b.x;
-          const dy = a.y - b.y;
-          const dist2 = dx * dx + dy * dy;
-          if (dist2 < LINK_RADIUS * LINK_RADIUS) {
-            const dist = Math.sqrt(dist2);
-            const alpha = (1 - dist / LINK_RADIUS) * 0.14;
-            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-            ctx.lineWidth = 0.6;
-            ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
-            ctx.stroke();
+      // linhas entre partículas próximas — usa grid, só compara com células
+      // vizinhas. Pra evitar par duplicado (a-b e b-a), olhamos apenas células
+      // "à frente" no varredura: mesma célula (j>i), direita, baixo-esquerda,
+      // baixo, baixo-direita.
+      const linkR2 = LINK_RADIUS * LINK_RADIUS;
+      for (let cy = 0; cy < rows; cy++) {
+        for (let cx = 0; cx < cols; cx++) {
+          const cell = grid[cy * cols + cx];
+          const cn = cell.length;
+          if (cn === 0) continue;
+
+          for (let i = 0; i < cn; i++) {
+            const a = cell[i];
+
+            // pares dentro da própria célula
+            for (let j = i + 1; j < cn; j++) {
+              const b = cell[j];
+              const dx = a.x - b.x;
+              const dy = a.y - b.y;
+              const d2 = dx * dx + dy * dy;
+              if (d2 < linkR2) {
+                const dist = Math.sqrt(d2);
+                const alpha = (1 - dist / LINK_RADIUS) * 0.14;
+                ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.lineWidth = 0.6;
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+              }
+            }
+
+            // pares com células vizinhas (só "à frente")
+            const neighborOffsets: [number, number][] = [
+              [1, 0],
+              [-1, 1],
+              [0, 1],
+              [1, 1],
+            ];
+            for (const [ox, oy] of neighborOffsets) {
+              const nx = cx + ox;
+              const ny = cy + oy;
+              if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+              const ncell = grid[ny * cols + nx];
+              for (let k = 0; k < ncell.length; k++) {
+                const b = ncell[k];
+                const dx = a.x - b.x;
+                const dy = a.y - b.y;
+                const d2 = dx * dx + dy * dy;
+                if (d2 < linkR2) {
+                  const dist = Math.sqrt(d2);
+                  const alpha = (1 - dist / LINK_RADIUS) * 0.14;
+                  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                  ctx.lineWidth = 0.6;
+                  ctx.beginPath();
+                  ctx.moveTo(a.x, a.y);
+                  ctx.lineTo(b.x, b.y);
+                  ctx.stroke();
+                }
+              }
+            }
           }
         }
       }
@@ -225,13 +312,25 @@ export default function ParticlesCanvas() {
 
         // pulso leve na intensidade geral (respiração da ligação)
         const pulse = 0.85 + 0.15 * Math.sin(t * 0.006);
+        const cursorR2 = CURSOR_LINK * CURSOR_LINK;
+        const cellRadius = Math.ceil(CURSOR_LINK / CELL_SIZE);
+        const mcx = Math.floor(mouse.x / CELL_SIZE);
+        const mcy = Math.floor(mouse.y / CELL_SIZE);
 
-        for (let i = 0; i < particles.length; i++) {
-          const p = particles[i];
-          const dx = p.x - mouse.x;
-          const dy = p.y - mouse.y;
-          const dist2 = dx * dx + dy * dy;
-          if (dist2 < CURSOR_LINK * CURSOR_LINK) {
+        // só varre células dentro do raio do cursor
+        for (let oy = -cellRadius; oy <= cellRadius; oy++) {
+          const ny = mcy + oy;
+          if (ny < 0 || ny >= rows) continue;
+          for (let ox = -cellRadius; ox <= cellRadius; ox++) {
+            const nx = mcx + ox;
+            if (nx < 0 || nx >= cols) continue;
+            const cell = grid[ny * cols + nx];
+            for (let k = 0; k < cell.length; k++) {
+              const p = cell[k];
+              const dx = p.x - mouse.x;
+              const dy = p.y - mouse.y;
+              const dist2 = dx * dx + dy * dy;
+              if (dist2 < cursorR2) {
             const dist = Math.sqrt(dist2);
             // 0..1 — mais perto do cursor = mais intenso
             const proximity = 1 - dist / CURSOR_LINK;
@@ -278,6 +377,8 @@ export default function ParticlesCanvas() {
             ctx.beginPath();
             ctx.arc(p.x, p.y, 0.8 + proximity * 1, 0, Math.PI * 2);
             ctx.fill();
+              }
+            }
           }
         }
 

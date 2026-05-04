@@ -1,12 +1,14 @@
 "use client";
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { FIELD_MAX_LENGTH } from "@/lib/limits";
 import Reveal from "./Reveal";
 
 type FormState = {
   nome: string;
   email: string;
   telefone: string;
-  cidadeEstado: string;
+  estado: string;
+  cidade: string;
   instituicao: string;
   area: string;
   experiencia: string;
@@ -17,7 +19,8 @@ const initial: FormState = {
   nome: "",
   email: "",
   telefone: "",
-  cidadeEstado: "",
+  estado: "",
+  cidade: "",
   instituicao: "",
   area: "",
   experiencia: "",
@@ -26,9 +29,57 @@ const initial: FormState = {
 
 type FormErrors = Partial<Record<keyof FormState | "comprovantes", string>>;
 
+const UFS: ReadonlyArray<readonly [string, string]> = [
+  ["AC", "Acre"],
+  ["AL", "Alagoas"],
+  ["AP", "Amapá"],
+  ["AM", "Amazonas"],
+  ["BA", "Bahia"],
+  ["CE", "Ceará"],
+  ["DF", "Distrito Federal"],
+  ["ES", "Espírito Santo"],
+  ["GO", "Goiás"],
+  ["MA", "Maranhão"],
+  ["MT", "Mato Grosso"],
+  ["MS", "Mato Grosso do Sul"],
+  ["MG", "Minas Gerais"],
+  ["PA", "Pará"],
+  ["PB", "Paraíba"],
+  ["PR", "Paraná"],
+  ["PE", "Pernambuco"],
+  ["PI", "Piauí"],
+  ["RJ", "Rio de Janeiro"],
+  ["RN", "Rio Grande do Norte"],
+  ["RS", "Rio Grande do Sul"],
+  ["RO", "Rondônia"],
+  ["RR", "Roraima"],
+  ["SC", "Santa Catarina"],
+  ["SP", "São Paulo"],
+  ["SE", "Sergipe"],
+  ["TO", "Tocantins"],
+];
+
 const ACCEPTED_TYPES = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx";
 const MAX_FILES = 3;
 const MAX_FILE_SIZE_MB = 1;
+// Limite total considerando que base64 infla ~33% e Vercel Hobby aceita 4.5 MB.
+// Mantemos folga de segurança usando 3 MB de payload bruto.
+const MAX_TOTAL_SIZE_MB = 3;
+const MAX_TOTAL_SIZE_BYTES = MAX_TOTAL_SIZE_MB * 1024 * 1024;
+
+// Máscara progressiva de telefone BR. Reformata dinamicamente conforme o
+// usuário digita: 2 dígitos viram (XX), depois adiciona espaço, e o traço
+// entra a partir do 7º dígito (formato fixo) ou 8º (celular de 11 dígitos).
+function formatPhone(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length === 0) return "";
+  if (digits.length < 3) return `(${digits}`;
+  if (digits.length < 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
 
 export default function Inscricao() {
   const [form, setForm] = useState<FormState>(initial);
@@ -38,22 +89,92 @@ export default function Inscricao() {
     "idle"
   );
   const [message, setMessage] = useState("");
+  const [cidades, setCidades] = useState<string[]>([]);
+  const [loadingCidades, setLoadingCidades] = useState(false);
+  const [errorCidades, setErrorCidades] = useState(false);
+  const cacheCidades = useRef<Record<string, string[]>>({});
+  const messageRef = useRef<HTMLDivElement | null>(null);
+
+  // Quando status muda pra success ou error, rola até a mensagem — sem isso,
+  // se o usuário rolou pra preencher motivação/upload, a confirmação nasce
+  // abaixo do viewport e ele não vê.
+  useEffect(() => {
+    if (status === "success" || status === "error") {
+      messageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [status]);
+
+  // Carrega cidades do IBGE quando o estado muda. Cancela request anterior se
+  // o usuário trocar de estado rapidamente, e cacheia por UF pra evitar rede
+  // repetida no mesmo formulário.
+  useEffect(() => {
+    if (!form.estado) {
+      setCidades([]);
+      setErrorCidades(false);
+      return;
+    }
+    const cached = cacheCidades.current[form.estado];
+    if (cached) {
+      setCidades(cached);
+      setErrorCidades(false);
+      return;
+    }
+    const ctrl = new AbortController();
+    setLoadingCidades(true);
+    setErrorCidades(false);
+    fetch(
+      `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${form.estado}/municipios?orderBy=nome`,
+      { signal: ctrl.signal }
+    )
+      .then((r) => {
+        if (!r.ok) throw new Error("status " + r.status);
+        return r.json();
+      })
+      .then((data: { nome: string }[]) => {
+        const nomes = data.map((c) => c.nome);
+        cacheCidades.current[form.estado] = nomes;
+        setCidades(nomes);
+      })
+      .catch((err) => {
+        if (err.name === "AbortError") return;
+        console.error("Falha ao buscar cidades:", err);
+        setCidades([]);
+        setErrorCidades(true);
+      })
+      .finally(() => setLoadingCidades(false));
+    return () => ctrl.abort();
+  }, [form.estado]);
 
   const validate = () => {
     const e: FormErrors = {};
     if (form.nome.trim().length < 3) e.nome = "Informe seu nome completo.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       e.email = "E-mail inválido.";
-    if (form.telefone.replace(/\D/g, "").length < 10)
-      e.telefone = "Telefone inválido.";
-    if (!form.cidadeEstado.trim()) e.cidadeEstado = "Informe cidade/estado.";
+    {
+      const digits = form.telefone.replace(/\D/g, "");
+      if (digits.length === 0) {
+        e.telefone = "Informe seu telefone com DDD.";
+      } else if (digits.length < 10 || digits.length > 11) {
+        e.telefone = "Telefone inválido. Inclua DDD e número.";
+      }
+    }
+    if (!form.estado) e.estado = "Selecione seu estado.";
+    if (!form.cidade) e.cidade = "Selecione sua cidade.";
     if (!form.instituicao.trim()) e.instituicao = "Informe instituição/empresa.";
     if (!form.area) e.area = "Selecione uma área.";
     if (!form.experiencia) e.experiencia = "Selecione sua experiência.";
     if (form.motivacao.trim().length < 20)
       e.motivacao = "Conte um pouco mais (mín. 20 caracteres).";
-    if (comprovantes.length === 0)
+    if (comprovantes.length === 0) {
       e.comprovantes = "Anexe ao menos um comprovante de atuação na área.";
+    } else {
+      const total = comprovantes.reduce((s, f) => s + f.size, 0);
+      if (total > MAX_TOTAL_SIZE_BYTES) {
+        e.comprovantes = `Os arquivos somam ${(total / 1024 / 1024).toFixed(
+          1
+        )} MB. O total não pode passar de ${MAX_TOTAL_SIZE_MB} MB.`;
+      }
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -70,8 +191,11 @@ export default function Inscricao() {
 
     const fd = new FormData();
     (Object.keys(form) as (keyof FormState)[]).forEach((k) => {
+      if (k === "estado" || k === "cidade") return;
       fd.append(k, form[k]);
     });
+    // Backend e planilha continuam recebendo "Cidade/UF" como antes.
+    fd.append("cidadeEstado", `${form.cidade}/${form.estado}`);
     comprovantes.forEach((f) => fd.append("comprovantes", f));
 
     // honeypot — preenchido só por bots (humano nunca vê este campo)
@@ -156,18 +280,29 @@ export default function Inscricao() {
           noValidate
           className="card space-y-4"
         >
-          {/* honeypot anti-bot — escondido visualmente e da leitura de tela */}
-          <div aria-hidden className="hidden" style={{ position: "absolute", left: "-9999px" }}>
-            <label>
-              Não preencha este campo
-              <input
-                type="text"
-                name="website"
-                tabIndex={-1}
-                autoComplete="off"
-                defaultValue=""
-              />
-            </label>
+          {/* honeypot anti-bot — escondido visualmente E pra leitor de tela.
+              Não usamos display:none porque alguns bots inteligentes ignoram
+              campos com display:none; a posição absoluta off-screen + aria-hidden
+              cobre os dois cenários. */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              left: "-9999px",
+              top: "-9999px",
+              width: 1,
+              height: 1,
+              overflow: "hidden",
+            }}
+          >
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              defaultValue=""
+              aria-hidden="true"
+            />
           </div>
 
           <Field
@@ -179,6 +314,7 @@ export default function Inscricao() {
                 onChange={handle("nome")}
                 placeholder="Seu nome"
                 autoComplete="name"
+                maxLength={FIELD_MAX_LENGTH.nome}
               />
             }
           />
@@ -194,6 +330,7 @@ export default function Inscricao() {
                   onChange={handle("email")}
                   placeholder="você@email.com"
                   autoComplete="email"
+                  maxLength={FIELD_MAX_LENGTH.email}
                 />
               }
             />
@@ -203,9 +340,16 @@ export default function Inscricao() {
               input={
                 <input
                   value={form.telefone}
-                  onChange={handle("telefone")}
+                  onChange={(ev) =>
+                    setForm({
+                      ...form,
+                      telefone: formatPhone(ev.target.value),
+                    })
+                  }
                   placeholder="(00) 00000-0000"
                   autoComplete="tel"
+                  inputMode="tel"
+                  maxLength={FIELD_MAX_LENGTH.telefone}
                 />
               }
             />
@@ -213,28 +357,70 @@ export default function Inscricao() {
 
           <div className="grid md:grid-cols-2 gap-4">
             <Field
-              label="Cidade/Estado"
-              error={errors.cidadeEstado}
+              label="Estado"
+              error={errors.estado}
               input={
-                <input
-                  value={form.cidadeEstado}
-                  onChange={handle("cidadeEstado")}
-                  placeholder="Natal/RN"
-                />
+                <select
+                  value={form.estado}
+                  onChange={(ev) =>
+                    setForm({
+                      ...form,
+                      estado: ev.target.value,
+                      cidade: "",
+                    })
+                  }
+                >
+                  <option value="">Selecione...</option>
+                  {UFS.map(([uf, nome]) => (
+                    <option key={uf} value={uf}>
+                      {nome}
+                    </option>
+                  ))}
+                </select>
               }
             />
             <Field
-              label="Instituição ou empresa"
-              error={errors.instituicao}
+              label="Cidade"
+              error={
+                errorCidades
+                  ? "Não foi possível carregar as cidades. Tente novamente."
+                  : errors.cidade
+              }
               input={
-                <input
-                  value={form.instituicao}
-                  onChange={handle("instituicao")}
-                  placeholder="Onde estuda ou trabalha"
-                />
+                <select
+                  value={form.cidade}
+                  onChange={handle("cidade")}
+                  disabled={!form.estado || loadingCidades}
+                >
+                  <option value="">
+                    {!form.estado
+                      ? "Escolha o estado primeiro"
+                      : loadingCidades
+                      ? "Carregando..."
+                      : "Selecione..."}
+                  </option>
+                  {cidades.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               }
             />
           </div>
+
+          <Field
+            label="Instituição ou empresa"
+            error={errors.instituicao}
+            input={
+              <input
+                value={form.instituicao}
+                onChange={handle("instituicao")}
+                placeholder="Onde estuda ou trabalha"
+                maxLength={FIELD_MAX_LENGTH.instituicao}
+              />
+            }
+          />
 
           <div className="grid md:grid-cols-2 gap-4">
             <Field
@@ -273,12 +459,26 @@ export default function Inscricao() {
             label="Motivação para participar"
             error={errors.motivacao}
             input={
-              <textarea
-                rows={4}
-                value={form.motivacao}
-                onChange={handle("motivacao")}
-                placeholder="O que te motiva a participar do Hackathon do Sol?"
-              />
+              <div>
+                <textarea
+                  rows={4}
+                  value={form.motivacao}
+                  onChange={handle("motivacao")}
+                  placeholder="O que te motiva a participar do Hackathon do Sol?"
+                  aria-describedby="motivacao-counter"
+                  maxLength={FIELD_MAX_LENGTH.motivacao}
+                />
+                <div
+                  id="motivacao-counter"
+                  className={`mt-1 text-[0.6875rem] tracking-normal normal-case font-normal text-right ${
+                    form.motivacao.trim().length >= 20
+                      ? "text-emerald-300/80"
+                      : "text-white/45"
+                  }`}
+                >
+                  {form.motivacao.trim().length}/20 caracteres mínimos
+                </div>
+              </div>
             }
           />
 
@@ -297,12 +497,18 @@ export default function Inscricao() {
           </button>
 
           {status === "success" && (
-            <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 text-emerald-200 px-4 py-3 text-sm">
+            <div
+              ref={messageRef}
+              className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 text-emerald-200 px-4 py-3 text-sm"
+            >
               ✓ {message}
             </div>
           )}
           {status === "error" && (
-            <div className="rounded-xl border border-red-400/30 bg-red-400/10 text-red-200 px-4 py-3 text-sm">
+            <div
+              ref={messageRef}
+              className="rounded-xl border border-red-400/30 bg-red-400/10 text-red-200 px-4 py-3 text-sm"
+            >
               ✕ {message}
             </div>
           )}
@@ -350,12 +556,21 @@ function FileUploadField({
     const valid: File[] = [];
     const rejected: string[] = [];
 
+    let runningTotal = files.reduce((s, f) => s + f.size, 0);
     for (const f of arr) {
       if (f.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
         rejected.push(`${f.name} (maior que ${MAX_FILE_SIZE_MB}MB)`);
         continue;
       }
+      // Bloqueia quem faria passar do limite total — não tenta encaixar parcial
+      if (runningTotal + f.size > MAX_TOTAL_SIZE_BYTES) {
+        rejected.push(
+          `${f.name} (passaria do limite total de ${MAX_TOTAL_SIZE_MB}MB)`
+        );
+        continue;
+      }
       valid.push(f);
+      runningTotal += f.size;
     }
 
     const combined = [...files, ...valid].slice(0, MAX_FILES);
@@ -366,6 +581,16 @@ function FileUploadField({
     if (rejected.length > 0) setRejectMsg(rejected.join(" · "));
     onChange(combined);
   };
+
+  const totalBytes = files.reduce((s, f) => s + f.size, 0);
+  const totalMb = totalBytes / 1024 / 1024;
+  const ratio = totalBytes / MAX_TOTAL_SIZE_BYTES;
+  const totalColor =
+    ratio > 1
+      ? "text-red-300"
+      : ratio > 0.85
+      ? "text-amber-300"
+      : "text-white/55";
 
   const removeFile = (idx: number) => {
     onChange(files.filter((_, i) => i !== idx));
@@ -441,7 +666,18 @@ function FileUploadField({
       </div>
 
       {files.length > 0 && (
-        <ul className="mt-3 space-y-2">
+        <div
+          className={`mt-3 text-xs font-normal tracking-normal normal-case flex justify-between items-center ${totalColor}`}
+        >
+          <span>
+            Total: {totalMb.toFixed(2)} MB de {MAX_TOTAL_SIZE_MB} MB permitidos
+          </span>
+          {ratio > 1 && <span>Remova um arquivo para enviar.</span>}
+        </div>
+      )}
+
+      {files.length > 0 && (
+        <ul className="mt-2 space-y-2">
           {files.map((f, i) => (
             <li
               key={`${f.name}-${i}`}

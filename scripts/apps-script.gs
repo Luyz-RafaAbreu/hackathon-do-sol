@@ -54,6 +54,20 @@ const CONFIG = {
   TIMEZONE: "America/Recife",
 };
 
+// Limites de tamanho por campo — defesa em profundidade caso o WEBHOOK_SECRET
+// vaze e alguém chame este endpoint direto, ou se o Next mudar e esquecer de
+// validar. Mantenha sincronizado com lib/limits.ts no projeto Next.
+const MAX_LENGTHS = {
+  nome: 100,
+  email: 254,
+  telefone: 15,
+  cidadeEstado: 100,
+  instituicao: 150,
+  area: 60,
+  experiencia: 30,
+  motivacao: 2000,
+};
+
 // Colunas da planilha (A, B, C, ...). Não mude a ordem depois do setup!
 const COLUMNS = [
   "Status",           // A  — dropdown: Pendente / Aprovado / Reprovado
@@ -79,6 +93,21 @@ const EMAIL_SENT_COL = 12; // L
 function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+
+  // Fail-safe: se a aba já tem dados (linhas além do cabeçalho), exige
+  // confirmação antes de apagar. Sem isso, executar setup() por engano numa
+  // planilha com inscrições reais wipea tudo silenciosamente.
+  if (sheet && sheet.getLastRow() > 1) {
+    const ui = SpreadsheetApp.getUi();
+    const resposta = ui.alert(
+      "⚠ Atenção",
+      `A aba "${CONFIG.SHEET_NAME}" tem ${sheet.getLastRow() - 1} linhas. ` +
+        "Rodar setup() vai APAGAR TUDO. Tem certeza?",
+      ui.ButtonSet.YES_NO
+    );
+    if (resposta !== ui.Button.YES) return;
+  }
+
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEET_NAME);
   }
@@ -146,17 +175,50 @@ function setup() {
 // ============================================================================
 function doPost(e) {
   try {
+    // Fail-safe: se o secret ainda for o placeholder, o sistema fica exposto
+    // (qualquer um que leia este arquivo no GitHub sabe a "senha"). Recusa a
+    // requisição de cara em vez de funcionar com defesa zero.
+    if (CONFIG.WEBHOOK_SECRET === "TROQUE-ISSO-POR-UM-TOKEN-SECRETO-ALEATORIO") {
+      return jsonResponse({ ok: false, error: "Secret not configured" });
+    }
+
     if (!e || !e.postData || !e.postData.contents) {
       return jsonResponse({ ok: false, error: "Empty body" });
     }
-    const data = JSON.parse(e.postData.contents);
 
-    // Autenticação via token compartilhado
-    if (data.secret !== CONFIG.WEBHOOK_SECRET) {
+    // Envelope assinado por HMAC-SHA256: { v, ts, payload, signature }
+    // O Next.js calcula signature = HMAC-SHA256(`${ts}.${payload}`, SECRET).
+    // Aqui recalculamos e comparamos em constant-time. Também rejeitamos
+    // requests com timestamp fora de uma janela de 5 min (anti-replay).
+    const envelope = JSON.parse(e.postData.contents);
+    if (
+      !envelope ||
+      envelope.v !== 1 ||
+      typeof envelope.ts !== "number" ||
+      typeof envelope.payload !== "string" ||
+      typeof envelope.signature !== "string"
+    ) {
       return jsonResponse({ ok: false, error: "Unauthorized" });
     }
 
-    // Validação básica
+    const skewMs = Math.abs(Date.now() - envelope.ts);
+    if (!isFinite(skewMs) || skewMs > 5 * 60 * 1000) {
+      return jsonResponse({ ok: false, error: "Unauthorized" });
+    }
+
+    const expected = computeHmacHex_(
+      String(envelope.ts) + "." + envelope.payload,
+      CONFIG.WEBHOOK_SECRET
+    );
+    if (!constantTimeEqual_(expected, envelope.signature)) {
+      return jsonResponse({ ok: false, error: "Unauthorized" });
+    }
+
+    const data = JSON.parse(envelope.payload);
+
+    // Validação básica + tampa de tamanho (defesa em profundidade — o Next já
+    // valida, mas se este endpoint for chamado direto com secret vazado, aqui
+    // segura).
     const required = [
       "nome",
       "email",
@@ -168,8 +230,13 @@ function doPost(e) {
       "motivacao",
     ];
     for (const k of required) {
-      if (!data[k] || String(data[k]).trim() === "") {
+      const v = data[k];
+      if (!v || String(v).trim() === "") {
         return jsonResponse({ ok: false, error: "Missing field: " + k });
+      }
+      const max = MAX_LENGTHS[k];
+      if (max && String(v).length > max) {
+        return jsonResponse({ ok: false, error: "Field too long: " + k });
       }
     }
 
@@ -177,10 +244,10 @@ function doPost(e) {
       CONFIG.SHEET_NAME
     );
     if (!sheet) {
-      return jsonResponse({
-        ok: false,
-        error: "Sheet not found. Run setup() first.",
-      });
+      console.error(
+        "Sheet '" + CONFIG.SHEET_NAME + "' não encontrada. Rode setup()."
+      );
+      return jsonResponse({ ok: false, error: "internal_error" });
     }
 
     // Dedup — rejeita se o email já existe (coluna D / col 4).
@@ -220,7 +287,8 @@ function doPost(e) {
           const file = personFolder.createFile(blob);
           links.push(`${f.name}: ${file.getUrl()}`);
         } catch (errFile) {
-          links.push(`${f.name}: ERRO ao salvar (${errFile.message})`);
+          console.error("Falha ao salvar arquivo " + f.name + ":", errFile);
+          links.push(`${f.name}: ERRO ao salvar`);
         }
       }
       fileLinks = links.join("\n");
@@ -253,8 +321,11 @@ function doPost(e) {
 
     return jsonResponse({ ok: true });
   } catch (err) {
-    console.error(err);
-    return jsonResponse({ ok: false, error: String(err) });
+    // Log completo fica no Apps Script (Executions). Pra fora só vai um código
+    // opaco — o stack trace tem caminhos internos do Drive/Sheets que não
+    // devem aparecer pro cliente.
+    console.error("doPost falhou:", err && err.stack ? err.stack : err);
+    return jsonResponse({ ok: false, error: "internal_error" });
   }
 }
 
@@ -299,9 +370,23 @@ function handleStatusChange(e) {
       return;
     }
 
-    // Se já foi enviado, não reenvia
+    // Bloqueia reenvio do MESMO tipo de e-mail. Permite Aprovado→Reprovado
+    // (e vice-versa) disparar o e-mail correspondente — admin pode corrigir
+    // uma decisão errada sem precisar limpar a coluna L à mão.
+    //
+    // Formato da coluna L: "Aprovação · dd/MM/yyyy HH:mm" ou "Reprovação · ...".
+    // Linhas legadas (só timestamp, sem prefixo) são tratadas como tipo
+    // desconhecido — permitimos um reenvio pra deixar o admin corrigir
+    // qualquer decisão antiga; nas próximas mudanças o novo formato já vale.
     const already = String(rowData[EMAIL_SENT_COL - 1] || "").trim();
-    if (already && !already.startsWith("ERRO")) return;
+    if (already && !already.startsWith("ERRO")) {
+      const lastType = already.startsWith("Aprovação")
+        ? "Aprovado"
+        : already.startsWith("Reprovação")
+        ? "Reprovado"
+        : null;
+      if (lastType === newStatus) return;
+    }
 
     if (newStatus === "Aprovado") {
       sendApprovalEmail(email, nome);
@@ -309,10 +394,13 @@ function handleStatusChange(e) {
       sendRejectionEmail(email, nome);
     }
 
+    const tipo = newStatus === "Aprovado" ? "Aprovação" : "Reprovação";
     sheet
       .getRange(row, EMAIL_SENT_COL)
       .setValue(
-        Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm")
+        tipo +
+          " · " +
+          Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm")
       );
   } catch (err) {
     console.error(err);
@@ -833,4 +921,32 @@ function escapeHtml(str) {
       "'": "&#39;",
     }[c];
   });
+}
+
+// HMAC-SHA256 em hex. Apps Script retorna bytes signed (-128..127), por isso
+// normalizamos para 0..255 antes de converter pra hex.
+function computeHmacHex_(text, secret) {
+  const bytes = Utilities.computeHmacSha256Signature(
+    text,
+    secret,
+    Utilities.Charset.UTF_8
+  );
+  let hex = "";
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i] < 0 ? bytes[i] + 256 : bytes[i];
+    if (b < 16) hex += "0";
+    hex += b.toString(16);
+  }
+  return hex;
+}
+
+// Comparação em tempo constante para evitar timing attacks na assinatura.
+function constantTimeEqual_(a, b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }

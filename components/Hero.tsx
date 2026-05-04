@@ -2,6 +2,8 @@
 import Image from "next/image";
 import { useEffect, useRef } from "react";
 import Countdown from "./Countdown";
+import { BLUR } from "@/lib/blur-data";
+import { EVENT } from "@/lib/event";
 
 export default function Hero() {
   const heroRef = useRef<HTMLElement | null>(null);
@@ -12,24 +14,56 @@ export default function Hero() {
     const logo = logoWrapRef.current;
     if (!el || !logo) return;
 
-    const onMove = (e: MouseEvent) => {
+    // Respeita preferência do SO — quem pediu menos animação não recebe parallax
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    let rafId: number | null = null;
+    let lastX = 0;
+    let lastY = 0;
+    let pending = false;
+    // Cache do rem — getComputedStyle a cada move é forced reflow caro.
+    // Re-lemos só em resize, que é quando a escala fluida (clamp em html)
+    // realmente muda.
+    let remPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
+
+    const apply = () => {
+      rafId = null;
+      if (!pending) return;
+      pending = false;
       const rect = el.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width - 0.5;
-      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      const x = (lastX - rect.left) / rect.width - 0.5;
+      const y = (lastY - rect.top) / rect.height - 0.5;
       // 1.125rem ≈ 18px em 1080p/720p, escala em 4K
-      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-      const d = 1.125 * rem;
+      const d = 1.125 * remPx;
       logo.style.transform = `translate3d(${x * d}px, ${y * d}px, 0)`;
     };
+
+    const onMove = (e: MouseEvent) => {
+      lastX = e.clientX;
+      lastY = e.clientY;
+      pending = true;
+      if (rafId === null) rafId = requestAnimationFrame(apply);
+    };
     const onLeave = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      pending = false;
       logo.style.transform = "translate3d(0,0,0)";
+    };
+    const onResize = () => {
+      remPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
     };
 
     el.addEventListener("mousemove", onMove);
     el.addEventListener("mouseleave", onLeave);
+    window.addEventListener("resize", onResize);
     return () => {
       el.removeEventListener("mousemove", onMove);
       el.removeEventListener("mouseleave", onLeave);
+      window.removeEventListener("resize", onResize);
+      if (rafId !== null) cancelAnimationFrame(rafId);
     };
   }, []);
 
@@ -48,7 +82,7 @@ export default function Hero() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-sol-orange" />
             </span>
             <span>Inscrições abertas</span>
-            <span className="hidden sm:inline"> — 160 vagas</span>
+            <span className="hidden sm:inline"> — {EVENT.SLOTS} vagas</span>
           </span>
         </div>
 
@@ -79,7 +113,7 @@ export default function Hero() {
         </div>
 
         <h1 className="sr-only">
-          Hackathon do Sol — 26 a 28 de junho — Praiamar Arena
+          {EVENT.NAME} — {EVENT.DATE_RANGE_SHORT} — {EVENT.LOCATION_NAME}
         </h1>
 
         <div className="mt-2 md:mt-3 text-center animate-fade-up" style={{ animationDelay: "360ms" }}>
@@ -145,6 +179,8 @@ function LogoWithRings() {
           quality={95}
           sizes="(min-width: 1024px) 380px, (min-width: 768px) 320px, 280px"
           className="w-full h-full object-cover"
+          placeholder="blur"
+          blurDataURL={BLUR["logo-hd"]}
         />
       </div>
 
@@ -251,13 +287,13 @@ function DateTag() {
 <div className="rounded-2xl overflow-hidden shadow-[0_1.125rem_2.5rem_-0.75rem_rgba(0,0,0,0.5)]">
           <div className="bg-white px-3 md:px-8 py-2 md:py-3.5 text-center">
             <div className="font-display font-extrabold text-xl md:text-4xl text-sol-purple leading-none tracking-tight">
-              26 A 28
+              {EVENT.DAYS_RANGE_UPPER}
             </div>
           </div>
           <div className="h-2.5 md:h-4 bg-[repeating-linear-gradient(135deg,#10b981_0,#10b981_0.5rem,#064e3b_0.5rem,#064e3b_1rem)]" />
           <div className="bg-sol-orange px-3 md:px-8 py-1.5 md:py-2.5 text-center">
             <div className="font-display font-extrabold text-[0.6875rem] md:text-base text-sol-purple tracking-[0.2em] md:tracking-[0.25em]">
-              DE JUNHO
+              DE {EVENT.MONTH_UPPER}
             </div>
           </div>
         </div>
@@ -276,7 +312,7 @@ function LocalTag() {
 <div className="rounded-2xl overflow-hidden shadow-[0_1.125rem_2.5rem_-0.75rem_rgba(0,0,0,0.5)]">
           <div className="bg-white px-3 md:px-8 py-2 md:py-3.5 text-center">
             <div className="font-display font-extrabold text-xs md:text-xl text-sol-purple leading-none tracking-tight whitespace-nowrap">
-              PRAIAMAR ARENA
+              {EVENT.LOCATION_NAME.toUpperCase()}
             </div>
           </div>
           <div className="h-2.5 md:h-4 bg-[repeating-linear-gradient(135deg,#ffc830_0,#ffc830_0.5rem,#92400e_0.5rem,#92400e_1rem)]" />

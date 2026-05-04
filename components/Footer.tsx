@@ -1,4 +1,6 @@
 import Image from "next/image";
+import { BLUR } from "@/lib/blur-data";
+import { EVENT } from "@/lib/event";
 
 export default function Footer() {
   return (
@@ -19,6 +21,8 @@ export default function Footer() {
                 width={40}
                 height={40}
                 className="relative rounded-full w-full h-full object-cover"
+                placeholder="blur"
+                blurDataURL={BLUR.logo}
               />
             </div>
             <span>
@@ -30,7 +34,7 @@ export default function Footer() {
           </a>
           <p className="text-white/55 text-sm leading-relaxed max-w-sm">
             Três dias de imersão em código, design e inovação, reunindo a
-            comunidade tech do Nordeste em Natal/RN.
+            comunidade tech do Nordeste em {EVENT.CITY_STATE}.
           </p>
         </div>
 
@@ -73,13 +77,13 @@ export default function Footer() {
                 <circle cx="12" cy="10" r="3" />
               </svg>
               <span>
-                Praiamar Arena
+                {EVENT.LOCATION_NAME}
                 <br />
-                Av. Senador Salgado Filho, 1906
+                {EVENT.LOCATION_ADDRESS}
                 <br />
-                Lagoa Nova, Natal/RN
+                {EVENT.LOCATION_NEIGHBORHOOD}, {EVENT.CITY_STATE}
                 <br />
-                CEP 59075-000
+                CEP {EVENT.LOCATION_ZIP}
               </span>
             </li>
           </ul>

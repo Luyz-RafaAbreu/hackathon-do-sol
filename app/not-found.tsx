@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import ParticlesCanvas from "@/components/ParticlesCanvas";
 import NotFoundHero from "@/components/NotFoundHero";
+import { BLUR } from "@/lib/blur-data";
 
 export const metadata: Metadata = {
   title: "Página não encontrada | Hackathon do Sol",
@@ -44,6 +45,8 @@ export default function NotFound() {
               height={40}
               className="relative rounded-full w-full h-full object-cover"
               priority
+              placeholder="blur"
+              blurDataURL={BLUR.logo}
             />
           </div>
           <span className="hidden sm:inline whitespace-nowrap">

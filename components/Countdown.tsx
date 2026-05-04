@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
+import { EVENT } from "@/lib/event";
 
-// Evento: 26 de junho de 2026, 09h00 (horário de Brasília)
-const TARGET = new Date("2026-06-26T09:00:00-03:00").getTime();
+const TARGET = EVENT.START_DATE.getTime();
 
 function diff(to: number) {
   const now = Date.now();
@@ -22,8 +22,37 @@ export default function Countdown() {
 
   useEffect(() => {
     setMounted(true);
-    const id = setInterval(() => setT(diff(TARGET)), 1000);
-    return () => clearInterval(id);
+
+    // Pausa o tick quando a aba fica oculta — sem isso, gastamos um setInterval
+    // por segundo de bateria do usuário sem ninguém ver. Ao voltar, atualizamos
+    // imediatamente pra cobrir o tempo que passou enquanto a aba estava parada.
+    let id: ReturnType<typeof setInterval> | null = null;
+
+    const start = () => {
+      if (id !== null) return;
+      setT(diff(TARGET));
+      id = setInterval(() => setT(diff(TARGET)), 1000);
+    };
+
+    const stop = () => {
+      if (id !== null) {
+        clearInterval(id);
+        id = null;
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) stop();
+      else start();
+    };
+
+    if (!document.hidden) start();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      stop();
+    };
   }, []);
 
   // evita hydration mismatch — só renderiza os números no client

@@ -39,7 +39,29 @@ export default function CustomCursor() {
       }
     };
 
+    // Cursor (.cc-arrow) tem 22px de largura com hotspot em (2,2), então o
+    // corpo se estende ~20px à direita do ponto do mouse. Sem essa folga, o
+    // cursor encosta visualmente na scrollbar ANTES do mouse entrar nela —
+    // como a scrollbar fica em uma camada acima de qualquer DOM (z-index não
+    // alcança), o resultado é o cursor parcialmente coberto pela scrollbar.
+    const CURSOR_RIGHT_OVERHANG = 24;
+
     const onMove = (e: MouseEvent) => {
+      const sbWidth =
+        window.innerWidth - document.documentElement.clientWidth;
+      // Inclui o overhang do cursor: a partir do momento em que o corpo do
+      // cursor encostaria na scrollbar, escondemos o custom e devolvemos o
+      // cursor nativo do SO.
+      const threshold =
+        window.innerWidth - sbWidth - CURSOR_RIGHT_OVERHANG;
+      const onScrollbar = sbWidth > 0 && e.clientX >= threshold;
+
+      if (onScrollbar) {
+        el.style.opacity = "0";
+        document.body.classList.remove("has-custom-cursor");
+        return;
+      }
+      document.body.classList.add("has-custom-cursor");
       el.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
       el.style.opacity = "1";
     };
