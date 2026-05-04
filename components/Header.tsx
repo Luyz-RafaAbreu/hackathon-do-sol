@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { BLUR } from "@/lib/blur-data";
 
 const links = [
@@ -250,18 +251,10 @@ export default function Header() {
                             : "text-white/40 group-hover:text-sol-orange"
                         }`}
                       >
-                        <svg
+                        <ArrowRight
                           className="w-4 h-4 transition-transform group-hover:translate-x-0.5"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M5 12h14" />
-                          <path d="m12 5 7 7-7 7" />
-                        </svg>
+                          strokeWidth={2}
+                        />
                       </span>
                     </a>
                   </li>
@@ -282,10 +275,10 @@ export default function Header() {
             <a
               onClick={() => setOpen(false)}
               href="#inscricao"
-              className="btn-primary w-full"
+              className="btn-primary group w-full"
             >
               <span className="relative z-10">Inscreva-se agora</span>
-              <span className="relative z-10">→</span>
+              <ArrowRight className="relative z-10 w-4 h-4" strokeWidth={2.5} />
             </a>
 
             <div className="flex items-center justify-center gap-4 pt-2">

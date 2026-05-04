@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { Plus } from "lucide-react";
 import Reveal from "./Reveal";
 
 const faqs = [
@@ -85,16 +86,7 @@ export default function FAQ() {
                     }`}
                     aria-hidden
                   >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      viewBox="0 0 14 14"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    >
-                      <path d="M7 1v12M1 7h12" />
-                    </svg>
+                    <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
                   </span>
                 </button>
                 <div

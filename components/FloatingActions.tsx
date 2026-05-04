@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { ArrowUp } from "lucide-react";
 
 export default function FloatingActions() {
   const [showTop, setShowTop] = useState(false);
@@ -21,17 +22,7 @@ export default function FloatingActions() {
           showTop ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
         }`}
       >
-        <svg
-          className="w-5 h-5 mx-auto"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12 19V5M5 12l7-7 7 7" />
-        </svg>
+        <ArrowUp className="w-5 h-5 mx-auto" strokeWidth={2.5} />
       </button>
 
       {/* WhatsApp / Contato — PLACEHOLDER: trocar número em href quando disponível */}

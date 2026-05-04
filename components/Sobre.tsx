@@ -1,4 +1,5 @@
 import Reveal from "./Reveal";
+import TiltCard from "./TiltCard";
 
 export default function Sobre() {
   return (
@@ -29,7 +30,7 @@ export default function Sobre() {
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
           {stats.map((s, i) => (
             <Reveal key={s.label} delay={100 * i}>
-              <div className="card text-center group relative overflow-hidden !p-4 sm:!p-5 md:!p-6">
+              <TiltCard className="card text-center group relative overflow-hidden !p-4 sm:!p-5 md:!p-6">
                 <div
                   className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${s.cor}`}
                 />
@@ -44,7 +45,7 @@ export default function Sobre() {
                     {s.label}
                   </div>
                 </div>
-              </div>
+              </TiltCard>
             </Reveal>
           ))}
         </div>

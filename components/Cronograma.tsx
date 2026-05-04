@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import Reveal from "./Reveal";
+import TiltCard from "./TiltCard";
 
 const dias = [
   {
@@ -69,7 +70,7 @@ export default function Cronograma() {
       <div className="grid md:grid-cols-3 gap-6">
         {dias.map((d, i) => (
           <Reveal key={d.data} delay={i * 140}>
-            <div className="card group relative overflow-hidden h-full">
+            <TiltCard className="card group relative overflow-hidden h-full">
               <div
                 className={`absolute inset-x-0 top-0 h-[0.125rem] bg-gradient-to-r ${d.cor}`}
               />
@@ -107,7 +108,7 @@ export default function Cronograma() {
                   })}
                 </dl>
               </div>
-            </div>
+            </TiltCard>
           </Reveal>
         ))}
       </div>

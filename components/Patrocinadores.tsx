@@ -1,3 +1,4 @@
+import { ArrowRight } from "lucide-react";
 import Reveal from "./Reveal";
 
 const patrocinadores = [
@@ -45,9 +46,10 @@ export default function Patrocinadores() {
                 className="group h-20 min-w-[12.5rem] px-8 flex items-center justify-center gap-2 rounded-2xl border-[0.125rem] border-dashed border-sol-orange/40 bg-sol-orange/5 text-sol-orange text-sm font-semibold transition-all duration-500 hover:border-sol-orange hover:bg-sol-orange/10 hover:-translate-y-1 hover:shadow-[0_1.25rem_2.5rem_-1.25rem_rgba(255,140,0,0.5)]"
               >
                 <span>Seja patrocinador</span>
-                <span className="inline-block transition-transform group-hover:translate-x-1">
-                  →
-                </span>
+                <ArrowRight
+                  className="w-4 h-4 transition-transform group-hover:translate-x-1"
+                  strokeWidth={2.5}
+                />
               </a>
             </div>
 

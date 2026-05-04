@@ -1,22 +1,29 @@
+import { FileText, BookOpen, Compass, Clock, type LucideIcon } from "lucide-react";
 import Reveal from "./Reveal";
+import TiltCard from "./TiltCard";
 
-const materiais = [
+const materiais: {
+  titulo: string;
+  descricao: string;
+  Icon: LucideIcon;
+  cor: string;
+}[] = [
   {
     titulo: "Edital oficial",
     descricao: "Regras, critérios de avaliação e condições de participação.",
-    icon: "📄",
+    Icon: FileText,
     cor: "from-sol-yellow to-sol-orange",
   },
   {
     titulo: "Regulamento",
     descricao: "Normas de conduta, formação de equipes e uso da estrutura.",
-    icon: "📘",
+    Icon: BookOpen,
     cor: "from-sol-orange to-sol-pink",
   },
   {
     titulo: "Guia do participante",
     descricao: "Dicas, cronograma detalhado e lista do que levar.",
-    icon: "🎒",
+    Icon: Compass,
     cor: "from-sol-pink to-sol-purpleLight",
   },
 ];
@@ -47,7 +54,7 @@ export default function Materiais() {
       <div className="grid md:grid-cols-3 gap-6">
         {materiais.map((m, i) => (
           <Reveal key={m.titulo} delay={i * 120}>
-            <div className="card group h-full relative overflow-hidden flex flex-col">
+            <TiltCard className="card group h-full relative overflow-hidden flex flex-col">
               {/* listra gradiente no topo */}
               <div
                 className={`absolute inset-x-0 top-0 h-[0.125rem] bg-gradient-to-r ${m.cor}`}
@@ -59,8 +66,10 @@ export default function Materiais() {
 
               <div className="relative flex flex-col h-full">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="text-4xl inline-block transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6">
-                    {m.icon}
+                  <div
+                    className={`inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br ${m.cor} shadow-[0_0.5rem_1.25rem_-0.5rem_rgba(255,140,0,0.5)] transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-6`}
+                  >
+                    <m.Icon className="w-6 h-6 text-sol-bgDeep" strokeWidth={2.2} />
                   </div>
                   <span className="relative inline-flex items-center gap-1.5 text-[0.625rem] uppercase tracking-[0.25em] font-semibold text-sol-orange bg-sol-orange/10 border border-sol-orange/30 rounded-full px-3 py-1">
                     <span className="relative flex h-1.5 w-1.5">
@@ -79,22 +88,11 @@ export default function Materiais() {
                 </p>
 
                 <span className="inline-flex items-center gap-2 text-white/35 font-semibold text-sm cursor-not-allowed pt-3 border-t border-white/[0.06]">
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 6v6l4 2" />
-                  </svg>
+                  <Clock className="w-4 h-4" strokeWidth={2} />
                   Disponível em breve
                 </span>
               </div>
-            </div>
+            </TiltCard>
           </Reveal>
         ))}
       </div>

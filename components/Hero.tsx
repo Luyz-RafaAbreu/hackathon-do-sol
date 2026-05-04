@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useRef } from "react";
+import { ArrowRight } from "lucide-react";
 import Countdown from "./Countdown";
 import { BLUR } from "@/lib/blur-data";
 import { EVENT } from "@/lib/event";
@@ -130,9 +131,12 @@ export default function Hero() {
           className="mt-4 md:mt-5 flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 animate-fade-up"
           style={{ animationDelay: "600ms" }}
         >
-          <a href="#inscricao" className="btn-primary text-sm md:text-base">
+          <a href="#inscricao" className="btn-primary group text-sm md:text-base">
             <span className="relative z-10">Inscreva-se agora</span>
-            <span className="relative z-10 transition-transform group-hover:translate-x-1">→</span>
+            <ArrowRight
+              className="relative z-10 w-4 h-4 transition-transform group-hover:translate-x-1"
+              strokeWidth={2.5}
+            />
           </a>
           <a href="#sobre" className="btn-secondary text-sm md:text-base">
             Saiba mais

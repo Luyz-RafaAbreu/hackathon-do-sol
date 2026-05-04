@@ -3,6 +3,9 @@ import { Inter, Space_Grotesk } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import CustomCursor from "@/components/CustomCursor";
+import CustomScrollbar from "@/components/CustomScrollbar";
+import SmoothScroll from "@/components/SmoothScroll";
+import GrainOverlay from "@/components/GrainOverlay";
 import { EVENT } from "@/lib/event";
 import "./globals.css";
 
@@ -107,7 +110,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd) }}
         />
+        <SmoothScroll />
+        <CustomScrollbar />
         <CustomCursor />
+        <GrainOverlay />
         {children}
         <Analytics />
         <SpeedInsights />

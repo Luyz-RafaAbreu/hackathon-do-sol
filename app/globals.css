@@ -14,9 +14,12 @@
 }
 
 html {
-  scroll-behavior: smooth;
-  /* reserva o espaço da scrollbar sempre — evita "salto" quando o menu mobile trava o scroll */
-  scrollbar-gutter: stable;
+  /* `scroll-behavior: smooth` removido — components/SmoothScroll.tsx (Lenis)
+     assume o controle e adiciona inércia. Deixar o CSS ligado causaria
+     double-easing nos anchors e brigaria com o drag da CustomScrollbar. */
+  /* Esconde a scrollbar nativa — substituída por components/CustomScrollbar.tsx,
+     que renderiza em DOM pra que o cursor custom passe por cima sem cortar. */
+  scrollbar-width: none; /* Firefox */
   /* Escala acima de 1080p para preenchimento adequado em monitores grandes.
      A curva cruza exatamente 16px em 1920px (1080p preservado) e sobe forte depois:
        720p  (1280px) → 16px (clamp mínimo)
@@ -33,15 +36,9 @@ html {
   color: #0f0624;
 }
 
+/* WebKit/Blink: idem — esconde a scrollbar nativa em favor da custom (DOM) */
 ::-webkit-scrollbar {
-  width: 0.625rem;
-}
-::-webkit-scrollbar-track {
-  background: #0f0624;
-}
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #7c3aed, #ff8c00);
-  border-radius: 0.625rem;
+  display: none;
 }
 
 body {

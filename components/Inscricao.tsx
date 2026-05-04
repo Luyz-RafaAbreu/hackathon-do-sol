@@ -1,5 +1,6 @@
 "use client";
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { Check, UploadCloud, FileText, X } from "lucide-react";
 import { FIELD_MAX_LENGTH } from "@/lib/limits";
 import Reveal from "./Reveal";
 
@@ -256,17 +257,7 @@ export default function Inscricao() {
             ].map((t) => (
               <li key={t} className="flex gap-3 items-start">
                 <span className="mt-0.5 shrink-0 w-5 h-5 rounded-full bg-sol-orange/15 border border-sol-orange/40 flex items-center justify-center">
-                  <svg
-                    className="w-3 h-3 text-sol-orange"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
+                  <Check className="w-3 h-3 text-sol-orange" strokeWidth={3} />
                 </span>
                 <span>{t}</span>
               </li>
@@ -632,21 +623,12 @@ function FileUploadField({
             : "border-white/15 bg-white/[0.03] hover:border-sol-orange/50 hover:bg-white/[0.06]"
         }`}
       >
-        <svg
+        <UploadCloud
           className={`w-8 h-8 mx-auto mb-2 transition ${
             isDragging ? "text-sol-orange" : "text-white/40 group-hover:text-sol-orange"
           }`}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="17 8 12 3 7 8" />
-          <line x1="12" y1="3" x2="12" y2="15" />
-        </svg>
+          strokeWidth={1.6}
+        />
         <p className="text-sm text-white/80 font-medium">
           Clique para selecionar{" "}
           <span className="text-white/50">ou arraste os arquivos aqui</span>
@@ -685,18 +667,7 @@ function FileUploadField({
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <span className="shrink-0 w-7 h-7 rounded-lg bg-sol-orange/15 border border-sol-orange/30 flex items-center justify-center">
-                  <svg
-                    className="w-3.5 h-3.5 text-sol-orange"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                  </svg>
+                  <FileText className="w-3.5 h-3.5 text-sol-orange" strokeWidth={2} />
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm text-white/90 truncate font-medium">
@@ -716,18 +687,7 @@ function FileUploadField({
                 aria-label={`Remover ${f.name}`}
                 className="shrink-0 w-7 h-7 rounded-lg text-white/50 hover:text-red-300 hover:bg-red-400/10 transition flex items-center justify-center"
               >
-                <svg
-                  className="w-4 h-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
+                <X className="w-4 h-4" strokeWidth={2} />
               </button>
             </li>
           ))}
