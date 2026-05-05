@@ -239,7 +239,7 @@ function LogoWithRings() {
           perto do raio de órbita dos satélites (que orbitam na borda exata).
           Logo em inset-6 fica bem dentro, espaço maior entre logo e anel. */}
       <div
-        className="absolute inset-1.5 rounded-full border border-dashed border-white/35 animate-spin-reverse pointer-events-none"
+        className="absolute inset-2 rounded-full border border-dashed border-white/35 animate-spin-reverse pointer-events-none"
         aria-hidden
       />
 
