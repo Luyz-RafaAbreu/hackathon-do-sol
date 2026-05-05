@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Header from "@/components/Header";
 import InscricaoIntro from "@/components/InscricaoIntro";
 import Inscricao from "@/components/Inscricao";
+import InscricoesEncerradas from "@/components/InscricoesEncerradas";
 import Footer from "@/components/Footer";
 import ScrollProgress from "@/components/ScrollProgress";
 import FloatingActions from "@/components/FloatingActions";
 import ParticlesCanvas from "@/components/ParticlesCanvas";
+import { getInscriptionsStatus } from "@/lib/inscriptions";
 import { EVENT } from "@/lib/event";
 
 /**
@@ -20,17 +22,22 @@ export const metadata: Metadata = {
   alternates: { canonical: "/inscricao" },
 };
 
-export default function InscricaoPage() {
+export default async function InscricaoPage() {
+  const { open: inscriptionsOpen, message } = await getInscriptionsStatus();
   return (
     <>
       <ParticlesCanvas />
       <main className="relative z-10 overflow-x-hidden">
         <ScrollProgress />
-        <Header />
+        <Header inscriptionsOpen={inscriptionsOpen} />
         {/* InscricaoIntro tem padding-top próprio que já compensa altura
             do header fixo + dá respiro pra hero — sem wrapper extra. */}
-        <InscricaoIntro />
-        <Inscricao />
+        <InscricaoIntro inscriptionsOpen={inscriptionsOpen} />
+        {inscriptionsOpen ? (
+          <Inscricao />
+        ) : (
+          <InscricoesEncerradas message={message} />
+        )}
         <Footer />
         <FloatingActions />
       </main>

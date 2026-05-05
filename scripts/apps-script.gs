@@ -50,6 +50,7 @@ const CONFIG = {
 
   // Nomes internos (só mude se souber o que tá fazendo)
   SHEET_NAME: "Inscricoes",
+  CONFIG_SHEET_NAME: "Configurações",
   DRIVE_FOLDER_NAME: "Hackathon do Sol — Comprovantes",
   TIMEZONE: "America/Recife",
 };
@@ -161,6 +162,9 @@ function setup() {
   const widths = [110, 140, 180, 200, 130, 130, 160, 140, 130, 280, 200, 140, 200];
   widths.forEach((w, i) => sheet.setColumnWidth(i + 1, w));
 
+  // Cria também a aba de Configurações (controle de inscrições aberta/fechada)
+  setupConfigSheet();
+
   SpreadsheetApp.getUi().alert(
     "✓ Planilha configurada!\n\n" +
       "Próximos passos:\n" +
@@ -168,6 +172,91 @@ function setup() {
       "2. Menu: Implantar → Nova implantação → Aplicativo da Web\n" +
       "3. Copie a URL gerada e coloque no .env.local do Next"
   );
+}
+
+// ============================================================================
+// SETUP CONFIG — cria/atualiza a aba "Configurações" (controle das inscrições)
+// ----------------------------------------------------------------------------
+// Roda automaticamente dentro do setup() principal, mas pode ser executado
+// avulso se a aba foi apagada/corrompida. Nunca sobrescreve valores existentes.
+//
+// A aba criada tem 2 linhas:
+//   - B1 (checkbox): inscrições abertas?  TRUE/FALSE
+//   - B2 (texto):    mensagem mostrada no site quando fechado
+//
+// Pra fechar inscrições:
+//   1. Abra a aba "Configurações"
+//   2. Desmarque a checkbox em B1
+//   3. (opcional) Edite a mensagem em B2
+//   4. Pronto — em ~1 minuto o site reflete a mudança
+// ============================================================================
+function setupConfigSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(CONFIG.CONFIG_SHEET_NAME);
+  if (sheet) return; // já existe — não sobrescreve
+
+  sheet = ss.insertSheet(CONFIG.CONFIG_SHEET_NAME);
+
+  // Headers
+  sheet.getRange("A1").setValue("Inscrições abertas?");
+  sheet.getRange("A2").setValue("Mensagem quando fechado");
+  sheet
+    .getRange("A1:A2")
+    .setFontWeight("bold")
+    .setBackground("#4c1d95")
+    .setFontColor("#ffffff")
+    .setVerticalAlignment("middle");
+
+  // Valores default
+  sheet.getRange("B1").setValue(true);
+  sheet
+    .getRange("B1")
+    .setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+  sheet
+    .getRange("B2")
+    .setValue(
+      "Inscrições encerradas. Siga @hackathondosol pra ficar por dentro da próxima edição."
+    );
+  sheet.getRange("B2").setWrap(true);
+
+  // Larguras + altura
+  sheet.setColumnWidth(1, 220);
+  sheet.setColumnWidth(2, 480);
+  sheet.setRowHeight(1, 32);
+  sheet.setRowHeight(2, 60);
+
+  // Nota explicativa abaixo
+  sheet.getRange("A4").setValue(
+    "ℹ Pra fechar/abrir inscrições, basta marcar/desmarcar a checkbox em B1."
+  );
+  sheet.getRange("A4").setFontColor("#666666").setFontStyle("italic");
+}
+
+// ============================================================================
+// doGet — endpoint público que devolve o status atual das inscrições
+// ----------------------------------------------------------------------------
+// O site Next.js consulta isso a cada ~1 minuto pra saber se mostra o
+// formulário ou a mensagem de "encerradas". Lê direto da aba Configurações
+// (B1 = checkbox aberto/fechado, B2 = mensagem custom).
+//
+// É público (sem HMAC) porque os dados são públicos e o site precisa fetchar
+// sem expor segredos no client. Em caso de erro, devolve `open: true` —
+// melhor deixar o usuário tentar do que travar por blip da planilha.
+// ============================================================================
+function doGet() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.CONFIG_SHEET_NAME);
+    if (!sheet) {
+      return jsonResponse({ open: true, message: "" });
+    }
+    const open = sheet.getRange("B1").getValue() === true;
+    const message = String(sheet.getRange("B2").getValue() || "");
+    return jsonResponse({ open: open, message: message });
+  } catch (err) {
+    console.error("doGet falhou:", err);
+    return jsonResponse({ open: true, message: "" });
+  }
 }
 
 // ============================================================================

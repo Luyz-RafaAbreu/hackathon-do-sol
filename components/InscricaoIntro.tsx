@@ -7,7 +7,11 @@ import { EVENT } from "@/lib/event";
  * presença sem virar hero gigante. Hierarquia: pill → brand line →
  * título grande → descrição → chips em pílulas.
  */
-export default function InscricaoIntro() {
+export default function InscricaoIntro({
+  inscriptionsOpen = true,
+}: {
+  inscriptionsOpen?: boolean;
+}) {
   const chips = [
     { Icon: CalendarDays, label: EVENT.DATE_RANGE_SHORT },
     { Icon: MapPin, label: EVENT.LOCATION_SHORT },
@@ -18,13 +22,31 @@ export default function InscricaoIntro() {
   return (
     <section className="relative px-6 md:px-10 max-w-3xl mx-auto pt-20 md:pt-24 pb-5 text-center">
       <Reveal>
-        <div className="inline-flex items-center gap-2 mb-3 rounded-full bg-sol-orange/10 border border-sol-orange/30 px-3.5 py-1.5 backdrop-blur-sm">
+        <div
+          className={`inline-flex items-center gap-2 mb-3 rounded-full border px-3.5 py-1.5 backdrop-blur-sm ${
+            inscriptionsOpen
+              ? "bg-sol-orange/10 border-sol-orange/30"
+              : "bg-white/5 border-white/15"
+          }`}
+        >
           <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full rounded-full bg-sol-orange opacity-75 animate-ping" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-sol-orange" />
+            <span
+              className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                inscriptionsOpen ? "bg-sol-orange animate-ping" : "bg-white/40"
+              }`}
+            />
+            <span
+              className={`relative inline-flex rounded-full h-1.5 w-1.5 ${
+                inscriptionsOpen ? "bg-sol-orange" : "bg-white/40"
+              }`}
+            />
           </span>
-          <span className="font-mono text-[0.625rem] md:text-[0.6875rem] uppercase tracking-[0.22em] text-sol-orange font-medium">
-            Inscrições abertas
+          <span
+            className={`font-mono text-[0.625rem] md:text-[0.6875rem] uppercase tracking-[0.22em] font-medium ${
+              inscriptionsOpen ? "text-sol-orange" : "text-white/60"
+            }`}
+          >
+            {inscriptionsOpen ? "Inscrições abertas" : "Inscrições encerradas"}
           </span>
         </div>
       </Reveal>
@@ -34,7 +56,11 @@ export default function InscricaoIntro() {
           {EVENT.NAME} · {EVENT.YEAR}
         </p>
         <h1 className="font-display font-bold text-3xl md:text-4xl leading-[1.05] tracking-tight mb-5">
-          Inscreva-<span className="text-gradient-animated">se</span>
+          {inscriptionsOpen ? (
+            <>Inscreva-<span className="text-gradient-animated">se</span></>
+          ) : (
+            <>Inscri<span className="text-gradient-animated">ções</span></>
+          )}
         </h1>
       </Reveal>
 

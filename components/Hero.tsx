@@ -1,13 +1,17 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useRef } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Lock } from "lucide-react";
 import Countdown from "./Countdown";
 import MagneticButton from "./MagneticButton";
 import { BLUR } from "@/lib/blur-data";
 import { EVENT } from "@/lib/event";
 
-export default function Hero() {
+export default function Hero({
+  inscriptionsOpen = true,
+}: {
+  inscriptionsOpen?: boolean;
+}) {
   const heroRef = useRef<HTMLElement | null>(null);
   const logoWrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -80,11 +84,25 @@ export default function Hero() {
         <div className="text-center mb-2 md:mb-3 animate-fade-up">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 backdrop-blur px-4 py-1 text-[0.625rem] md:text-xs uppercase tracking-[0.3em] text-white/80">
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-sol-orange opacity-75 animate-ping" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-sol-orange" />
+              <span
+                className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  inscriptionsOpen ? "bg-sol-orange animate-ping" : "bg-white/40"
+                }`}
+              />
+              <span
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  inscriptionsOpen ? "bg-sol-orange" : "bg-white/40"
+                }`}
+              />
             </span>
-            <span>Inscrições abertas</span>
-            <span className="hidden sm:inline"> — {EVENT.SLOTS} vagas</span>
+            {inscriptionsOpen ? (
+              <>
+                <span>Inscrições abertas</span>
+                <span className="hidden sm:inline"> — {EVENT.SLOTS} vagas</span>
+              </>
+            ) : (
+              <span>Inscrições encerradas</span>
+            )}
           </span>
         </div>
 
@@ -128,19 +146,61 @@ export default function Hero() {
           <Countdown />
         </div>
 
+        {!inscriptionsOpen && (
+          <div
+            className="mt-5 md:mt-6 mx-auto max-w-2xl animate-fade-up"
+            style={{ animationDelay: "540ms" }}
+          >
+            <div className="relative rounded-2xl border-[0.125rem] border-sol-orange/40 bg-sol-orange/[0.06] backdrop-blur-sm px-5 py-4 md:px-6 md:py-5 flex items-center gap-4 overflow-hidden">
+              <div
+                aria-hidden
+                className="absolute inset-x-0 top-0 h-[0.125rem] bg-gradient-to-r from-transparent via-sol-orange to-transparent"
+              />
+              <div className="shrink-0 w-11 h-11 rounded-xl bg-sol-orange/15 border border-sol-orange/40 flex items-center justify-center">
+                <Lock className="w-5 h-5 text-sol-orange" strokeWidth={2.2} />
+              </div>
+              <div className="text-left">
+                <div className="font-display font-bold text-base md:text-lg leading-tight text-white">
+                  Inscrições encerradas
+                </div>
+                <div className="text-xs md:text-sm text-white/70 leading-snug mt-0.5">
+                  Acompanhe o @hackathondosol pra ser avisado da próxima edição.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div
           className="mt-4 md:mt-5 flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 animate-fade-up"
           style={{ animationDelay: "600ms" }}
         >
-          <MagneticButton>
-            <a href="/inscricao" className="btn-primary group text-sm md:text-base">
-              <span className="relative z-10">Inscreva-se agora</span>
-              <ArrowRight
-                className="relative z-10 w-4 h-4 transition-transform group-hover:translate-x-1"
-                strokeWidth={2.5}
-              />
-            </a>
-          </MagneticButton>
+          {inscriptionsOpen ? (
+            <MagneticButton>
+              <a href="/inscricao" className="btn-primary group text-sm md:text-base">
+                <span className="relative z-10">Inscreva-se agora</span>
+                <ArrowRight
+                  className="relative z-10 w-4 h-4 transition-transform group-hover:translate-x-1"
+                  strokeWidth={2.5}
+                />
+              </a>
+            </MagneticButton>
+          ) : (
+            <MagneticButton>
+              <a
+                href="https://instagram.com/hackathondosol"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border-[0.125rem] border-sol-orange/50 bg-sol-orange/10 text-sol-orange font-semibold px-7 py-3 text-sm md:text-base hover:border-sol-orange hover:bg-sol-orange/15 transition"
+              >
+                {/* Lucide não tem Instagram (trademark) — SVG inline */}
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 1.366.062 2.633.334 3.608 1.308.975.975 1.247 2.242 1.308 3.608.058 1.266.069 1.646.069 4.85s-.011 3.584-.069 4.85c-.062 1.366-.334 2.633-1.308 3.608-.975.975-2.242 1.247-3.608 1.308-1.266.058-1.646.069-4.85.069s-3.584-.011-4.85-.069c-1.366-.062-2.633-.334-3.608-1.308-.975-.975-1.247-2.242-1.308-3.608C2.175 15.584 2.163 15.204 2.163 12s.012-3.584.07-4.85c.062-1.366.334-2.633 1.308-3.608.975-.975 2.242-1.247 3.608-1.308C8.416 2.175 8.796 2.163 12 2.163zm0 1.838c-3.141 0-3.51.012-4.747.068-.975.045-1.504.207-1.857.344-.467.181-.8.398-1.15.748-.35.35-.567.683-.748 1.15-.137.353-.299.882-.344 1.857C3.098 9.49 3.086 9.859 3.086 13s.012 3.51.068 4.747c.045.975.207 1.504.344 1.857.181.467.398.8.748 1.15.35.35.683.567 1.15.748.353.137.882.299 1.857.344 1.237.056 1.606.068 4.747.068s3.51-.012 4.747-.068c.975-.045 1.504-.207 1.857-.344.467-.181.8-.398 1.15-.748.35-.35.567-.683.748-1.15.137-.353.299-.882.344-1.857.056-1.237.068-1.606.068-4.747s-.012-3.51-.068-4.747c-.045-.975-.207-1.504-.344-1.857a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.299-1.857-.344C15.51 4.013 15.141 4.001 12 4.001zm0 3.136A4.863 4.863 0 1112 16.862 4.863 4.863 0 0112 7.137zm0 8.021a3.158 3.158 0 100-6.316 3.158 3.158 0 000 6.316zm6.188-8.224a1.137 1.137 0 11-2.274 0 1.137 1.137 0 012.274 0z" />
+                </svg>
+                <span>Siga pra próxima edição</span>
+              </a>
+            </MagneticButton>
+          )}
           <MagneticButton>
             <a href="#sobre" className="btn-secondary text-sm md:text-base">
               Saiba mais

@@ -1,3 +1,4 @@
+import { getInscriptionsStatus } from "@/lib/inscriptions";
 import Header from "@/components/Header";
 import ScrollProgress from "@/components/ScrollProgress";
 import FloatingActions from "@/components/FloatingActions";
@@ -12,14 +13,15 @@ import FAQ from "@/components/FAQ";
 import Patrocinadores from "@/components/Patrocinadores";
 import Footer from "@/components/Footer";
 
-export default function Home() {
+export default async function Home() {
+  const { open: inscriptionsOpen } = await getInscriptionsStatus();
   return (
     <>
       <ParticlesCanvas />
       <main className="relative z-10 overflow-x-hidden">
         <ScrollProgress />
-        <Header />
-        <Hero />
+        <Header inscriptionsOpen={inscriptionsOpen} />
+        <Hero inscriptionsOpen={inscriptionsOpen} />
         <Marquee />
         <Sobre />
         <Informacoes />

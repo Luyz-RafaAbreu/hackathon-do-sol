@@ -14,7 +14,11 @@ const links = [
   { href: "#faq", label: "FAQ" },
 ];
 
-export default function Header() {
+export default function Header({
+  inscriptionsOpen = true,
+}: {
+  inscriptionsOpen?: boolean;
+}) {
   const pathname = usePathname();
   const isHome = pathname === "/";
   // Quando não está na home, anchors precisam apontar pra `/#sobre` etc.
@@ -167,11 +171,13 @@ export default function Header() {
 
         {/* Ações à direita */}
         <div className="flex items-center gap-2">
-          <MagneticButton className="hidden md:inline-block">
-            <a href="/inscricao" className="btn-primary !px-5 !py-2 text-sm">
-              Inscreva-se
-            </a>
-          </MagneticButton>
+          {inscriptionsOpen && (
+            <MagneticButton className="hidden md:inline-block">
+              <a href="/inscricao" className="btn-primary !px-5 !py-2 text-sm">
+                Inscreva-se
+              </a>
+            </MagneticButton>
+          )}
 
           {/* Hamburger animado */}
           <button
@@ -280,14 +286,16 @@ export default function Header() {
               transitionDelay: open ? `${80 + links.length * 50 + 50}ms` : "0ms",
             }}
           >
-            <a
-              onClick={() => setOpen(false)}
-              href="/inscricao"
-              className="btn-primary group w-full"
-            >
-              <span className="relative z-10">Inscreva-se agora</span>
-              <ArrowRight className="relative z-10 w-4 h-4" strokeWidth={2.5} />
-            </a>
+            {inscriptionsOpen && (
+              <a
+                onClick={() => setOpen(false)}
+                href="/inscricao"
+                className="btn-primary group w-full"
+              >
+                <span className="relative z-10">Inscreva-se agora</span>
+                <ArrowRight className="relative z-10 w-4 h-4" strokeWidth={2.5} />
+              </a>
+            )}
 
             <div className="flex items-center justify-center gap-4 pt-2">
               <a
