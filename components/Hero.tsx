@@ -214,7 +214,7 @@ export default function Hero({
 
 function LogoWithRings() {
   return (
-    <div className="relative aspect-square w-[min(15rem,36vh)] sm:w-[min(17.5rem,38vh)] md:w-[min(20rem,38vh)] lg:w-[min(23.75rem,40vh)] [--orbit-r:calc(min(15rem,36vh)/2)] sm:[--orbit-r:calc(min(17.5rem,38vh)/2)] md:[--orbit-r:calc(min(20rem,38vh)/2)] lg:[--orbit-r:calc(min(23.75rem,40vh)/2)]">
+    <div className="relative aspect-square w-[min(15rem,36vh)] h-[min(15rem,36vh)] sm:w-[min(17.5rem,38vh)] sm:h-[min(17.5rem,38vh)] md:w-[min(20rem,38vh)] md:h-[min(20rem,38vh)] lg:w-[min(23.75rem,40vh)] lg:h-[min(23.75rem,40vh)] [--orbit-r:calc(min(15rem,36vh)/2)] sm:[--orbit-r:calc(min(17.5rem,38vh)/2)] md:[--orbit-r:calc(min(20rem,38vh)/2)] lg:[--orbit-r:calc(min(23.75rem,40vh)/2)]">
       {/* conic gradient rotating ring */}
       <div className="absolute inset-0 rounded-full glow-ring opacity-60 animate-spin-slow" aria-hidden />
 
@@ -224,6 +224,8 @@ function LogoWithRings() {
           A imagem do logo é full-bleed roxo (verificado), sem margem interna. */}
       <svg
         className="absolute inset-6 animate-spin-reverse"
+        width="100%"
+        height="100%"
         viewBox="0 0 100 100"
         preserveAspectRatio="xMidYMid meet"
         aria-hidden
