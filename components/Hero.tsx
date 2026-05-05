@@ -219,9 +219,10 @@ function LogoWithRings() {
       <div className="absolute inset-0 rounded-full glow-ring opacity-60 animate-spin-slow" aria-hidden />
 
       {/* secondary dashed ring rotating reverse — SVG para que traço e espaçamento
-          sejam relativos ao tamanho do círculo (viewBox %) e escalem proporcionalmente */}
+          sejam relativos ao tamanho do círculo (viewBox %) e escalem proporcionalmente.
+          inset-6 = mesmo do logo, então o anel fica colado na borda do ícone. */}
       <svg
-        className="absolute inset-4 animate-spin-reverse"
+        className="absolute inset-6 animate-spin-reverse"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
         aria-hidden
@@ -229,10 +230,10 @@ function LogoWithRings() {
         <circle
           cx="50"
           cy="50"
-          r="49.7"
+          r="49.5"
           fill="none"
-          stroke="rgba(255,255,255,0.2)"
-          strokeWidth="0.57"
+          stroke="rgba(255,255,255,0.25)"
+          strokeWidth="0.6"
           strokeDasharray="1.3 1"
         />
       </svg>
@@ -253,10 +254,8 @@ function LogoWithRings() {
         />
       </div>
 
-      {/* orbiting satellites — formas pequenas em outline.
-          Escondidas em mobile (md-): no espaço pequeno elas ficam congestionando
-          junto das tags de Data/Local e poluem o visual. */}
-      <div className="absolute inset-0 pointer-events-none hidden md:block" aria-hidden>
+      {/* orbiting satellites — formas pequenas em outline */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden>
         {/* Quadrado (amarelo) */}
         <div className="absolute top-1/2 left-1/2 w-0 h-0">
           <div className="animate-orbit" style={{ animationDuration: "24s" }}>
