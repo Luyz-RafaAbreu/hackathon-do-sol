@@ -218,11 +218,10 @@ function LogoWithRings() {
       {/* conic gradient rotating ring */}
       <div className="absolute inset-0 rounded-full glow-ring opacity-60 animate-spin-slow" aria-hidden />
 
-      {/* secondary dashed ring rotating reverse — SVG ocupa o mesmo box do logo
-          (inset-6), mas o círculo dentro tem r menor (37 em vez de 49.5) pra
-          encostar na borda VISÍVEL do logo, não na borda do box. O logo-hd.webp
-          tem uma micro-margem interna na imagem, então a parte visível é ~74%
-          do box. r=37 reflete isso (37/50 = 74%). */}
+      {/* secondary dashed ring rotating reverse — alinhado matematicamente com
+          a borda do logo. Logo box em inset-6 (192px no mobile) e o anel SVG
+          em inset-6 com r=49 (~98% do raio do viewBox) → mesma borda visual.
+          A imagem do logo é full-bleed roxo (verificado), sem margem interna. */}
       <svg
         className="absolute inset-6 animate-spin-reverse"
         viewBox="0 0 100 100"
@@ -232,10 +231,10 @@ function LogoWithRings() {
         <circle
           cx="50"
           cy="50"
-          r="37"
+          r="49"
           fill="none"
           stroke="rgba(255,255,255,0.3)"
-          strokeWidth="0.5"
+          strokeWidth="0.55"
           strokeDasharray="1.3 1"
         />
       </svg>
