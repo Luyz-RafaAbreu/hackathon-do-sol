@@ -224,8 +224,6 @@ function LogoWithRings() {
           A imagem do logo é full-bleed roxo (verificado), sem margem interna. */}
       <svg
         className="absolute inset-6 animate-spin-reverse"
-        width="100%"
-        height="100%"
         viewBox="0 0 100 100"
         preserveAspectRatio="xMidYMid meet"
         aria-hidden
