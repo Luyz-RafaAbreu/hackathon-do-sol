@@ -218,18 +218,6 @@ function LogoWithRings() {
       {/* conic gradient rotating ring */}
       <div className="absolute inset-0 rounded-full glow-ring opacity-60 animate-spin-slow" aria-hidden />
 
-      {/* DEBUG: borda VERMELHA brilhante pra ver onde o anel está renderizando.
-          Vai ser revertido após diagnóstico. */}
-      <div
-        className="absolute inset-6 rounded-full border-4 border-dashed border-red-500 animate-spin-reverse"
-        aria-hidden
-      />
-      {/* DEBUG: borda AZUL brilhante no logo pra ver onde ele renderiza */}
-      <div
-        className="absolute inset-6 rounded-full border-4 border-blue-500 pointer-events-none"
-        aria-hidden
-      />
-
       {/* the logo, clipped to circle to lose the square background corners */}
       <div className="absolute inset-6 rounded-full overflow-hidden shadow-glowStrong bg-sol-bgDeep">
         <Image
@@ -245,6 +233,15 @@ function LogoWithRings() {
           blurDataURL={BLUR["logo-hd"]}
         />
       </div>
+
+      {/* secondary dashed ring rotating reverse — renderizado APÓS o logo
+          pra ficar por cima dele (DOM order = stacking order). Inset-6 igual
+          ao logo, então o anel cola na borda do ícone. Pointer-events-none
+          pra não interceptar cliques do logo/parallax. */}
+      <div
+        className="absolute inset-6 rounded-full border border-dashed border-white/35 animate-spin-reverse pointer-events-none"
+        aria-hidden
+      />
 
       {/* orbiting satellites — formas pequenas em outline */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden>
