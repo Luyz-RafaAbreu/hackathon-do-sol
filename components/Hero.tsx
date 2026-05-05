@@ -218,11 +218,15 @@ function LogoWithRings() {
       {/* conic gradient rotating ring */}
       <div className="absolute inset-0 rounded-full glow-ring opacity-60 animate-spin-slow" aria-hidden />
 
-      {/* secondary dashed ring — div com border-dashed em vez de SVG, pra
-          evitar quirks de SVG + position absolute em mobile WebKit que estavam
-          deslocando o anel pra direita. CSS dashed é mais simples e nativo. */}
+      {/* DEBUG: borda VERMELHA brilhante pra ver onde o anel está renderizando.
+          Vai ser revertido após diagnóstico. */}
       <div
-        className="absolute inset-6 rounded-full border-2 border-dashed border-white/30 animate-spin-reverse"
+        className="absolute inset-6 rounded-full border-4 border-dashed border-red-500 animate-spin-reverse"
+        aria-hidden
+      />
+      {/* DEBUG: borda AZUL brilhante no logo pra ver onde ele renderiza */}
+      <div
+        className="absolute inset-6 rounded-full border-4 border-blue-500 pointer-events-none"
         aria-hidden
       />
 
