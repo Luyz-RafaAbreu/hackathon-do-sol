@@ -253,8 +253,10 @@ function LogoWithRings() {
         />
       </div>
 
-      {/* orbiting satellites — formas pequenas em outline */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden>
+      {/* orbiting satellites — formas pequenas em outline.
+          Escondidas em mobile (md-): no espaço pequeno elas ficam congestionando
+          junto das tags de Data/Local e poluem o visual. */}
+      <div className="absolute inset-0 pointer-events-none hidden md:block" aria-hidden>
         {/* Quadrado (amarelo) */}
         <div className="absolute top-1/2 left-1/2 w-0 h-0">
           <div className="animate-orbit" style={{ animationDuration: "24s" }}>
