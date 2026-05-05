@@ -234,12 +234,12 @@ function LogoWithRings() {
         />
       </div>
 
-      {/* secondary dashed ring rotating reverse — renderizado APÓS o logo
-          pra ficar por cima (DOM order = stacking order). Em inset-4 (16px)
-          ele fica notavelmente maior que o logo (que está em inset-6 = 24px),
-          flutuando ~8px fora da borda do ícone na zona do glow halo. */}
+      {/* secondary dashed ring rotating reverse — renderizado APÓS o logo.
+          Em inset-1 (4px) o anel fica perto da borda do container, ou seja,
+          perto do raio de órbita dos satélites (que orbitam na borda exata).
+          Logo em inset-6 fica bem dentro, espaço maior entre logo e anel. */}
       <div
-        className="absolute inset-4 rounded-full border border-dashed border-white/35 animate-spin-reverse pointer-events-none"
+        className="absolute inset-1 rounded-full border border-dashed border-white/35 animate-spin-reverse pointer-events-none"
         aria-hidden
       />
 
