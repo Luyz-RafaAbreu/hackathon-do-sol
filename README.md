@@ -10,7 +10,7 @@ npm install
 npm run dev
 ```
 
-Acesse http://localhost:3000
+Acesse http://localhost:3001
 
 ## 🏗️ Build de produção
 

@@ -39,9 +39,43 @@ export default function CustomCursor() {
       }
     };
 
+    // Áreas "untrackable" (cross-origin como Turnstile/reCAPTCHA): o parent
+    // não recebe eventos de mouse dentro do iframe, então o cursor custom
+    // congelaria na borda. Detectamos via polling do `:hover` — fonte de
+    // verdade mantida pelo navegador independente de eventos.
+    // Pegamos tanto o container do wrapper React (#cf-turnstile) quanto
+    // qualquer iframe direto, cobrindo widgets futuros (reCAPTCHA, etc).
+    const UNTRACKABLE_SELECTOR =
+      'iframe, [id="cf-turnstile"], [id^="cf-turnstile"], [class*="turnstile"], [class*="captcha"]';
+
+    let manuallyHidden = false;
+    let overUntrackable = false;
+
+    const applyOpacity = () => {
+      el.style.opacity = manuallyHidden || overUntrackable ? "0" : "1";
+    };
+
+    const isOverUntrackable = (): boolean => {
+      const candidates = document.querySelectorAll(UNTRACKABLE_SELECTOR);
+      for (let i = 0; i < candidates.length; i++) {
+        if (candidates[i]!.matches(":hover")) return true;
+      }
+      return false;
+    };
+
+    const pollInterval = window.setInterval(() => {
+      const nowOver = isOverUntrackable();
+      if (nowOver !== overUntrackable) {
+        overUntrackable = nowOver;
+        applyOpacity();
+      }
+    }, 80);
+
     const onMove = (e: MouseEvent) => {
       el.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
-      el.style.opacity = "1";
+      if (!manuallyHidden && !overUntrackable) {
+        el.style.opacity = "1";
+      }
     };
 
     const onOver = (e: Event) => {
@@ -85,22 +119,30 @@ export default function CustomCursor() {
       setMode("arrow");
     };
 
-    const hide = () => {
-      el.style.opacity = "0";
+    const onLeaveDoc = () => {
+      manuallyHidden = true;
+      applyOpacity();
+    };
+    const onEnterDoc = () => {
+      manuallyHidden = false;
+      applyOpacity();
     };
     const onDown = () => el.classList.add("is-click");
     const onUp = () => el.classList.remove("is-click");
 
     window.addEventListener("mousemove", onMove, { passive: true });
     document.addEventListener("mouseover", onOver);
-    document.addEventListener("mouseleave", hide);
+    document.addEventListener("mouseleave", onLeaveDoc);
+    document.addEventListener("mouseenter", onEnterDoc);
     window.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
 
     return () => {
+      window.clearInterval(pollInterval);
       window.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseover", onOver);
-      document.removeEventListener("mouseleave", hide);
+      document.removeEventListener("mouseleave", onLeaveDoc);
+      document.removeEventListener("mouseenter", onEnterDoc);
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
       document.body.classList.remove("has-custom-cursor");

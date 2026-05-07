@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Mail, MapPin, ArrowUpRight } from "lucide-react";
 import { BLUR } from "@/lib/blur-data";
 import { EVENT } from "@/lib/event";
@@ -108,9 +109,18 @@ export default function Footer() {
             © {new Date().getFullYear()} Hackathon do Sol. Todos os direitos
             reservados.
           </span>
-          <span className="tracking-[0.2em] uppercase">
-            Natal · Rio Grande do Norte · Brasil
-          </span>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/termos-e-privacidade"
+              className="hover:text-sol-orange transition"
+            >
+              Termos e Privacidade
+            </Link>
+            <span aria-hidden className="text-white/20">·</span>
+            <span className="tracking-[0.2em] uppercase">
+              Natal · RN · Brasil
+            </span>
+          </div>
         </div>
       </div>
     </footer>

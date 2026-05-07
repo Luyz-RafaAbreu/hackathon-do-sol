@@ -39,6 +39,14 @@ const endDay = endDate.getDate();
 const monthName = MONTHS_PT[startDate.getMonth()]!;
 const year = startDate.getFullYear();
 
+// Status do evento (schema.org/EventStatusType). Mude AQUI se algo mudar de plano:
+//   "EventScheduled"   — vai acontecer normalmente (default)
+//   "EventCancelled"   — cancelado
+//   "EventPostponed"   — adiado sem data nova
+//   "EventRescheduled" — remarcado (atualizar START_DATE/END_DATE também)
+//   "EventMovedOnline" — virou online
+const eventStatus = "EventScheduled";
+
 const locationName = "Praiamar Arena";
 const locationAddress = "Av. Senador Salgado Filho, 1906";
 const locationNeighborhood = "Lagoa Nova";
@@ -80,6 +88,9 @@ export const EVENT = {
   // Números
   PRIZE: "R$ 10 mil",
   SLOTS: 160,
+
+  // Status (schema.org)
+  STATUS: `https://schema.org/${eventStatus}`,
 
   // URLs
   SITE_URL: "https://hackathondosol.com.br",

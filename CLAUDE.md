@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Comandos
 
 ```bash
-npm run dev       # Next dev server em http://localhost:3000
+npm run dev       # Next dev server em http://localhost:3001
 npm run build     # build de produção
 npm run start     # serve o build
 npm run lint      # next lint

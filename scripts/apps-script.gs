@@ -1,3 +1,4 @@
+.
 /**
  * ============================================================================
  *  HACKATHON DO SOL — Sistema de Inscrições
@@ -268,7 +269,10 @@ function doPost(e) {
     // (qualquer um que leia este arquivo no GitHub sabe a "senha"). Recusa a
     // requisição de cara em vez de funcionar com defesa zero.
     if (CONFIG.WEBHOOK_SECRET === "TROQUE-ISSO-POR-UM-TOKEN-SECRETO-ALEATORIO") {
-      return jsonResponse({ ok: false, error: "Secret not configured" });
+      // Loga internamente pra debug, mas resposta HTTP fica genérica —
+      // não vaza estado de misconfiguration pra atacante.
+      console.error("WEBHOOK_SECRET ainda é o placeholder — configure CONFIG.WEBHOOK_SECRET");
+      return jsonResponse({ ok: false, error: "Unauthorized" });
     }
 
     if (!e || !e.postData || !e.postData.contents) {
@@ -279,7 +283,13 @@ function doPost(e) {
     // O Next.js calcula signature = HMAC-SHA256(`${ts}.${payload}`, SECRET).
     // Aqui recalculamos e comparamos em constant-time. Também rejeitamos
     // requests com timestamp fora de uma janela de 5 min (anti-replay).
-    const envelope = JSON.parse(e.postData.contents);
+    let envelope;
+    try {
+      envelope = JSON.parse(e.postData.contents);
+    } catch (err) {
+      console.error("Envelope JSON inválido:", err && err.message ? err.message : err);
+      return jsonResponse({ ok: false, error: "Unauthorized" });
+    }
     if (
       !envelope ||
       envelope.v !== 1 ||
@@ -303,7 +313,13 @@ function doPost(e) {
       return jsonResponse({ ok: false, error: "Unauthorized" });
     }
 
-    const data = JSON.parse(envelope.payload);
+    let data;
+    try {
+      data = JSON.parse(envelope.payload);
+    } catch (err) {
+      console.error("Payload JSON inválido (envelope autenticado):", err && err.message ? err.message : err);
+      return jsonResponse({ ok: false, error: "Bad request" });
+    }
 
     // Validação básica + tampa de tamanho (defesa em profundidade — o Next já
     // valida, mas se este endpoint for chamado direto com secret vazado, aqui

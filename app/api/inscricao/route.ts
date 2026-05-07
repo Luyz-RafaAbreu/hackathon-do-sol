@@ -26,6 +26,49 @@ export const maxDuration = 30;
 
 const WEBHOOK_URL = process.env.APPS_SCRIPT_WEBHOOK_URL;
 const WEBHOOK_SECRET = process.env.APPS_SCRIPT_WEBHOOK_SECRET;
+const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY;
+const TURNSTILE_VERIFY_URL =
+  "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+
+// Valida o token do Cloudflare Turnstile contra a API oficial. Retorna `false`
+// em qualquer cenário não-claro (token inválido/reusado/expirado, env faltando,
+// timeout, erro de rede) — fail-closed pra não aceitar inscrição sem garantia.
+async function verifyTurnstile(
+  token: string,
+  ip: string | null
+): Promise<boolean> {
+  if (!TURNSTILE_SECRET_KEY) {
+    console.error("[turnstile] TURNSTILE_SECRET_KEY não configurada");
+    return false;
+  }
+  const params = new URLSearchParams();
+  params.append("secret", TURNSTILE_SECRET_KEY);
+  params.append("response", token);
+  if (ip) params.append("remoteip", ip);
+  try {
+    const res = await fetch(TURNSTILE_VERIFY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      console.warn("[turnstile] siteverify HTTP", res.status);
+      return false;
+    }
+    const data = (await res.json().catch(() => null)) as
+      | { success: boolean; "error-codes"?: string[] }
+      | null;
+    if (!data?.success) {
+      console.warn("[turnstile] verificação rejeitada:", data?.["error-codes"]);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[turnstile] erro ao verificar token:", err);
+    return false;
+  }
+}
 
 // 1 MB/arquivo × 3 = 3 MB raw → ~4 MB em base64, cabe no limite de 4.5 MB do
 // Vercel Hobby. Ultrapassar esse orçamento causa erro 413 antes da API.
@@ -271,7 +314,7 @@ function normalizePhone(raw: string): string {
 }
 
 export async function POST(req: Request) {
-  if (!WEBHOOK_URL || !WEBHOOK_SECRET) {
+  if (!WEBHOOK_URL || !WEBHOOK_SECRET || !TURNSTILE_SECRET_KEY) {
     return bad(
       "O sistema de inscrições ainda não foi configurado. Entre em contato com a organização.",
       500
@@ -314,6 +357,24 @@ export async function POST(req: Request) {
   if (form.get("website")) {
     // Responde "ok" silenciosamente pra não dar dica ao bot
     return NextResponse.json({ ok: true });
+  }
+
+  // Cloudflare Turnstile — exige token válido antes de qualquer outra validação
+  // ou processamento de arquivo (que é caro). Token é single-use; o widget no
+  // cliente reseta após sucesso pra forçar um novo desafio em re-submissões.
+  const turnstileToken = form.get("cf-turnstile-response");
+  if (typeof turnstileToken !== "string" || !turnstileToken) {
+    return bad(
+      "Verificação anti-robô ausente. Atualize a página e tente novamente.",
+      403
+    );
+  }
+  const turnstileOk = await verifyTurnstile(turnstileToken, ip === "unknown" ? null : ip);
+  if (!turnstileOk) {
+    return bad(
+      "Verificação anti-robô falhou. Atualize a página e tente novamente.",
+      403
+    );
   }
 
   // Coleta e valida campos de texto. Limite de tamanho é defesa contra clientes

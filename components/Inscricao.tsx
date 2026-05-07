@@ -1,9 +1,12 @@
 "use client";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { UploadCloud, FileText, X, ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { UploadCloud, FileText, X, ArrowRight, Check } from "lucide-react";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { FIELD_MAX_LENGTH } from "@/lib/limits";
 import MagneticButton from "./MagneticButton";
-import NotARobotCheckbox from "./NotARobotCheckbox";
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 type FormState = {
   nome: string;
@@ -29,7 +32,7 @@ const initial: FormState = {
   motivacao: "",
 };
 
-type FormErrors = Partial<Record<keyof FormState | "comprovantes" | "robot", string>>;
+type FormErrors = Partial<Record<keyof FormState | "comprovantes" | "robot" | "terms", string>>;
 
 const UFS: ReadonlyArray<readonly [string, string]> = [
   ["AC", "Acre"],
@@ -86,8 +89,9 @@ function formatPhone(value: string): string {
 export default function Inscricao() {
   const [form, setForm] = useState<FormState>(initial);
   const [comprovantes, setComprovantes] = useState<File[]>([]);
-  // ⚠ Decorativo — só UI, sem proteção real. Ver NotARobotCheckbox.tsx.
-  const [robotChecked, setRobotChecked] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle"
@@ -151,7 +155,7 @@ export default function Inscricao() {
 
   const validate = () => {
     const e: FormErrors = {};
-    if (form.nome.trim().length < 3) e.nome = "Informe seu nome completo.";
+    if (!/\S+\s+\S+/.test(form.nome.trim())) e.nome = "Informe seu nome completo.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       e.email = "E-mail inválido.";
     {
@@ -179,7 +183,10 @@ export default function Inscricao() {
         )} MB. O total não pode passar de ${MAX_TOTAL_SIZE_MB} MB.`;
       }
     }
-    if (!robotChecked) {
+    if (!termsAccepted) {
+      e.terms = "Você precisa aceitar os termos para se inscrever.";
+    }
+    if (!turnstileToken) {
       e.robot = "Confirme que você não é um robô.";
     }
     setErrors(e);
@@ -211,6 +218,9 @@ export default function Inscricao() {
     ) as HTMLInputElement | null;
     if (honeypot) fd.append("website", honeypot.value);
 
+    // Token do Cloudflare Turnstile — validado no servidor antes de aceitar
+    if (turnstileToken) fd.append("cf-turnstile-response", turnstileToken);
+
     try {
       const res = await fetch("/api/inscricao", {
         method: "POST",
@@ -228,7 +238,11 @@ export default function Inscricao() {
         );
         setForm(initial);
         setComprovantes([]);
-        setRobotChecked(false);
+        setTermsAccepted(false);
+        // Token do Turnstile é single-use — reset força um desafio novo
+        // antes da próxima submissão.
+        setTurnstileToken(null);
+        turnstileRef.current?.reset();
       } else {
         setStatus("error");
         setMessage(
@@ -478,12 +492,61 @@ export default function Inscricao() {
           <SectionHeader number="04" label="Confirmação" />
 
           <div>
-            <NotARobotCheckbox
-              checked={robotChecked}
-              onChange={(v) => {
-                setRobotChecked(v);
-                if (v) setErrors((prev) => ({ ...prev, robot: undefined }));
+            <label className="flex items-start gap-3 cursor-pointer group select-none">
+              <span className="relative mt-0.5 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(ev) => {
+                    setTermsAccepted(ev.target.checked);
+                    if (ev.target.checked)
+                      setErrors((prev) => ({ ...prev, terms: undefined }));
+                  }}
+                  className="peer sr-only"
+                  aria-describedby={errors.terms ? "terms-error" : undefined}
+                />
+                <span
+                  aria-hidden
+                  className="block w-3 h-3 rounded-[0.2rem] border border-white/30 bg-white/[0.04] transition-colors peer-checked:border-sol-orange peer-checked:bg-sol-orange/15 peer-focus-visible:ring-2 peer-focus-visible:ring-sol-orange/60 group-hover:border-white/50"
+                />
+                <Check
+                  aria-hidden
+                  className="absolute inset-0 m-auto w-2 h-2 text-sol-orange opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none"
+                  strokeWidth={4}
+                />
+              </span>
+              <span className="text-xs font-normal normal-case tracking-normal text-white/80 leading-relaxed">
+                Li e concordo com os{" "}
+                <Link
+                  href="/termos-e-privacidade"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sol-orange hover:text-sol-yellow underline underline-offset-2 transition"
+                  onClick={(ev) => ev.stopPropagation()}
+                >
+                  Termos e Política de Privacidade
+                </Link>
+                .
+              </span>
+            </label>
+            {errors.terms && (
+              <p id="terms-error" className="text-red-300 text-xs mt-2">
+                {errors.terms}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <Turnstile
+              ref={turnstileRef}
+              siteKey={TURNSTILE_SITE_KEY}
+              onSuccess={(token) => {
+                setTurnstileToken(token);
+                setErrors((prev) => ({ ...prev, robot: undefined }));
               }}
+              onError={() => setTurnstileToken(null)}
+              onExpire={() => setTurnstileToken(null)}
+              options={{ theme: "dark", size: "flexible" }}
             />
             {errors.robot && (
               <p className="text-red-300 text-xs mt-2">{errors.robot}</p>

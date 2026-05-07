@@ -43,7 +43,7 @@ const eventJsonLd = {
   name: EVENT.NAME,
   startDate: EVENT.START_DATE.toISOString(),
   endDate: EVENT.END_DATE.toISOString(),
-  eventStatus: "https://schema.org/EventScheduled",
+  eventStatus: EVENT.STATUS,
   eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
   description: `${EVENT.NAME} — ${EVENT.DATE_RANGE_LONG}, na ${EVENT.LOCATION_NAME} (${EVENT.CITY_STATE}). Três dias de imersão em código, design e inovação, com ${EVENT.PRIZE} em premiação.`,
   image: [`${EVENT.SITE_URL}/imagens/og.jpg`],
@@ -74,7 +74,7 @@ const eventJsonLd = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+    process.env.NEXT_PUBLIC_SITE_URL || EVENT.SITE_URL
   ),
   title: `${EVENT.NAME} | ${EVENT.DATE_RANGE_SHORT} — ${EVENT.CITY_STATE}`,
   description: `${EVENT.NAME} — ${EVENT.DATE_RANGE_LONG}, na ${EVENT.LOCATION_NAME} (${EVENT.CITY_STATE}). Três dias de imersão em código, design e inovação, com ${EVENT.PRIZE} em premiação. Inscrições abertas.`,
