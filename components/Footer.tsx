@@ -14,7 +14,7 @@ export default function Footer() {
 
       <div className="relative max-w-7xl mx-auto px-6 md:px-10 py-16 grid md:grid-cols-[1.3fr_1fr_1fr] gap-10">
         <div>
-          <a href="#" className="group inline-flex items-center gap-3 font-display font-bold text-lg mb-4">
+          <Link href="/" className="group inline-flex items-center gap-3 font-display font-bold text-lg mb-4">
             <div className="relative w-10 h-10 rounded-full overflow-hidden">
               <span className="absolute -inset-1 rounded-full bg-sol-orange/40 blur-md opacity-60 group-hover:opacity-100 transition-opacity" />
               <Image
@@ -33,7 +33,7 @@ export default function Footer() {
                 do Sol
               </span>
             </span>
-          </a>
+          </Link>
           <p className="text-white/55 text-sm leading-relaxed max-w-sm">
             Três dias de imersão em código, design e inovação, reunindo a
             comunidade tech do Nordeste em {EVENT.CITY_STATE}.
