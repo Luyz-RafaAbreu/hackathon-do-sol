@@ -138,27 +138,18 @@ const ALLOWED_MIME = [
   "image/jpeg",
   "image/png",
   "image/webp",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
 // Magic bytes (file signatures) por categoria. file.type vem do cliente e é
 // falsificável, então detectamos a "categoria real" pelo conteúdo do arquivo
 // e exigimos consistência com o MIME declarado.
-type FileKind = "pdf" | "jpeg" | "png" | "webp" | "ole" | "zip";
+type FileKind = "pdf" | "jpeg" | "png" | "webp";
 
-// MIMEs aceitos por categoria detectada. DOC antigo compartilha assinatura OLE
-// com xls/ppt/msi, e DOCX é um zip — bloqueamos rejeitando se file.type
-// declarado não bater com a categoria.
 const KIND_TO_MIMES: Record<FileKind, string[]> = {
   pdf: ["application/pdf"],
   jpeg: ["image/jpeg"],
   png: ["image/png"],
   webp: ["image/webp"],
-  ole: ["application/msword"],
-  zip: [
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ],
 };
 
 function detectFileKind(bytes: Uint8Array): FileKind | null {
@@ -208,31 +199,6 @@ function detectFileKind(bytes: Uint8Array): FileKind | null {
     bytes[11] === 0x50
   ) {
     return "webp";
-  }
-
-  // OLE Compound File (DOC/XLS/PPT antigos): D0 CF 11 E0 A1 B1 1A E1
-  if (
-    bytes.length >= 8 &&
-    bytes[0] === 0xd0 &&
-    bytes[1] === 0xcf &&
-    bytes[2] === 0x11 &&
-    bytes[3] === 0xe0 &&
-    bytes[4] === 0xa1 &&
-    bytes[5] === 0xb1 &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0xe1
-  ) {
-    return "ole";
-  }
-
-  // ZIP (DOCX e variantes): 50 4B [03 04 | 05 06 | 07 08]
-  if (
-    bytes[0] === 0x50 &&
-    bytes[1] === 0x4b &&
-    (bytes[2] === 0x03 || bytes[2] === 0x05 || bytes[2] === 0x07) &&
-    (bytes[3] === 0x04 || bytes[3] === 0x06 || bytes[3] === 0x08)
-  ) {
-    return "zip";
   }
 
   return null;
@@ -454,13 +420,11 @@ export async function POST(req: Request) {
     const kind = detectFileKind(bytes);
     if (!kind) {
       return bad(
-        `O arquivo "${file.name}" não parece ser um PDF, imagem ou Word válido.`
+        `O arquivo "${file.name}" não parece ser um PDF ou imagem válida.`
       );
     }
 
     // Se o cliente declarou um type, ele tem que bater com o conteúdo real.
-    // Se veio vazio (alguns OS/browsers fazem isso pra .doc), aceitamos desde
-    // que a categoria detectada esteja na allowlist.
     const allowedForKind = KIND_TO_MIMES[kind];
     if (file.type && !allowedForKind.includes(file.type)) {
       return bad(

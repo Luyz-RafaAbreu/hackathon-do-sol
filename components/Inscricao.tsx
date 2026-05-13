@@ -64,7 +64,7 @@ const UFS: ReadonlyArray<readonly [string, string]> = [
   ["TO", "Tocantins"],
 ];
 
-const ACCEPTED_TYPES = ".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx";
+const ACCEPTED_TYPES = ".pdf,.jpg,.jpeg,.png,.webp";
 const MAX_FILES = 3;
 const MAX_FILE_SIZE_MB = 1;
 // Limite total considerando que base64 infla ~33% e Vercel Hobby aceita 4.5 MB.
@@ -699,7 +699,7 @@ function FileUploadField({
       <label>Comprovante de atuação em tecnologia</label>
       <p className="text-xs text-white/55 mb-2 -mt-1 normal-case tracking-normal font-normal">
         Anexe diploma, currículo, certificado ou similar. Até {MAX_FILES}{" "}
-        arquivos (PDF, imagem ou Word, máx. {MAX_FILE_SIZE_MB}MB cada).
+        arquivos (PDF ou imagem, máx. {MAX_FILE_SIZE_MB}MB cada).
       </p>
 
       <div
