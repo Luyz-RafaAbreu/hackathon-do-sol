@@ -9,6 +9,17 @@ import { NextRequest, NextResponse } from "next/server";
 // CSP de scripts antes era 'unsafe-inline' (decorativo). Agora bloqueia XSS
 // inline de verdade.
 export function middleware(request: NextRequest) {
+  // Bloqueia o alias .vercel.app do público. Vercel Hobby só protege URLs de
+  // preview; o alias canônico de produção (hackathon-do-sol.vercel.app) fica
+  // aberto. Esse 404 cobre o gap até o domínio próprio entrar — e fica firme
+  // depois também, pra Google não indexar a versão duplicada no .vercel.app.
+  // Quando o domínio próprio estiver no ar, o host será hackathondosol.com.br
+  // e esse if não dispara.
+  const host = request.headers.get("host") ?? "";
+  if (host.endsWith(".vercel.app")) {
+    return new NextResponse("Not Found", { status: 404 });
+  }
+
   const nonceBytes = new Uint8Array(16);
   crypto.getRandomValues(nonceBytes);
   const nonce = btoa(String.fromCharCode(...nonceBytes));
@@ -47,17 +58,10 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    // Aplica em todas as rotas HTML. Exclui /api (JSON, sem script), assets
-    // estáticos do Next, favicon, /imagens e arquivos de SEO.
-    // `missing` desliga pra prefetches do router (não renderizam HTML).
-    {
-      source:
-        "/((?!api|_next/static|_next/image|favicon.ico|imagens|robots.txt|sitemap.xml).*)",
-      missing: [
-        { type: "header", key: "next-router-prefetch" },
-        { type: "header", key: "purpose", value: "prefetch" },
-      ],
-    },
-  ],
+  // Cobre praticamente tudo (inclusive /api, /robots.txt, /sitemap.xml e
+  // /imagens/*) pra que o bloqueio do .vercel.app pegue de verdade — se
+  // deixar /api de fora, dá pra postar inscrição via URL temporária.
+  // Excluídos só os assets imutáveis do Next, que têm nomes hash-eados e
+  // não vazam conteúdo sem acesso prévio à página.
+  matcher: ["/((?!_next/static|_next/image).*)"],
 };
