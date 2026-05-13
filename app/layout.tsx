@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -72,6 +73,12 @@ const eventJsonLd = {
   },
 };
 
+// `theme-color` pinta o chrome do navegador no Android Chrome e a barra do
+// Safari iOS — mesmo valor do `theme_color` do manifest pra ficar coerente.
+export const viewport: Viewport = {
+  themeColor: "#1a0b3d",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || EVENT.SITE_URL
@@ -91,10 +98,12 @@ export const metadata: Metadata = {
     `${EVENT.LOCATION_CITY} ${EVENT.LOCATION_STATE}`,
     "evento tech",
   ],
-  icons: {
-    icon: "/imagens/logo.png",
-    apple: "/imagens/logo.png",
-  },
+  // Ícones agora vêm das convenções do App Router:
+  //   app/favicon.ico         — aba do navegador (sol recortado em 32x32)
+  //   app/icon.png            — Android + browser moderno (512x512, logo completo)
+  //   app/apple-icon.png      — iOS home screen (180x180, logo completo)
+  //   app/manifest.ts         — config de "add to home screen"
+  // Next descobre por convenção, não precisa listar aqui.
   openGraph: {
     title: `${EVENT.NAME} — ${EVENT.DATE_RANGE_SHORT}`,
     description: `Três dias de imersão em código, design e inovação em ${EVENT.CITY_STATE}. ${EVENT.PRIZE} em premiação. Inscrições abertas.`,
@@ -112,6 +121,10 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Nonce vem do middleware (ver middleware.ts). CSP em produção só executa
+  // scripts inline que tenham esse nonce — sem ele, o JSON-LD seria bloqueado.
+  const nonce = headers().get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="pt-BR"
@@ -119,6 +132,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body>
         <script
+          nonce={nonce}
+          // O navegador apaga o atributo `nonce` do DOM após o parse (defesa
+          // contra exfil de nonce via script injetado), o que confunde a
+          // hydration do React — daí o suppress. O nonce vai pro HTML normal,
+          // CSP valida no carregamento; React só não fica conferindo depois.
+          suppressHydrationWarning
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd) }}
         />

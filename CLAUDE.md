@@ -14,8 +14,10 @@ npm run lint      # next lint
 Scripts auxiliares (rodam manualmente, não entram no build):
 
 ```bash
-node scripts/generate-blur.mjs    # regenera lib/blur-data.ts a partir de public/imagens/
-node scripts/optimize-images.mjs  # gera logo.{webp,png}, story.webp, og.jpg em public/imagens/
+node scripts/generate-blur.mjs            # regenera lib/blur-data.ts a partir de public/imagens/
+node scripts/optimize-images.mjs          # gera logo.{webp,png}, story.webp, og.jpg em public/imagens/
+node scripts/generate-icons.mjs --preview # preview do crop do sol em tmp-sun-preview.png (ajustar SUN_* antes do gerar final)
+node scripts/generate-icons.mjs           # gera app/icon.png, app/apple-icon.png, app/favicon.ico
 ```
 
 Não há suíte de testes configurada.
@@ -51,6 +53,15 @@ Toda escolha de tamanho de arquivo deriva disso: `MAX_FILE_SIZE = 1 MB`, `MAX_FI
 ### Imagens OG/Twitter dinâmicas
 `app/opengraph-image.tsx` e `app/twitter-image.tsx` rodam no edge runtime e geram PNG via `next/og` com countdown ao vivo (faltam X dias / acontecendo agora / edição passada). `revalidate = 3600` dá folga pro cache das redes sociais.
 
+### Ícones e manifest
+Next descobre por convenção em `app/`:
+- `app/favicon.ico` — aba do navegador, **só o sol recortado** do logo (texto fica ilegível em 32x32)
+- `app/icon.png` (512x512) — Android e browsers modernos
+- `app/apple-icon.png` (180x180) — iOS "adicionar à tela inicial"
+- `app/manifest.ts` — `name`, `theme_color`, ícones; usado quando o app é instalado
+
+Os três bitmaps são gerados de `public/imagens/logo-hd.webp` por `scripts/generate-icons.mjs` (ver coordenadas `SUN_*` no topo). Rodar `--preview` antes do final pra inspecionar o crop. `viewport.themeColor` em [app/layout.tsx](app/layout.tsx) deve bater com `theme_color` do manifest.
+
 ### blur-data.ts é gerado
 [lib/blur-data.ts](lib/blur-data.ts) é **auto-gerado** por `scripts/generate-blur.mjs` — não editar à mão. Rodar o script depois de adicionar/trocar imagens em `public/imagens/`.
 
@@ -58,8 +69,10 @@ Toda escolha de tamanho de arquivo deriva disso: `MAX_FILE_SIZE = 1 MB`, `MAX_FI
 - `html { font-size: clamp(16px, calc(1.35vw - 10px), 48px) }` em [app/globals.css](app/globals.css) escala a base 16px → 48px entre 1080p e 5K. Como tudo usa `rem`, layout, tipografia e espaçamento crescem juntos.
 - [tailwind.config.ts](tailwind.config.ts) **sobrescreve** os valores default de `boxShadow` e `blur` (que vêm em px) pra `rem` — isso é proposital, pra que sombras e blur escalem em 4K. Não trocar pra px sem entender o impacto.
 
-### CSP relaxado em dev
-[next.config.js](next.config.js) adiciona `'unsafe-eval'` e `ws:`/`wss:` à CSP **só** quando `NODE_ENV !== "production"` — pra HMR funcionar. Em produção a política fica estrita. Se algo carregar em dev e quebrar em prod, conferir essa parte primeiro.
+### CSP com nonce por request
+[middleware.ts](middleware.ts) gera um nonce aleatório (16 bytes em base64) por request e monta o `Content-Security-Policy`. Scripts inline só rodam se carregarem aquele nonce — o Next aplica automaticamente nos `<script>` de hydration; pra inline scripts nossos (ex: JSON-LD em [app/layout.tsx](app/layout.tsx)), ler via `headers().get("x-nonce")` e passar pra prop `nonce`. `'strict-dynamic'` propaga a confiança pra scripts carregados pelos confiáveis (Turnstile, Vercel Analytics/Speed Insights). [next.config.js](next.config.js) cuida só dos headers estáticos (X-Frame-Options, etc.) que valem inclusive pra `/api`. Em dev, o middleware adiciona `'unsafe-eval'` e `ws:`/`wss:` pra HMR funcionar.
+
+**Limitações:** páginas cobertas pelo middleware viram dinâmicas (nonce muda por request, sem SSG). Matcher exclui `/api`, `_next/static`, `_next/image`, `imagens`, `favicon.ico`, `robots.txt`, `sitemap.xml`. `style-src` segue com `'unsafe-inline'` — CSS injection é vetor estreito, Tailwind/styled-jsx dependem.
 
 ### Cursor custom
 Componente client (`components/CustomCursor.tsx`) montado no `RootLayout`. Estilos em `app/globals.css` sob `.cursor-cc`. Auto-desativa em touch/coarse pointer via media query — não precisa de feature detect no JS.
