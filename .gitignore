@@ -9,3 +9,9 @@ out
 
 # build artifacts locais
 tsconfig.tsbuildinfo
+
+# clasp OAuth (tokens — nunca commitar)
+.clasprc.json
+
+# Claude Code — configs locais da máquina
+.claude/

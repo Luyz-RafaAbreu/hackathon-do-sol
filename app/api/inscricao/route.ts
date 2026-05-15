@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createHmac } from "node:crypto";
-import { FIELD_MAX_LENGTH } from "@/lib/limits";
+import {
+  InscricaoFormState,
+  normalizeForm,
+  validateAll,
+} from "@/lib/inscricao-schema";
 
 export const runtime = "nodejs";
 // Folga pra cobrir 1 retry de até 12s + backoff em caso de Apps Script lento.
@@ -9,19 +13,24 @@ export const maxDuration = 30;
 /**
  * POST /api/inscricao
  *
- * Recebe o FormData do formulário (incluindo arquivos), valida, converte os
- * arquivos em base64 e repassa para o Google Apps Script Web App configurado
- * via env. Do lado de lá, os dados vão parar em uma planilha do Google Sheets
- * e os arquivos em uma pasta do Drive.
+ * Recebe o payload do wizard (JSON) com o estado completo da inscrição da
+ * equipe: identificação da equipe, trilha, 4 integrantes (com aceites
+ * individuais), proposta inicial, aceites coletivos e confirmação do líder.
+ *
+ * Fluxo:
+ *   1. Honeypot anti-bot (silencioso)
+ *   2. Rate limit por IP (in-memory, melhor esforço em serverless)
+ *   3. Verifica Turnstile contra a API do Cloudflare
+ *   4. Valida o payload contra o schema (`validateAll`) — mesmas regras do
+ *      client; defesa quando alguém burla o front
+ *   5. Normaliza (trim, lowercase email, formata telefones/CPFs)
+ *   6. Envelope HMAC-SHA256 com `${ts}.${payload}` e envia ao Apps Script
+ *   7. Apps Script faz dedupe por CPF e grava na planilha
  *
  * Env obrigatórias (definir em .env.local):
  *   APPS_SCRIPT_WEBHOOK_URL     — URL do Web App do Apps Script
- *   APPS_SCRIPT_WEBHOOK_SECRET  — token secreto igual ao do Apps Script
- *
- * Autenticação com Apps Script: enviamos um envelope assinado por HMAC-SHA256
- * sobre `${ts}.${payload}` usando WEBHOOK_SECRET. O Apps Script recalcula a
- * assinatura e rejeita se não bater (ou se o timestamp tiver mais de 5 min de
- * diferença, pra impedir replay de requests antigos).
+ *   APPS_SCRIPT_WEBHOOK_SECRET  — token compartilhado pro HMAC
+ *   TURNSTILE_SECRET_KEY        — chave secreta do Cloudflare Turnstile
  */
 
 const WEBHOOK_URL = process.env.APPS_SCRIPT_WEBHOOK_URL;
@@ -30,13 +39,12 @@ const TURNSTILE_SECRET_KEY = process.env.TURNSTILE_SECRET_KEY;
 const TURNSTILE_VERIFY_URL =
   "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
-// Valida o token do Cloudflare Turnstile contra a API oficial. Retorna `false`
-// em qualquer cenário não-claro (token inválido/reusado/expirado, env faltando,
-// timeout, erro de rede) — fail-closed pra não aceitar inscrição sem garantia.
-async function verifyTurnstile(
-  token: string,
-  ip: string | null
-): Promise<boolean> {
+// Tamanho máximo do payload — defesa contra request explosivo.
+// Cálculo: 4 integrantes × ~30 campos × ~500 bytes (worst case) + equipe +
+// proposta + aceites ≈ 60KB. 200KB dá folga generosa.
+const MAX_PAYLOAD_BYTES = 200 * 1024;
+
+async function verifyTurnstile(token: string, ip: string | null): Promise<boolean> {
   if (!TURNSTILE_SECRET_KEY) {
     console.error("[turnstile] TURNSTILE_SECRET_KEY não configurada");
     return false;
@@ -70,31 +78,17 @@ async function verifyTurnstile(
   }
 }
 
-// 1 MB/arquivo × 3 = 3 MB raw → ~4 MB em base64, cabe no limite de 4.5 MB do
-// Vercel Hobby. Ultrapassar esse orçamento causa erro 413 antes da API.
-const MAX_FILE_SIZE = 1 * 1024 * 1024;
-const MAX_FILES = 3;
-// Validação dupla com o cliente — protege se alguém burlar o front.
-const MAX_TOTAL_SIZE = 3 * 1024 * 1024;
-
 // Rate limit: 5 envios por hora por IP. Janela deslizante em memória.
 // Limitação: serverless é stateless entre cold starts e instâncias separadas,
 // então isso protege contra rajadas em uma instância warm — não é um limite
-// global perfeito. Pra defesa global de verdade, mover pra Upstash/Vercel KV.
+// global perfeito.
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const rateLimitStore = new Map<string, number[]>();
 
 function getClientIp(req: Request): string {
-  // Preferimos x-real-ip a x-forwarded-for: na Vercel o proxy reescreve
-  // x-real-ip com o IP de verdade do cliente, ignorando o que veio na request.
-  // Já x-forwarded-for é uma cadeia "client, proxy1, proxy2..." cujo primeiro
-  // item pode ser injetado pelo próprio cliente (depende do proxy reescrever a
-  // cadeia inteira pra ser seguro — comportamento que varia por host).
   const real = req.headers.get("x-real-ip");
   if (real) return real.trim();
-  // Fallback pra ambientes sem x-real-ip (dev local, alguns hosts). Identificador
-  // menos confiável, mas melhor que nada — pode ser spoofado por cliente malicioso.
   const xff = req.headers.get("x-forwarded-for");
   if (xff) return xff.split(",")[0]!.trim();
   return "unknown";
@@ -108,7 +102,7 @@ function checkRateLimit(ip: string): {
   const now = Date.now();
   const cutoff = now - RATE_LIMIT_WINDOW_MS;
 
-  // GC oportunista: limpa chaves antigas pra não vazar memória
+  // GC oportunista
   if (rateLimitStore.size > 1000) {
     for (const [key, timestamps] of rateLimitStore) {
       const fresh = timestamps.filter((t) => t > cutoff);
@@ -133,96 +127,12 @@ function checkRateLimit(ip: string): {
     resetAt,
   };
 }
-const ALLOWED_MIME = [
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-];
-
-// Magic bytes (file signatures) por categoria. file.type vem do cliente e é
-// falsificável, então detectamos a "categoria real" pelo conteúdo do arquivo
-// e exigimos consistência com o MIME declarado.
-type FileKind = "pdf" | "jpeg" | "png" | "webp";
-
-const KIND_TO_MIMES: Record<FileKind, string[]> = {
-  pdf: ["application/pdf"],
-  jpeg: ["image/jpeg"],
-  png: ["image/png"],
-  webp: ["image/webp"],
-};
-
-function detectFileKind(bytes: Uint8Array): FileKind | null {
-  if (bytes.length < 4) return null;
-
-  // %PDF-
-  if (
-    bytes[0] === 0x25 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x44 &&
-    bytes[3] === 0x46 &&
-    bytes[4] === 0x2d
-  ) {
-    return "pdf";
-  }
-
-  // JPEG: FF D8 FF
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-    return "jpeg";
-  }
-
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
-  if (
-    bytes.length >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a
-  ) {
-    return "png";
-  }
-
-  // WebP: "RIFF"...."WEBP"
-  if (
-    bytes.length >= 12 &&
-    bytes[0] === 0x52 &&
-    bytes[1] === 0x49 &&
-    bytes[2] === 0x46 &&
-    bytes[3] === 0x46 &&
-    bytes[8] === 0x57 &&
-    bytes[9] === 0x45 &&
-    bytes[10] === 0x42 &&
-    bytes[11] === 0x50
-  ) {
-    return "webp";
-  }
-
-  return null;
-}
-
-const REQUIRED_FIELDS = [
-  "nome",
-  "email",
-  "telefone",
-  "cidadeEstado",
-  "instituicao",
-  "area",
-  "experiencia",
-  "motivacao",
-] as const;
-
-type Field = (typeof REQUIRED_FIELDS)[number];
 
 function bad(message: string, status = 400) {
   return NextResponse.json({ ok: false, message }, { status });
 }
 
 // Retenta o webhook do Apps Script em caso de timeout/erro de rede ou 5xx.
-// 4xx é erro do cliente — não retenta porque vai falhar de novo.
 async function fetchAppsScriptWithRetry(
   url: string,
   body: string
@@ -241,7 +151,6 @@ async function fetchAppsScriptWithRetry(
         signal: AbortSignal.timeout(PER_ATTEMPT_TIMEOUT_MS),
       });
       if (res.status < 500) return res;
-      // 5xx — drena o body pra liberar a conexão e tenta de novo
       const text = await res.text().catch(() => "");
       console.warn(
         `[inscricao] Apps Script ${res.status} (tentativa ${attempt}/${MAX_ATTEMPTS}): ${text}`
@@ -254,29 +163,11 @@ async function fetchAppsScriptWithRetry(
       );
       lastError = err;
     }
-
     if (attempt < MAX_ATTEMPTS) {
       await new Promise((r) => setTimeout(r, BACKOFF_MS * attempt));
     }
   }
-
   throw lastError ?? new Error("Apps Script unreachable");
-}
-
-// Normaliza telefone BR pra formato visual consistente.
-// 11 dígitos (celular): (XX) XXXXX-XXXX
-// 10 dígitos (fixo):    (XX) XXXX-XXXX
-// Qualquer outro tamanho cai em dígitos puros — mantém compatibilidade com
-// números estrangeiros eventuais sem perder informação.
-function normalizePhone(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  if (digits.length === 11) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-  }
-  if (digits.length === 10) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
-  }
-  return digits;
 }
 
 export async function POST(req: Request) {
@@ -296,10 +187,7 @@ export async function POST(req: Request) {
         ? "alguns instantes"
         : `${Math.ceil(retryAfter / 60)} minutos`;
     return NextResponse.json(
-      {
-        ok: false,
-        message: `Aguarde ${wait} antes de enviar uma nova inscrição.`,
-      },
+      { ok: false, message: `Aguarde ${wait} antes de enviar uma nova inscrição.` },
       {
         status: 429,
         headers: {
@@ -312,30 +200,48 @@ export async function POST(req: Request) {
     );
   }
 
-  let form: FormData;
+  // Lê o body com cap de tamanho — defesa contra payload absurdo. Content-Length
+  // é mentiroso na borda (cliente pode mandar qualquer coisa); medimos o texto
+  // real depois de ler.
+  let bodyText: string;
   try {
-    form = await req.formData();
+    bodyText = await req.text();
   } catch {
-    return bad("Formato inválido.");
+    return bad("Não foi possível ler o corpo da requisição.");
+  }
+  if (bodyText.length > MAX_PAYLOAD_BYTES) {
+    return bad("Payload muito grande.", 413);
   }
 
-  // Honeypot anti-bot — campo oculto no form. Bots preenchem, humanos não.
-  if (form.get("website")) {
-    // Responde "ok" silenciosamente pra não dar dica ao bot
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch {
+    return bad("Formato inválido — esperado JSON.");
+  }
+
+  const envelope = parsed as {
+    state?: InscricaoFormState;
+    turnstileToken?: string;
+    honeypot?: string;
+  };
+
+  // Honeypot — responde "ok" pra não dar dica ao bot
+  if (envelope.honeypot && envelope.honeypot.trim() !== "") {
     return NextResponse.json({ ok: true });
   }
 
-  // Cloudflare Turnstile — exige token válido antes de qualquer outra validação
-  // ou processamento de arquivo (que é caro). Token é single-use; o widget no
-  // cliente reseta após sucesso pra forçar um novo desafio em re-submissões.
-  const turnstileToken = form.get("cf-turnstile-response");
-  if (typeof turnstileToken !== "string" || !turnstileToken) {
+  // Turnstile primeiro — antes de validação cara
+  if (!envelope.turnstileToken) {
     return bad(
       "Verificação anti-robô ausente. Atualize a página e tente novamente.",
       403
     );
   }
-  const turnstileOk = await verifyTurnstile(turnstileToken, ip === "unknown" ? null : ip);
+  const turnstileOk = await verifyTurnstile(
+    envelope.turnstileToken,
+    ip === "unknown" ? null : ip
+  );
   if (!turnstileOk) {
     return bad(
       "Verificação anti-robô falhou. Atualize a página e tente novamente.",
@@ -343,111 +249,41 @@ export async function POST(req: Request) {
     );
   }
 
-  // Coleta e valida campos de texto. Limite de tamanho é defesa contra clientes
-  // que ignoram o maxLength do front (curl, scripts) — sem isso, alguém pode
-  // colar um livro no campo motivação e estourar o payload de 4.5MB da Vercel
-  // ou poluir a planilha.
-  const data: Record<string, string> = {};
-  for (const field of REQUIRED_FIELDS) {
-    const raw = form.get(field);
-    if (typeof raw !== "string" || !raw.trim()) {
-      return bad(`Campo obrigatório ausente: ${field}`);
-    }
-    const trimmed = raw.trim();
-    const max = FIELD_MAX_LENGTH[field];
-    if (trimmed.length > max) {
-      return bad(`Campo "${field}" muito longo (máximo ${max} caracteres).`);
-    }
-    data[field] = trimmed;
+  // Schema check — defesa quando o cliente é burlado
+  if (
+    !envelope.state ||
+    typeof envelope.state !== "object" ||
+    !envelope.state.equipe ||
+    !Array.isArray(envelope.state.integrantes) ||
+    envelope.state.integrantes.length !== 4
+  ) {
+    return bad("Payload mal-formado.");
   }
 
-  // Validações específicas
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-    return bad("E-mail inválido.");
-  }
-  data.email = data.email.toLowerCase();
-  {
-    const digits = data.telefone.replace(/\D/g, "").length;
-    if (digits < 10 || digits > 11) {
-      return bad("Telefone inválido.");
-    }
-  }
-  data.telefone = normalizePhone(data.telefone);
-  if (data.motivacao.length < 20) {
-    return bad("Motivação muito curta (mínimo 20 caracteres).");
-  }
-  if (data.nome.length < 3) {
-    return bad("Nome inválido.");
-  }
-
-  // Arquivos
-  const rawFiles = form.getAll("comprovantes");
-  const files = rawFiles.filter(
-    (f): f is File => f instanceof File && f.size > 0
-  );
-
-  if (files.length === 0) {
-    return bad("Anexe ao menos um comprovante de atuação.");
-  }
-  if (files.length > MAX_FILES) {
-    return bad(`Máximo ${MAX_FILES} arquivos.`);
-  }
-
-  // Validação de tamanho total — feita antes de ler arrayBuffer pra economizar
-  // memória/CPU caso o cliente tenha mandado payload grande demais.
-  const totalSize = files.reduce((sum, f) => sum + f.size, 0);
-  if (totalSize > MAX_TOTAL_SIZE) {
-    const mb = (totalSize / 1024 / 1024).toFixed(1);
-    const max = (MAX_TOTAL_SIZE / 1024 / 1024).toFixed(0);
-    return bad(
-      `Os arquivos somam ${mb} MB. O total não pode passar de ${max} MB.`,
-      413
+  // Normaliza ANTES de validar — assim limites de tamanho e regex avaliam
+  // o que vai realmente parar no banco.
+  const normalized = normalizeForm(envelope.state);
+  const { ok, errors } = validateAll(normalized);
+  if (!ok) {
+    console.warn("[inscricao] validação falhou:", JSON.stringify(errors));
+    return NextResponse.json(
+      {
+        ok: false,
+        message:
+          "Há campos com problema na inscrição. Revise as etapas e tente novamente.",
+        errors,
+      },
+      { status: 422 }
     );
   }
 
-  const comprovantes: { name: string; type: string; data: string }[] = [];
-  for (const file of files) {
-    if (file.size > MAX_FILE_SIZE) {
-      const mb = (MAX_FILE_SIZE / 1024 / 1024).toFixed(0);
-      return bad(`O arquivo "${file.name}" excede o limite de ${mb} MB.`);
-    }
-    if (file.type && !ALLOWED_MIME.includes(file.type)) {
-      return bad(`Tipo de arquivo não aceito: ${file.name}`);
-    }
-
-    const buf = await file.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    const kind = detectFileKind(bytes);
-    if (!kind) {
-      return bad(
-        `O arquivo "${file.name}" não parece ser um PDF ou imagem válida.`
-      );
-    }
-
-    // Se o cliente declarou um type, ele tem que bater com o conteúdo real.
-    const allowedForKind = KIND_TO_MIMES[kind];
-    if (file.type && !allowedForKind.includes(file.type)) {
-      return bad(
-        `O arquivo "${file.name}" foi enviado como "${file.type}" mas o conteúdo não corresponde.`
-      );
-    }
-
-    const finalType = file.type || allowedForKind[0]!;
-    comprovantes.push({
-      name: file.name,
-      type: finalType,
-      data: Buffer.from(buf).toString("base64"),
-    });
-  }
-
-  // Repassa para o Apps Script — envelope assinado por HMAC-SHA256.
-  // O Apps Script valida { v, ts, payload, signature } antes de processar.
-  const payload = JSON.stringify({ ...data, comprovantes });
+  // Envelope assinado por HMAC-SHA256
+  const payload = JSON.stringify(normalized);
   const ts = Date.now();
   const signature = createHmac("sha256", WEBHOOK_SECRET)
     .update(`${ts}.${payload}`)
     .digest("hex");
-  const signedBody = JSON.stringify({ v: 1, ts, payload, signature });
+  const signedBody = JSON.stringify({ v: 2, ts, payload, signature });
 
   try {
     const res = await fetchAppsScriptWithRetry(WEBHOOK_URL, signedBody);
@@ -465,24 +301,26 @@ export async function POST(req: Request) {
       | { ok: boolean; error?: string }
       | null;
     if (!result?.ok) {
-      // Email duplicado → 409 com mensagem clara pro usuário
+      if (result?.error === "duplicate_cpf") {
+        return bad(
+          "Um dos CPFs informados já foi inscrito em outra equipe. Cada CPF só pode constar em uma inscrição (item 3.2 do Edital).",
+          409
+        );
+      }
       if (result?.error === "duplicate_email") {
         return bad(
-          "Este e-mail já foi usado em outra inscrição. Se você não se inscreveu, entre em contato com a organização.",
+          "Um dos e-mails informados já foi usado em outra inscrição. Entre em contato com a organização se não foi você.",
           409
         );
       }
       console.error("[inscricao] Apps Script retornou erro:", result?.error);
-      return bad(
-        "Sua inscrição não pôde ser registrada. Tente novamente.",
-        502
-      );
+      return bad("Sua inscrição não pôde ser registrada. Tente novamente.", 502);
     }
 
     return NextResponse.json({
       ok: true,
       message:
-        "Inscrição recebida! A organização vai analisar e você receberá um e-mail com o resultado.",
+        "Inscrição da equipe recebida! Cada integrante vai receber um e-mail de confirmação. A organização vai analisar e retorna o resultado por e-mail.",
     });
   } catch (err) {
     console.error("[inscricao] erro na chamada ao Apps Script:", err);

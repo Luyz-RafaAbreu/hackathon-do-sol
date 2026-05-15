@@ -46,15 +46,17 @@ const eventJsonLd = {
   endDate: EVENT.END_DATE.toISOString(),
   eventStatus: EVENT.STATUS,
   eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
-  description: `${EVENT.NAME} — ${EVENT.DATE_RANGE_LONG}, na ${EVENT.LOCATION_NAME} (${EVENT.CITY_STATE}). Três dias de imersão em código, design e inovação, com ${EVENT.PRIZE} em premiação.`,
+  description: `${EVENT.NAME} — ${EVENT.DATE_RANGE_LONG}, no ${EVENT.LOCATION_NAME_OFFICIAL} (${EVENT.CITY_STATE}). Três dias de imersão em código, design e inovação, com ${EVENT.PRIZE} em premiação.`,
   image: [`${EVENT.SITE_URL}/imagens/og.jpg`],
   location: {
     "@type": "Place",
-    name: EVENT.LOCATION_NAME,
+    name: EVENT.LOCATION_NAME_OFFICIAL,
     address: {
       "@type": "PostalAddress",
+      streetAddress: `${EVENT.LOCATION_ADDRESS} — ${EVENT.LOCATION_NEIGHBORHOOD}`,
       addressLocality: EVENT.LOCATION_CITY,
       addressRegion: EVENT.LOCATION_STATE,
+      postalCode: EVENT.LOCATION_ZIP,
       addressCountry: "BR",
     },
   },
@@ -64,7 +66,7 @@ const eventJsonLd = {
     price: "0",
     priceCurrency: "BRL",
     availability: "https://schema.org/InStock",
-    validFrom: "2026-04-23T00:00:00-03:00",
+    validFrom: "2026-05-20T00:00:00-03:00",
   },
   organizer: {
     "@type": "Organization",
@@ -84,7 +86,7 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL || EVENT.SITE_URL
   ),
   title: `${EVENT.NAME} | ${EVENT.DATE_RANGE_SHORT} — ${EVENT.CITY_STATE}`,
-  description: `${EVENT.NAME} — ${EVENT.DATE_RANGE_LONG}, na ${EVENT.LOCATION_NAME} (${EVENT.CITY_STATE}). Três dias de imersão em código, design e inovação, com ${EVENT.PRIZE} em premiação. Inscrições abertas.`,
+  description: `${EVENT.NAME} — ${EVENT.DATE_RANGE_LONG}, no ${EVENT.LOCATION_NAME_OFFICIAL} (${EVENT.CITY_STATE}). Três dias de imersão em código, design e inovação, com ${EVENT.PRIZE} em premiação. Inscrições abertas.`,
   keywords: [
     EVENT.NAME,
     `hackathon ${EVENT.YEAR}`,

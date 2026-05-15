@@ -1,0 +1,7 @@
+# Tudo do diretório scripts/ é ignorado pelo clasp, exceto o que está
+# explicitamente listado abaixo. Os outros scripts (.mjs, .ts) são utilitários
+# locais e não fazem parte do Apps Script.
+**
+
+!apps-script.gs
+!appsscript.json

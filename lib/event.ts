@@ -17,7 +17,7 @@
 // "10 mil", "160 vagas" pra cobrir esses textos manualmente.
 
 const startDate = new Date("2026-06-26T09:00:00-03:00");
-const endDate = new Date("2026-06-28T18:00:00-03:00");
+const endDate = new Date("2026-06-28T20:00:00-03:00");
 
 const MONTHS_PT = [
   "janeiro",
@@ -48,6 +48,10 @@ const year = startDate.getFullYear();
 const eventStatus = "EventScheduled";
 
 const locationName = "Praiamar Arena";
+// Nome oficial completo conforme item 2.2 do Edital. Usado em textos narrativos
+// (Footer, JSON-LD, FAQ, descrições). LOCATION_NAME curto fica pro display
+// compacto do Hero, onde "Hotel Praiamar Arena" estoura a largura visual.
+const locationNameOfficial = "Hotel Praiamar Arena";
 const locationAddress = "Av. Senador Salgado Filho, 1906";
 const locationNeighborhood = "Lagoa Nova";
 const locationCity = "Natal";
@@ -67,6 +71,7 @@ export const EVENT = {
 
   // Local — partes individuais
   LOCATION_NAME: locationName,
+  LOCATION_NAME_OFFICIAL: locationNameOfficial, // "Hotel Praiamar Arena" — uso narrativo
   LOCATION_ADDRESS: locationAddress,
   LOCATION_NEIGHBORHOOD: locationNeighborhood,
   LOCATION_CITY: locationCity,
@@ -87,7 +92,16 @@ export const EVENT = {
 
   // Números
   PRIZE: "R$ 10 mil",
+  PRIZE_FIRST: "R$ 5.000",  // item 7.2.1 do Edital
+  PRIZE_SECOND: "R$ 3.000", // item 7.2.2
+  PRIZE_THIRD: "R$ 2.000",  // item 7.2.3
   SLOTS: 160,
+
+  // Janela de inscrições (item 2.3 do Edital — 20/05 a 05/06/2026)
+  INSCRIPTIONS_OPEN: "20 de maio de 2026",
+  INSCRIPTIONS_CLOSE: "05 de junho de 2026",
+  CONFIRMATION_DEADLINE: "16 de junho de 2026",
+  CREDENCIAMENTO_DATE: "24 de junho de 2026",
 
   // Status (schema.org)
   STATUS: `https://schema.org/${eventStatus}`,

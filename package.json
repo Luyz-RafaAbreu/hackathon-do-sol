@@ -6,7 +6,10 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
-    "lint": "next lint"
+    "lint": "next lint",
+    "apps-script:push": "clasp -P scripts push --force",
+    "apps-script:deploy": "clasp -P scripts push --force && clasp -P scripts redeploy AKfycbwxXrlyb7uP2O0Uk07Apg1YR_bk3b8FaelnLKZevQ-1LdcoPQV-HeI9RE7UliTN2FRR --description \"deploy\"",
+    "apps-script:logs": "clasp -P scripts logs"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.5.2",

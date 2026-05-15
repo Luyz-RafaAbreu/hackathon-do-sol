@@ -63,7 +63,7 @@ export default function Footer() {
                 strokeWidth={2}
               />
               <span>
-                {EVENT.LOCATION_NAME}
+                {EVENT.LOCATION_NAME_OFFICIAL}
                 <br />
                 {EVENT.LOCATION_ADDRESS}
                 <br />

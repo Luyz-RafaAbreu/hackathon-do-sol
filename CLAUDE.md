@@ -29,18 +29,22 @@ Next.js 14 (App Router) + React 18 + TypeScript estrito + Tailwind CSS. Alias `@
 
 ### Pipeline de inscrição (parte mais não-óbvia do projeto)
 
-`Formulário (Inscricao.tsx) → POST /api/inscricao → Apps Script Web App → Google Sheets + Drive + Gmail`
+`Wizard (Inscricao.tsx) → POST /api/inscricao (JSON) → Apps Script Web App → Google Sheets + Gmail`
 
-Pontos críticos:
+A inscrição é **por equipe de 4 integrantes** (item 4.5 do Edital), não individual. O fluxo:
 
-- **`app/api/inscricao/route.ts`** é apenas um proxy validador. Recebe `FormData`, valida campos + arquivos (incluindo magic bytes pra detectar MIME falsificado), converte arquivos pra base64 e repassa ao Apps Script num envelope assinado por **HMAC-SHA256** sobre `${ts}.${payload}`. O Apps Script recalcula a assinatura e rejeita se não bater (ou se o `ts` tiver >5 min — anti-replay).
-- **`scripts/apps-script.gs`** é o backend real. Vive no Google Apps Script — **não é executado pelo Next**, precisa ser colado manualmente no editor do Apps Script via `Extensões → Apps Script` na planilha do Google. O setup completo está em [scripts/README-inscricoes.md](scripts/README-inscricoes.md).
-- O `WEBHOOK_SECRET` precisa ser **idêntico** entre `.env.local` (`APPS_SCRIPT_WEBHOOK_SECRET`) e o topo do `apps-script.gs` (`CONFIG.WEBHOOK_SECRET`).
-- Mudanças em `apps-script.gs` no repo **não se propagam sozinhas** — depois de editar, copie de novo no editor do Apps Script e use `Implantar → Gerenciar implantações → Nova versão` (não nova implantação, senão a URL muda).
-- Triggers de e-mail aprovação/reprovação rodam quando o usuário muda manualmente a coluna Status na planilha. É um **installable trigger** (`handleStatusChange`), não simple `onEdit` — edições via API não disparam.
+- **`lib/inscricao-schema.ts`** é a fonte canônica — tipos do FormState, opções de selects, limites por campo, validadores puros (CPF, idade ≥ 18 até 24/06/2026, LinkedIn, email, telefone BR) e a lista de aceites individuais (9 por integrante) e coletivos (7 pela equipe), com texto referenciando itens do Edital. Importado por client E API.
+- **`components/Inscricao.tsx`** é um wizard de 9 etapas: Equipe → Trilha → Integrante 1..4 → Proposta → Aceites coletivos → Confirmação do líder. Salva rascunho em `localStorage` (`hackathon-sol-inscricao-draft-v1`) entre etapas, restaura no mount e limpa após envio bem-sucedido. Cache de cidades do IBGE (`useRef` no orquestrador) é compartilhado por todos os 5 selects de UF/Cidade do form.
+- **`app/api/inscricao/route.ts`** é um proxy validador. Recebe JSON `{ state, turnstileToken, honeypot }`, valida via `validateAll()` do schema (defesa quando o front é burlado), normaliza com `normalizeForm()` e repassa ao Apps Script num envelope assinado por **HMAC-SHA256** sobre `${ts}.${payload}` com `v: 2`. Cap de 200 KB no payload.
+- **`scripts/apps-script.gs`** é o backend real. Vive no Google Apps Script — **não é executado pelo Next**. Sincronizado via [clasp](https://github.com/google/clasp): `npm run apps-script:push` envia o código pro projeto remoto, `npm run apps-script:deploy` faz push + redeploy do web app mantendo a URL. O `.clasp.json` em `scripts/` aponta pro projeto correto; `.claspignore` evita que outros scripts do diretório (`.mjs`, etc) vão junto. Faz dedup por CPF (item 3.2 do Edital — 1 inscrição por CPF, checa todos os 4 CPFs contra todas as 4 colunas de CPF das equipes existentes) e por e-mail (oficial + 4 pessoais).
+- A planilha tem **143 colunas** numa linha por equipe: meta (4) + equipe (8) + proposta (6) + aceites coletivos (1 concat) + integrante (31 colunas × 4). `setup()` cria tudo via `COLUMNS` array — se mudar campos no schema, atualizar tanto `lib/inscricao-schema.ts` quanto o `FIELD_MAX` no topo do `apps-script.gs`.
+- E-mails de confirmação, aprovação e reprovação vão pros **4 integrantes simultaneamente** (todos no `to:`). O líder não recebe individualmente — recebe junto com os outros 3.
+- Triggers de e-mail aprovação/reprovação rodam quando o admin muda manualmente a coluna Status (A) na planilha. É um **installable trigger** (`handleStatusChange`), não simple `onEdit` — edições via API não disparam. O EMAIL_SENT_COL (coluna C) guarda "Aprovação · timestamp" ou "Reprovação · timestamp" e bloqueia reenvio do mesmo tipo (mas permite Aprovado↔Reprovado).
+- O `WEBHOOK_SECRET` vive nas **Script Properties** do projeto Apps Script (`⚙ Project Settings → Script Properties → WEBHOOK_SECRET`), NÃO no código. Isso desacopla o secret do versionamento — `clasp push` nunca afeta o valor. Tem que bater com `APPS_SCRIPT_WEBHOOK_SECRET` do `.env.local`.
+- Mudanças em `apps-script.gs` se propagam via `npm run apps-script:deploy` (push + redeploy mantendo a URL do web app). Nunca usar "Nova implantação" pela UI — isso muda a URL e quebra o `.env.local`.
 
-### Limite de 4.5 MB do Vercel Hobby
-Toda escolha de tamanho de arquivo deriva disso: `MAX_FILE_SIZE = 1 MB`, `MAX_FILES = 3`, `MAX_TOTAL_SIZE = 3 MB`. 3 MB raw → ~4 MB em base64, abaixo do teto de 4.5 MB. Se aumentar qualquer um, conferir o cálculo antes — o erro 413 acontece **antes** da rota Next ser chamada, então não dá pra interceptar com mensagem amigável.
+### Sem upload de arquivos
+A inscrição V2 (por equipe) substituiu uploads por **links** (LinkedIn obrigatório + portfólio opcional por integrante). O LinkedIn é usado pra análise no processo seletivo (item 3.3.1.a do Edital). Sem uploads, o teto de 4.5 MB do Vercel Hobby deixa de ser preocupação — payload típico fica em ~30 KB.
 
 ### Rate limiting é por instância
 `rateLimitStore` é um `Map` em memória. Em serverless (Vercel) cada instância tem o próprio store, então o limite real é maior que `RATE_LIMIT_MAX = 5/h`. Suficiente pro caso de uso, mas não confunda com proteção global. Pra defesa séria, migrar pra Upstash/Vercel KV.

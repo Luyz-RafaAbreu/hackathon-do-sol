@@ -4,12 +4,14 @@ import {
   Target,
   Zap,
   Trophy,
-  Handshake,
+  BedDouble,
   type LucideIcon,
 } from "lucide-react";
 import Reveal from "./Reveal";
 import TiltCard from "./TiltCard";
 
+// Cards refletem o que está no Edital (itens 2, 4.5, 4.13, 6.2, 7.2). Textos
+// curtos — quem quiser detalhe pleno vai pra Termos e Privacidade ou FAQ.
 const items: {
   Icon: LucideIcon;
   title: string;
@@ -19,37 +21,37 @@ const items: {
   {
     Icon: CalendarDays,
     title: "Data",
-    text: "26, 27 e 28 de junho de 2026 — três dias, da abertura ao pitch final.",
+    text: "26, 27 e 28 de junho de 2026 — das 9h da sexta às 20h do domingo (item 2.1 do Edital).",
     cor: "from-sol-yellow to-sol-orange",
   },
   {
     Icon: MapPin,
     title: "Local",
-    text: "Praiamar Arena — Av. Senador Salgado Filho, 1906, Lagoa Nova, Natal/RN.",
+    text: "Hotel Praiamar Arena — Av. Senador Salgado Filho, 1906, Lagoa Nova, Natal/RN. 100% presencial.",
     cor: "from-sol-orange to-sol-pink",
   },
   {
     Icon: Target,
-    title: "Público-alvo",
-    text: "Desenvolvedores, designers, empreendedores e estudantes com interesse em inovação.",
+    title: "Quem pode participar",
+    text: "Pessoas físicas, brasileiras, 18+ até 24/06/2026, com experiência em ao menos uma área: dev web/mobile, design, gestão, marketing ou IA (item 3.4 do Edital).",
     cor: "from-sol-pink to-sol-purpleLight",
   },
   {
     Icon: Zap,
     title: "Formato",
-    text: "Presencial, em equipes de 4 pessoas, com mentorias técnicas ao longo do evento.",
+    text: "Equipes fixas de 4 pessoas, em uma das 3 trilhas. Solução obrigatoriamente web ou mobile, com link de produção/homologação no domingo às 13h59 (itens 4.5 e 8.2.1).",
     cor: "from-sol-purpleLight to-sol-teal",
   },
   {
     Icon: Trophy,
     title: "Premiação",
-    text: "R$ 10 mil distribuídos entre as equipes vencedoras e visibilidade junto aos patrocinadores.",
+    text: "R$ 10 mil divididos entre as 3 melhores equipes (R$ 5 mil + R$ 3 mil + R$ 2 mil), pagos em até 30 dias. Vencedoras recebem mentoria gratuita de 2 meses pós-evento (item 7).",
     cor: "from-sol-teal to-sol-yellow",
   },
   {
-    Icon: Handshake,
-    title: "Comunidade",
-    text: "Conexão com mentores, patrocinadores e outros profissionais da cena tech regional.",
+    Icon: BedDouble,
+    title: "Hospedagem e alimentação",
+    text: "Hospedagem nos 3 dias no hotel + café, almoço, café da tarde e jantar inclusos, sem custo (itens 4.13.2 e 6.2.1). Quartos coletivos por gênero — leia as regras antes de se inscrever.",
     cor: "from-sol-yellow to-sol-pink",
   },
 ];

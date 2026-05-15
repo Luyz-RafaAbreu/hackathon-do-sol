@@ -13,17 +13,20 @@ export default function Sobre() {
           </h2>
           <p className="text-white/75 leading-relaxed mb-4 text-[0.9375rem] md:text-base">
             O <strong className="text-white">Hackathon do Sol</strong> reúne
-            desenvolvedores, designers e empreendedores em Natal para
-            transformar desafios reais em soluções tecnológicas. São três dias
-            de imersão, com equipes de quatro pessoas, mentorias ao longo do
-            evento e pitches avaliados por uma banca no domingo.
+            desenvolvedores, designers e empreendedores no Hotel Praiamar Arena,
+            em Natal, para transformar desafios reais em soluções tecnológicas.
+            São três dias de imersão presencial, com hospedagem e alimentação
+            inclusas, equipes de quatro pessoas, mentorias e pitches avaliados
+            por uma banca no domingo.
           </p>
           <p className="text-white/75 leading-relaxed text-[0.9375rem] md:text-base">
             Mais que uma competição, é um ponto de encontro para quem constrói
-            a próxima geração de produtos digitais no Nordeste. Ao final, as
-            melhores equipes levam{" "}
+            a próxima geração de produtos digitais no Nordeste. As{" "}
+            <strong className="text-white">três melhores equipes</strong>{" "}
+            dividem{" "}
             <strong className="text-sol-orange">R$ 10 mil em premiação</strong>{" "}
-            e ganham visibilidade junto aos patrocinadores do evento.
+            (R$ 5 mil, R$ 3 mil e R$ 2 mil) e participam de um programa de
+            mentoria pós-evento de dois meses.
           </p>
         </Reveal>
 
