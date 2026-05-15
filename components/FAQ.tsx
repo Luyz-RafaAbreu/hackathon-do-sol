@@ -18,7 +18,7 @@ const faqs = [
   },
   {
     q: "Como funciona a inscrição? Posso me inscrever sozinho?",
-    a: "A inscrição é por equipe fechada de 4 pessoas. Um integrante atua como líder e preenche os dados de todos os 4 na página de Inscrição. Equipes incompletas podem ser completadas pela organização excepcionalmente — entre em contato pelos canais oficiais antes de tentar enviar sem time fechado (item 4.5 do Edital).",
+    a: "A inscrição é por equipe de 4 pessoas: um integrante atua como líder e preenche os dados dos 4 na página de Inscrição. Se você ainda não tem equipe ou está com o time incompleto, fale com a organização pelos canais oficiais — a comissão organizadora ajuda a formar equipes e incluir participantes sem equipe (itens 4.5 e 4.6 do Edital).",
   },
   {
     q: "Qual o período de inscrição?",
@@ -38,7 +38,7 @@ const faqs = [
   },
   {
     q: "O que preciso levar?",
-    a: "Notebook ou laptop é OBRIGATÓRIO (sob pena de desclassificação). No credenciamento (24/06, das 10h às 14h) traga: documento original com foto válido em território nacional (RG, CNH ou passaporte) e o e-mail de confirmação da inscrição, impresso ou digital. Roupa para 3 dias, carregadores e itens de higiene pessoal completam o básico (itens 3.3.4, 4.7 e 4.14 do Edital).",
+    a: "Notebook ou laptop é OBRIGATÓRIO (sob pena de desclassificação). No credenciamento (24/06, das 10h às 14h) traga 3 itens: (a) documento original com foto válido em território nacional — RG, CNH, passaporte ou carteira funcional reconhecida por lei; (b) e-mail de confirmação da inscrição, impresso ou digital; (c) comprovante de confirmação de presença. Para os dias do evento: roupa para 3 dias, carregadores e itens de higiene pessoal completam o básico (itens 3.3.4, 4.7 e 4.14 do Edital).",
   },
   {
     q: "O que a minha equipe precisa entregar?",
@@ -74,21 +74,6 @@ export default function FAQ() {
             Ainda com dúvidas? Entre em contato pelo e-mail no rodapé ou pelo
             Instagram.
           </p>
-        </div>
-      </Reveal>
-
-      <Reveal delay={60}>
-        <div className="max-w-3xl mb-6 rounded-2xl border border-sol-orange/30 bg-sol-orange/5 backdrop-blur-sm px-5 py-4 text-sm text-white/80 leading-relaxed">
-          <strong className="text-sol-orange">📄 Baseado no Edital oficial.</strong>{" "}
-          As respostas abaixo seguem o regulamento do Hackathon do Sol 2026. Em
-          caso de divergência, prevalece sempre o texto do{" "}
-          <a
-            href="/termos-e-privacidade"
-            className="text-sol-orange underline underline-offset-2 hover:text-white transition"
-          >
-            Edital
-          </a>
-          .
         </div>
       </Reveal>
 
