@@ -82,7 +82,10 @@ const FIELD_MAX = {
   contatoEmergenciaNome: 120,
   contatoEmergenciaTelefone: 20, contatoEmergenciaParentesco: 50,
   genero: 120, ocupacaoAtual: 150, tempoExperiencia: 50,
-  formacaoAcademica: 150, linkedin: 200, portfolio: 200, outrasRedes: 250,
+  nivelFormacao: 60, cursoFormacao: 80, anoFormacao: 4,
+  instituicao: 200, instituicaoUF: 2, instituicaoMunicipio: 80,
+  projetoAcademico: 1000,
+  linkedin: 200, portfolio: 200, outrasRedes: 250,
   experienciaRelevante: 1500, restricoesAlimentares: 500,
   alergias: 500, medicamentos: 500, acessibilidade: 500,
   outrasObservacoes: 1000, comoSoube: 60,
@@ -153,7 +156,13 @@ const INTEGRANTE_FIELDS = [
   "Áreas de conhecimento",
   "Ocupação atual",
   "Tempo de experiência",
-  "Formação acadêmica",
+  "Nível de formação",
+  "Curso / Área de formação",
+  "Ano de ingresso/formatura",
+  "Instituição de ensino",
+  "Instituição — UF",
+  "Instituição — Município",
+  "Projeto acadêmico relevante",
   "LinkedIn",
   "Portfólio",
   "Outras redes sociais",
@@ -194,28 +203,32 @@ const ACEITES_COLETIVOS_KEYS = [
 // ============================================================================
 // ABA TRIAGEM — view compacta pra aprovação
 // ----------------------------------------------------------------------------
-// Cada equipe vira um "card" de 8 linhas × 5 colunas, empilhados verticalmente.
+// Cada equipe vira um "card" de 8 linhas × 9 colunas, empilhados verticalmente.
 // Admin trabalha aqui em vez de rolar 143 colunas da Inscricoes. Status é
 // editável no card e sincroniza com a Inscricoes via trigger bidirecional.
 //
 // Estrutura do card (linhas relativas a um startRow):
-//   +0 [Status DD] [Equipe nome]  [Trilha]        [Data + email]    [Link →]
-//   +1 [Int 1?LÍDER][nome]       [email · linkedin][áreas]          [    ]
-//   +2 [Int 2?LÍDER][nome]       [email · linkedin][áreas]          [    ]
-//   +3 [Int 3?LÍDER][nome]       [email · linkedin][áreas]          [    ]
-//   +4 [Int 4?LÍDER][nome]       [email · linkedin][áreas]          [    ]
-//   +5 [PROPOSTA]   [resumo merged B:E, wrap, alt. 60px]
-//   +6 [ADERÊNCIA]  [aderência merged B:E, wrap, alt. 60px]
-//   +7 spacer (gray bg, 8px)
+//   +0 [Status] [Equipe nome]    [Trilha] [Data]    [Email ofic] [Tel ofic]  [    ]           [    ]    [↗ detalhes]
+//   +1 [LÍDER]  [Nome (idade)]   [CPF]    [Cidade]  [Email pess] [Tel cel]   [Ocup. · tempo]  [Áreas]   [LinkedIn]
+//   +2 [Int 2]  [Nome (idade)]   [CPF]    [Cidade]  [Email pess] [Tel cel]   [Ocup. · tempo]  [Áreas]   [LinkedIn]
+//   +3 [Int 3]  ... idem
+//   +4 [Int 4]  ... idem
+//   +5 [PROPOSTA]   [resumo merged B:I, wrap, alt. 72px]
+//   +6 [ADERÊNCIA]  [aderência merged B:I, wrap, alt. 72px]
+//   +7 spacer (gray bg, 3px)
 //
-// Coluna F (oculta) guarda o número da linha equivalente na Inscricoes,
+// Coluna J (oculta) guarda o número da linha equivalente na Inscricoes,
 // pra mapeamento bidirecional no trigger.
 // ============================================================================
 const TRIAGEM_SHEET_NAME = "Triagem";
 const TRIAGEM_CARD_ROWS = 8;
 const TRIAGEM_HEADER_ROWS = 1;
-const TRIAGEM_STATUS_COL = 1; // coluna A do card
-const TRIAGEM_HIDDEN_COL = 6; // coluna F (oculta) — referência pra linha na Inscricoes
+const TRIAGEM_STATUS_COL = 1;  // coluna A do card
+const TRIAGEM_CARD_COLS = 9;   // colunas visíveis (A..I)
+const TRIAGEM_HIDDEN_COL = 10; // coluna J (oculta) — referência pra linha na Inscricoes
+// Data do credenciamento (item 2.1 do Edital) usada como referência pra
+// calcular idade — bate com o critério legal de "≥ 18 até 24/06/2026".
+const CRED_DATE = new Date(2026, 5, 24); // mês 5 = junho (0-indexed)
 
 // ============================================================================
 // ABA DETALHES — view estruturada vertical, 1 equipe por bloco (~50 linhas)
@@ -482,11 +495,11 @@ function setupTriagemSheet_() {
   // Linha 1 — instrução topo (não é "header de colunas", já que cada coluna tem
   // múltiplos significados dependendo da linha do card). Mais útil deixar uma
   // dica de uso aqui.
-  sheet.getRange("A1:E1").merge();
+  sheet.getRange(1, 1, 1, TRIAGEM_CARD_COLS).merge();
   sheet.getRange("A1").setValue(
     "Triagem de inscrições  ·  Mude o Status (coluna A) para Aprovado ou Reprovado e o e-mail é enviado automaticamente aos 4 integrantes."
   );
-  sheet.getRange("A1:E1")
+  sheet.getRange(1, 1, 1, TRIAGEM_CARD_COLS)
     .setBackground("#fafaf9")
     .setFontColor("#52525b")
     .setFontWeight("normal")
@@ -497,22 +510,34 @@ function setupTriagemSheet_() {
   sheet.setFrozenRows(1);
   sheet.setRowHeight(1, 30);
 
-  // Larguras pensadas pra o conteúdo de cada coluna:
-  //   A  — Status DD / "Int N — LÍDER" / "PROPOSTA"
-  //   B  — Equipe nome (grande), nome integrante, conteúdo proposta (merged)
-  //   C  — Trilha, LinkedIn (clicável)
-  //   D  — Data + e-mail oficial, Portfólio (clicável)
-  //   E  — Link "↗ ver detalhes" (clicável)
-  sheet.setColumnWidth(1, 130);
-  sheet.setColumnWidth(2, 310);
-  sheet.setColumnWidth(3, 240);
-  sheet.setColumnWidth(4, 270);
-  sheet.setColumnWidth(5, 130);
+  // Larguras pensadas pra o conteúdo de cada coluna (header / integrante):
+  //   A  — Status            / Label (LÍDER / Int N)
+  //   B  — Equipe nome       / Nome (idade)
+  //   C  — Trilha            / CPF
+  //   D  — Data inscrição    / Cidade/UF
+  //   E  — Email oficial     / Email pessoal
+  //   F  — Telefone oficial  / Telefone celular
+  //   G  — (vazio)           / Ocupação · tempo de experiência
+  //   H  — (vazio)           / Áreas de conhecimento
+  //   I  — ↗ ver detalhes    / LinkedIn (clicável)
+  sheet.setColumnWidth(1, 95);
+  sheet.setColumnWidth(2, 210);
+  sheet.setColumnWidth(3, 140);
+  sheet.setColumnWidth(4, 120);
+  sheet.setColumnWidth(5, 200);
+  sheet.setColumnWidth(6, 140);
+  sheet.setColumnWidth(7, 200);
+  sheet.setColumnWidth(8, 180);
+  sheet.setColumnWidth(9, 200);
 
-  // Esconde coluna F (referência interna pra inscricoesRow)
+  // Esconde coluna J (referência interna pra inscricoesRow).
+  // Antes, desconde TUDO — necessário pra defesa contra estado herdado
+  // de versões anteriores onde TRIAGEM_HIDDEN_COL era outro valor (F=6 antes
+  // de virar J=10). `sheet.clear()` não toca em colunas hidden.
   if (sheet.getMaxColumns() < TRIAGEM_HIDDEN_COL) {
     sheet.insertColumnAfter(sheet.getMaxColumns());
   }
+  sheet.showColumns(1, sheet.getMaxColumns());
   sheet.hideColumns(TRIAGEM_HIDDEN_COL);
 
   // Conditional formatting do Status (em qualquer linha da coluna A)
@@ -560,33 +585,77 @@ function appendCardToTriagem_(data, inscricoesRow) {
   buildCardAt_(sheet, nextRow, data, inscricoesRow);
 }
 
+// Calcula idade na data do credenciamento (CRED_DATE). dataNascimento pode
+// chegar em 3 formatos:
+//   • Date object — quando `getValues()` lê da Inscricoes, o Sheets pode
+//     auto-detectar "2000-01-15" e converter pra Date interno
+//   • "YYYY-MM-DD" string — formato canônico do front (input type=date)
+//   • "DD/MM/YYYY" string — se admin editar à mão
+// Retorna "" se não conseguir parsear.
+function computeAge_(dataNascimento) {
+  if (!dataNascimento) return "";
+  let birth = null;
+  if (dataNascimento instanceof Date) {
+    birth = dataNascimento;
+  } else {
+    const s = String(dataNascimento);
+    let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+      birth = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    } else {
+      m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+      if (m) birth = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    }
+  }
+  if (!birth || isNaN(birth.getTime())) return "";
+  let age = CRED_DATE.getFullYear() - birth.getFullYear();
+  const mDiff = CRED_DATE.getMonth() - birth.getMonth();
+  if (mDiff < 0 || (mDiff === 0 && CRED_DATE.getDate() < birth.getDate())) age--;
+  return age;
+}
+
 function buildCardAt_(sheet, startRow, data, inscricoesRow) {
   const liderIdx = Number(data.equipe.liderIndex) || 0;
   const stamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm");
 
-  // Helper: monta a linha de cada integrante com os critérios de triagem
-  // do Edital 3.3.1.a: Portfólio + LinkedIn + (Aderência vai por equipe).
-  // E-mail/CPF/RG/etc. ficam só na Inscricoes — admin clica "↗ ver detalhes".
+  // Helper: monta a linha de cada integrante com info chave pra triagem
+  // (Edital 3.3.1.a + perfil + contato). Campos completos ficam na Detalhes.
   const integranteRow = function (i) {
     const it = (data.integrantes && data.integrantes[i]) || {};
     const isLider = (i === liderIdx);
     const label = isLider ? "★  LÍDER" : "Int " + (i + 1);
+    const age = computeAge_(it.dataNascimento);
+    const nomeIdade = (it.nomeCompleto || "—") + (age !== "" ? "  (" + age + "a)" : "");
+    const cidade = (it.cidade || "") + (it.estado ? "/" + it.estado : "");
+    const ocupTempo = [it.ocupacaoAtual, it.tempoExperiencia]
+      .filter(Boolean).join("  ·  ") || "—";
+    const areas = Array.isArray(it.areasConhecimento)
+      ? (it.areasConhecimento.length ? it.areasConhecimento.join(", ") : "—")
+      : (it.areasConhecimento || "—");
     return [
       label,
-      it.nomeCompleto || "—",
+      nomeIdade,
+      it.cpf || "—",
+      cidade || "—",
+      it.emailPessoal || "—",
+      it.telefoneCelular || "—",
+      ocupTempo,
+      areas,
       it.linkedin || "—",
-      it.portfolio || "—",
-      "",
     ];
   };
 
   const rows = [
-    // Row 1: HEADER — equipe nome em destaque, trilha de complemento
+    // Row 1: HEADER — equipe nome em destaque, trilha + data, contato oficial
     [
       "Pendente",
       data.equipe.nome || "(sem nome)",
       data.equipe.trilha || "",
-      stamp + "    ✉  " + (data.equipe.emailOficial || ""),
+      stamp,
+      "✉  " + (data.equipe.emailOficial || ""),
+      "☎  " + (data.equipe.telefone || ""),
+      "",
+      "",
       "",
     ],
     // Rows 2-5: 4 integrantes
@@ -595,17 +664,19 @@ function buildCardAt_(sheet, startRow, data, inscricoesRow) {
     integranteRow(2),
     integranteRow(3),
     // Row 6: PROPOSTA — resumo
-    ["PROPOSTA", (data.proposta && data.proposta.ideiaDiferencial) || "—", "", "", ""],
+    ["PROPOSTA", (data.proposta && data.proposta.ideiaDiferencial) || "—",
+      "", "", "", "", "", "", ""],
     // Row 7: ADERÊNCIA — à trilha escolhida
-    ["ADERÊNCIA", (data.proposta && data.proposta.aderencia) || "—", "", "", ""],
+    ["ADERÊNCIA", (data.proposta && data.proposta.aderencia) || "—",
+      "", "", "", "", "", "", ""],
     // Row 8: SPACER — visualmente delimita o card
-    ["", "", "", "", ""],
+    ["", "", "", "", "", "", "", "", ""],
   ];
 
-  sheet.getRange(startRow, 1, TRIAGEM_CARD_ROWS, 5)
+  sheet.getRange(startRow, 1, TRIAGEM_CARD_ROWS, TRIAGEM_CARD_COLS)
     .setValues(rows.map(function (r) { return r.map(sanitizeCell_); }));
 
-  // Coluna F oculta com referência da Inscricoes (na primeira linha do card)
+  // Coluna J oculta com referência da Inscricoes (na primeira linha do card)
   sheet.getRange(startRow, TRIAGEM_HIDDEN_COL).setValue(inscricoesRow);
 
   // Link "↗ ver detalhes" → aponta pra aba Detalhes (não pra Inscricoes,
@@ -625,9 +696,9 @@ function buildCardAt_(sheet, startRow, data, inscricoesRow) {
     .setText("↗ ver detalhes")
     .setLinkUrl(detailsUrl)
     .build();
-  sheet.getRange(startRow, 5).setRichTextValue(detailsRich);
+  sheet.getRange(startRow, 9).setRichTextValue(detailsRich);
 
-  // LinkedIn e Portfólio nas linhas dos integrantes também ficam clicáveis.
+  // LinkedIn de cada integrante (coluna I) — display compacto, clicável.
   for (let i = 0; i < 4; i++) {
     const it = (data.integrantes && data.integrantes[i]) || {};
     const r = startRow + 1 + i;
@@ -636,22 +707,10 @@ function buildCardAt_(sheet, startRow, data, inscricoesRow) {
         ? it.linkedin
         : "https://" + it.linkedin;
       const display = it.linkedin.replace(/^https?:\/\/(www\.)?/, "");
-      sheet.getRange(r, 3).setRichTextValue(
+      sheet.getRange(r, 9).setRichTextValue(
         SpreadsheetApp.newRichTextValue()
           .setText(display)
           .setLinkUrl(liUrl)
-          .build()
-      );
-    }
-    if (it.portfolio) {
-      const pUrl = String(it.portfolio).trim().match(/^https?:\/\//)
-        ? it.portfolio
-        : "https://" + it.portfolio;
-      const display = it.portfolio.replace(/^https?:\/\/(www\.)?/, "");
-      sheet.getRange(r, 4).setRichTextValue(
-        SpreadsheetApp.newRichTextValue()
-          .setText(display)
-          .setLinkUrl(pUrl)
           .build()
       );
     }
@@ -684,7 +743,7 @@ function buildCardAt_(sheet, startRow, data, inscricoesRow) {
 // ============================================================================
 function applyCardFormatting_(sheet, startRow, liderIdx) {
   // ── Row 1: HEADER do card (branco, limpo) ──
-  const headerRange = sheet.getRange(startRow, 1, 1, 5);
+  const headerRange = sheet.getRange(startRow, 1, 1, TRIAGEM_CARD_COLS);
   headerRange.setBackground("#ffffff").setVerticalAlignment("middle");
   sheet.setRowHeight(startRow, 54);
 
@@ -707,21 +766,31 @@ function applyCardFormatting_(sheet, startRow, liderIdx) {
     .setFontStyle("italic").setFontSize(10).setFontColor("#71717a")
     .setVerticalAlignment("middle");
 
-  // D: Data + e-mail oficial — pequeno, terciário
+  // D: Data inscrição — pequeno, terciário
   sheet.getRange(startRow, 4)
     .setFontSize(9).setFontColor("#a1a1aa").setVerticalAlignment("middle");
 
-  // E: link ↗ ver detalhes — accent laranja
+  // E: Email oficial — pequeno, terciário
   sheet.getRange(startRow, 5)
+    .setFontSize(9).setFontColor("#a1a1aa").setVerticalAlignment("middle");
+
+  // F: Tel oficial — pequeno, terciário, mono pra alinhar dígitos
+  sheet.getRange(startRow, 6)
+    .setFontFamily("Roboto Mono").setFontSize(9).setFontColor("#a1a1aa")
+    .setVerticalAlignment("middle");
+
+  // I: link ↗ ver detalhes — accent laranja
+  sheet.getRange(startRow, 9)
     .setFontSize(10).setFontWeight("normal").setFontColor("#f97316")
     .setHorizontalAlignment("right").setVerticalAlignment("middle");
 
   // ── Rows 2-5: INTEGRANTES ──
   for (let i = 0; i < 4; i++) {
     const r = startRow + 1 + i;
-    sheet.setRowHeight(r, 28);
+    // 44px acomoda 2 linhas de wrap em Ocupação·tempo e Áreas.
+    sheet.setRowHeight(r, 44);
     const isLider = (i === liderIdx);
-    const rowRange = sheet.getRange(r, 1, 1, 5);
+    const rowRange = sheet.getRange(r, 1, 1, TRIAGEM_CARD_COLS);
     rowRange.setVerticalAlignment("middle");
     rowRange.setBackground(isLider ? "#fef9c3" : "#ffffff");
 
@@ -732,25 +801,46 @@ function applyCardFormatting_(sheet, startRow, liderIdx) {
       .setFontWeight(isLider ? "bold" : "normal")
       .setHorizontalAlignment("center");
 
-    // B: nome — slight destaque
+    // B: Nome (idade) — destaque
     sheet.getRange(r, 2)
       .setFontSize(11).setFontColor("#18181b")
       .setFontWeight(isLider ? "bold" : "normal");
 
-    // C: LinkedIn (richTextValue já aplicado se URL existir)
-    sheet.getRange(r, 3).setFontSize(10).setFontColor("#2563eb");
+    // C: CPF — mono, leitura rápida
+    sheet.getRange(r, 3)
+      .setFontFamily("Roboto Mono").setFontSize(10).setFontColor("#52525b");
 
-    // D: Portfólio (richTextValue já aplicado se URL existir)
-    sheet.getRange(r, 4).setFontSize(10).setFontColor("#2563eb");
+    // D: Cidade/UF
+    sheet.getRange(r, 4)
+      .setFontSize(10).setFontColor("#27272a");
+
+    // E: Email pessoal
+    sheet.getRange(r, 5)
+      .setFontSize(10).setFontColor("#52525b").setWrap(true);
+
+    // F: Telefone celular — mono
+    sheet.getRange(r, 6)
+      .setFontFamily("Roboto Mono").setFontSize(10).setFontColor("#52525b");
+
+    // G: Ocupação · tempo de experiência (wrap em 2 linhas)
+    sheet.getRange(r, 7)
+      .setFontSize(10).setFontColor("#27272a").setWrap(true);
+
+    // H: Áreas de conhecimento (wrap)
+    sheet.getRange(r, 8)
+      .setFontSize(10).setFontColor("#52525b").setWrap(true);
+
+    // I: LinkedIn (richTextValue já aplicado se URL existir)
+    sheet.getRange(r, 9).setFontSize(10).setFontColor("#2563eb").setWrap(true);
   }
 
   // Linha divisória entre integrantes e proposta
-  sheet.getRange(startRow + 5, 1, 1, 5)
+  sheet.getRange(startRow + 5, 1, 1, TRIAGEM_CARD_COLS)
     .setBorder(true, null, null, null, null, null, "#e4e4e7", SpreadsheetApp.BorderStyle.SOLID);
 
   // ── Rows 6-7: PROPOSTA & ADERÊNCIA ──
   for (let r = startRow + 5; r <= startRow + 6; r++) {
-    sheet.getRange(r, 2, 1, 4).merge();
+    sheet.getRange(r, 2, 1, TRIAGEM_CARD_COLS - 1).merge(); // B..I
     sheet.getRange(r, 2)
       .setWrap(true).setFontSize(10).setFontColor("#27272a")
       .setVerticalAlignment("top").setBackground("#fafaf9");
@@ -763,15 +853,15 @@ function applyCardFormatting_(sheet, startRow, liderIdx) {
     .setHorizontalAlignment("center").setVerticalAlignment("middle");
 
   // ── Row 8: SPACER (linha sutil, não barra grossa) ──
-  sheet.getRange(startRow + 7, 1, 1, 5).setBackground("#e4e4e7");
+  sheet.getRange(startRow + 7, 1, 1, TRIAGEM_CARD_COLS).setBackground("#e4e4e7");
   sheet.setRowHeight(startRow + 7, 3);
 
   // ── Borders do card inteiro ──
   // Borda externa quase imperceptível
-  sheet.getRange(startRow, 1, TRIAGEM_CARD_ROWS - 1, 5)
+  sheet.getRange(startRow, 1, TRIAGEM_CARD_ROWS - 1, TRIAGEM_CARD_COLS)
     .setBorder(true, true, true, true, false, false, "#e4e4e7", SpreadsheetApp.BorderStyle.SOLID);
   // Linha mais marcada SOB o header (separa título do conteúdo)
-  sheet.getRange(startRow, 1, 1, 5)
+  sheet.getRange(startRow, 1, 1, TRIAGEM_CARD_COLS)
     .setBorder(null, null, true, null, null, null, "#d4d4d8", SpreadsheetApp.BorderStyle.SOLID);
 }
 
@@ -837,7 +927,13 @@ function parseRowToCardData_(row) {
       genero: val("Int " + i + " — Gênero"),
       ocupacaoAtual: val("Int " + i + " — Ocupação atual"),
       tempoExperiencia: val("Int " + i + " — Tempo de experiência"),
-      formacaoAcademica: val("Int " + i + " — Formação acadêmica"),
+      nivelFormacao: val("Int " + i + " — Nível de formação"),
+      cursoFormacao: val("Int " + i + " — Curso / Área de formação"),
+      anoFormacao: val("Int " + i + " — Ano de ingresso/formatura"),
+      instituicao: val("Int " + i + " — Instituição de ensino"),
+      instituicaoUF: val("Int " + i + " — Instituição — UF"),
+      instituicaoMunicipio: val("Int " + i + " — Instituição — Município"),
+      projetoAcademico: val("Int " + i + " — Projeto acadêmico relevante"),
       linkedin: val("Int " + i + " — LinkedIn"),
       portfolio: val("Int " + i + " — Portfólio"),
       outrasRedes: val("Int " + i + " — Outras redes sociais"),
@@ -940,12 +1036,14 @@ function buildDetalhesBlockAt_(sheet, startRow, data, inscricoesRow) {
   const rows = [];
 
   // ── Header do bloco (linha 0) ──
+  // Col E é um link "↩ voltar pra Triagem" — Status real fica visível na
+  // Triagem; ter aqui era snapshot estático que ficava stale após aprovação.
   rows.push([
     "EQUIPE",
     data.equipe.nome || "(sem nome)",
     data.equipe.trilha || "",
     data.dataInscricao || "",
-    data.status || "Pendente",
+    "↩  voltar pra Triagem",
   ]);
 
   // ── Equipe info (linhas 1-6) ──
@@ -990,7 +1088,13 @@ function buildDetalhesBlockAt_(sheet, startRow, data, inscricoesRow) {
     ["Áreas de conhecimento", "areasConhecimento"],
     ["Ocupação atual", "ocupacaoAtual"],
     ["Tempo de experiência", "tempoExperiencia"],
-    ["Formação acadêmica", "formacaoAcademica"],
+    ["Nível de formação", "nivelFormacao"],
+    ["Curso / Área de formação", "cursoFormacao"],
+    ["Ano de ingresso/formatura", "anoFormacao"],
+    ["Instituição de ensino", "instituicao"],
+    ["Instituição — UF", "instituicaoUF"],
+    ["Instituição — Município", "instituicaoMunicipio"],
+    ["Projeto acadêmico relevante", "projetoAcademico"],
     ["LinkedIn", "linkedin"],
     ["Portfólio", "portfolio"],
     ["Outras redes sociais", "outrasRedes"],
@@ -1045,6 +1149,22 @@ function buildDetalhesBlockAt_(sheet, startRow, data, inscricoesRow) {
   // Coluna F (oculta): referência inscricoesRow no header do bloco
   sheet.getRange(startRow, 6).setValue(inscricoesRow);
 
+  // Link "↩ voltar pra Triagem" no header (col E) — aponta pra LINHA EXATA
+  // do card daquela equipe na Triagem (não pra topo). Card N começa em
+  // 2 + (N-1)*TRIAGEM_CARD_ROWS, onde N é a ordem de inserção.
+  const ssId = SpreadsheetApp.getActiveSpreadsheet().getId();
+  const triagem = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TRIAGEM_SHEET_NAME);
+  const triagemGid = triagem ? triagem.getSheetId() : 0;
+  const triagemRow = 2 + (inscricoesRow - 2) * TRIAGEM_CARD_ROWS;
+  const backUrl = 'https://docs.google.com/spreadsheets/d/' + ssId +
+    '/edit?gid=' + triagemGid + '#gid=' + triagemGid + '&range=A' + triagemRow;
+  sheet.getRange(startRow, 5).setRichTextValue(
+    SpreadsheetApp.newRichTextValue()
+      .setText("↩  voltar pra Triagem")
+      .setLinkUrl(backUrl)
+      .build()
+  );
+
   // LinkedIn e Portfólio como links clicáveis
   const liRow = startRow + 8 + 20; // row de "LinkedIn"
   const portRow = startRow + 8 + 21; // row de "Portfólio"
@@ -1086,7 +1206,10 @@ function applyDetalhesBlockFormatting_(sheet, startRow, liderIdx) {
   sheet.getRange(startRow, 2).setFontSize(14);
   sheet.getRange(startRow, 3).setFontSize(10).setFontStyle("italic").setFontColor("#a1a1aa");
   sheet.getRange(startRow, 4).setFontSize(9).setFontColor("#a1a1aa");
-  sheet.getRange(startRow, 5).setFontSize(9).setFontWeight("bold").setHorizontalAlignment("right");
+  // col E — link "↩ voltar pra Triagem" (accent laranja, à direita)
+  sheet.getRange(startRow, 5)
+    .setFontSize(10).setFontWeight("normal").setFontColor("#f97316")
+    .setHorizontalAlignment("right");
 
   // Rows 1-6 — Equipe info (label A bold pequeno, valor B merged B:E)
   for (let r = startRow + 1; r <= startRow + 6; r++) {
@@ -1149,18 +1272,25 @@ function applyDetalhesBlockFormatting_(sheet, startRow, liderIdx) {
   sheet.getRange(startRow + 41, 2, 1, 4).merge();
 
   // Rows 42-45 — 4 campos da proposta (label A, valor B:E merged, wrap)
+  // Wrap explícito via WrapStrategy.WRAP — setWrap(true) é ambíguo em alguns
+  // contextos de merged cells. Aplicado na range merged INTEIRA pra garantir
+  // que o estado wrap se propague na cell consolidada.
   for (let i = 0; i < 4; i++) {
     const r = startRow + 42 + i;
-    sheet.getRange(r, 2, 1, 4).merge();
-    sheet.setRowHeight(r, 60);
+    sheet.getRange(r, 2, 1, 4)
+      .merge()
+      .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
     sheet.getRange(r, 1)
       .setFontWeight("bold").setFontSize(9).setFontColor("#a16207")
       .setHorizontalAlignment("right").setVerticalAlignment("top")
       .setBackground("#fefce8");
     sheet.getRange(r, 2)
       .setFontSize(10).setFontColor("#18181b").setVerticalAlignment("top")
-      .setBackground("#fffbeb").setWrap(true);
+      .setBackground("#fffbeb");
   }
+  // Auto-resize das 4 linhas pra altura crescer com o conteúdo.
+  // autoResizeRows precisa que o wrap já tenha sido aplicado (acima).
+  sheet.autoResizeRows(startRow + 42, 4);
 
   // Rows 46-49 — Spacer 4-linha (delimitação forte entre blocos)
   sheet.getRange(startRow + 46, 1, 4, 5).setBackground("#e4e4e7");
@@ -1469,7 +1599,13 @@ function buildRow_(data) {
     row.push((it.areasConhecimento || []).join(", "));
     row.push(String(it.ocupacaoAtual || ""));
     row.push(String(it.tempoExperiencia || ""));
-    row.push(String(it.formacaoAcademica || ""));
+    row.push(String(it.nivelFormacao || ""));
+    row.push(String(it.cursoFormacao || ""));
+    row.push(String(it.anoFormacao || ""));
+    row.push(String(it.instituicao || ""));
+    row.push(String(it.instituicaoUF || ""));
+    row.push(String(it.instituicaoMunicipio || ""));
+    row.push(String(it.projetoAcademico || ""));
     row.push(String(it.linkedin || ""));
     row.push(String(it.portfolio || ""));
     row.push(String(it.outrasRedes || ""));
@@ -1528,7 +1664,13 @@ function checkIntegranteLengths_(it, num) {
     ["genero", FIELD_MAX.genero],
     ["ocupacaoAtual", FIELD_MAX.ocupacaoAtual],
     ["tempoExperiencia", FIELD_MAX.tempoExperiencia],
-    ["formacaoAcademica", FIELD_MAX.formacaoAcademica],
+    ["nivelFormacao", FIELD_MAX.nivelFormacao],
+    ["cursoFormacao", FIELD_MAX.cursoFormacao],
+    ["anoFormacao", FIELD_MAX.anoFormacao],
+    ["instituicao", FIELD_MAX.instituicao],
+    ["instituicaoUF", FIELD_MAX.instituicaoUF],
+    ["instituicaoMunicipio", FIELD_MAX.instituicaoMunicipio],
+    ["projetoAcademico", FIELD_MAX.projetoAcademico],
     ["linkedin", FIELD_MAX.linkedin],
     ["portfolio", FIELD_MAX.portfolio],
     ["outrasRedes", FIELD_MAX.outrasRedes],

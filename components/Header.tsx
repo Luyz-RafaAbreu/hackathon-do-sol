@@ -4,6 +4,8 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import MagneticButton from "./MagneticButton";
+import UserMenu from "./UserMenu";
+import InscrevaSeButton from "./InscrevaSeButton";
 import { BLUR } from "@/lib/blur-data";
 
 const links = [
@@ -170,12 +172,13 @@ export default function Header({
         </ul>
 
         {/* Ações à direita */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <UserMenu variant="desktop" />
           {inscriptionsOpen && (
             <MagneticButton className="hidden md:inline-block">
-              <a href="/inscricao" className="btn-primary !px-5 !py-2 text-sm">
+              <InscrevaSeButton className="btn-primary !px-5 !py-2 text-sm">
                 Inscreva-se
-              </a>
+              </InscrevaSeButton>
             </MagneticButton>
           )}
 
@@ -286,15 +289,16 @@ export default function Header({
               transitionDelay: open ? `${80 + links.length * 50 + 50}ms` : "0ms",
             }}
           >
+            <UserMenu variant="mobile" />
+
             {inscriptionsOpen && (
-              <a
+              <InscrevaSeButton
                 onClick={() => setOpen(false)}
-                href="/inscricao"
                 className="btn-primary group w-full"
               >
                 <span className="relative z-10">Inscreva-se agora</span>
                 <ArrowRight className="relative z-10 w-4 h-4" strokeWidth={2.5} />
-              </a>
+              </InscrevaSeButton>
             )}
 
             <div className="flex items-center justify-center gap-4 pt-2">

@@ -75,7 +75,7 @@ export default function Cronograma() {
           <p className="section-subtitle">
             Agenda estruturada em blocos de desenvolvimento, palestras,
             mentorias e dinâmicas. Horários internos podem ser ajustados pela
-            comissão organizadora; os marcos do Edital (abertura, entrega às
+            comissão organizadora; os marcos oficiais (abertura, entrega às
             13h59 e pitches no domingo) ficam fixos.
           </p>
         </div>

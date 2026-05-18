@@ -21,7 +21,7 @@ const items: {
   {
     Icon: CalendarDays,
     title: "Data",
-    text: "26, 27 e 28 de junho de 2026 — das 9h da sexta às 20h do domingo (item 2.1 do Edital).",
+    text: "26, 27 e 28 de junho de 2026 — das 9h da sexta às 20h do domingo.",
     cor: "from-sol-yellow to-sol-orange",
   },
   {
@@ -33,25 +33,25 @@ const items: {
   {
     Icon: Target,
     title: "Quem pode participar",
-    text: "Pessoas físicas, brasileiras, 18+ até 24/06/2026, com experiência em ao menos uma área: dev web/mobile, design, gestão, marketing ou IA (item 3.4 do Edital).",
+    text: "Pessoas físicas, brasileiras, 18+ até 24/06/2026, com experiência em ao menos uma área: dev web/mobile, design, gestão, marketing ou IA.",
     cor: "from-sol-pink to-sol-purpleLight",
   },
   {
     Icon: Zap,
     title: "Formato",
-    text: "Equipes fixas de 4 pessoas, em uma das 3 trilhas. Solução obrigatoriamente web ou mobile, com link de produção/homologação no domingo às 13h59 (itens 4.5 e 8.2.1).",
+    text: "Equipes fixas de 4 pessoas, em uma das 3 trilhas. Solução obrigatoriamente web ou mobile, com link de produção/homologação no domingo às 13h59.",
     cor: "from-sol-purpleLight to-sol-teal",
   },
   {
     Icon: Trophy,
     title: "Premiação",
-    text: "R$ 10 mil divididos entre as 3 melhores equipes (R$ 5 mil + R$ 3 mil + R$ 2 mil), pagos em até 30 dias. Vencedoras recebem mentoria gratuita de 2 meses pós-evento (item 7).",
+    text: "R$ 10 mil divididos entre as 3 melhores equipes (R$ 5 mil + R$ 3 mil + R$ 2 mil), pagos em até 30 dias. Vencedoras recebem mentoria gratuita de 2 meses pós-evento.",
     cor: "from-sol-teal to-sol-yellow",
   },
   {
     Icon: BedDouble,
     title: "Hospedagem e alimentação",
-    text: "Hospedagem nos 3 dias no hotel + café, almoço, café da tarde e jantar inclusos, sem custo (itens 4.13.2 e 6.2.1). Quartos coletivos por gênero — leia as regras antes de se inscrever.",
+    text: "Hospedagem nos 3 dias no hotel + café, almoço e jantar inclusos, sem custo. Quartos coletivos por gênero — leia as regras antes de se inscrever.",
     cor: "from-sol-yellow to-sol-pink",
   },
 ];

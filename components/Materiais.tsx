@@ -12,17 +12,19 @@ type MaterialItem = {
   ctaLabel?: string;    // texto do CTA quando disponível
 };
 
-// Edital + Termos já existem; PDF do Edital ainda não foi subido no projeto,
-// então o card "Edital" segue como "Em breve" até o arquivo aparecer em
-// public/materiais/edital.pdf. O resumo legal — código de conduta, LGPD,
-// imagem — já está publicado em /termos-e-privacidade.
+// Tanto "Edital oficial" quanto "Termos e Privacidade" apontam pra
+// /termos-e-privacidade — a página é o próprio Edital, não há PDF separado.
+// Cards separados pra dar duas portas de entrada (regras completas vs.
+// recorte LGPD/imagem).
 const materiais: MaterialItem[] = [
   {
     titulo: "Edital oficial",
     descricao:
-      "Documento completo do Hackathon do Sol 2026, com regras de inscrição, premiação, julgamento, propriedade intelectual e anexos.",
+      "Regras completas do Hackathon do Sol 2026: inscrição, premiação, julgamento, propriedade intelectual e código de conduta.",
     Icon: FileText,
     cor: "from-sol-yellow to-sol-orange",
+    href: "/termos-e-privacidade",
+    ctaLabel: "Ver edital",
   },
   {
     titulo: "Termos e Privacidade",
@@ -43,14 +45,8 @@ export default function Materiais() {
           <span className="eyebrow">Materiais</span>
           <h2 className="section-title">Documentos oficiais do evento</h2>
           <p className="section-subtitle">
-            A síntese legal já está publicada em{" "}
-            <Link
-              href="/termos-e-privacidade"
-              className="text-sol-orange hover:underline"
-            >
-              Termos e Privacidade
-            </Link>
-            . O Edital em PDF é divulgado pelo{" "}
+            Documentos oficiais do Hackathon do Sol 2026. Para dúvidas
+            adicionais, fale com a organização pelo{" "}
             <a
               href="https://instagram.com/hackathondosol"
               target="_blank"
@@ -58,8 +54,8 @@ export default function Materiais() {
               className="text-sol-orange hover:underline"
             >
               @hackathondosol
-            </a>{" "}
-            e por e-mail às equipes selecionadas.
+            </a>
+            .
           </p>
         </div>
       </Reveal>

@@ -1,8 +1,23 @@
+import Image from "next/image";
 import Reveal from "./Reveal";
 
+// heightClass varia por logo: as mais "quadradas" precisam de mais altura pra
+// ocupar o mesmo peso visual das mais horizontais.
 const patrocinadores = [
-  { nome: "Programa Jovem Embaixador" },
-  { nome: "Prefeitura de Natal" },
+  {
+    nome: "Programa Djalma Maranhão",
+    logo: "/patrocinadores/lei-djalma.png",
+    w: 1803,
+    h: 1056,
+    heightClass: "max-h-20",
+  },
+  {
+    nome: "Prefeitura de Natal",
+    logo: "/patrocinadores/prefeitura.png",
+    w: 2134,
+    h: 746,
+    heightClass: "max-h-14",
+  },
 ];
 
 export default function Patrocinadores() {
@@ -22,21 +37,25 @@ export default function Patrocinadores() {
       </Reveal>
 
       <Reveal delay={150}>
-        <div className="relative rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur overflow-hidden">
+        <div className="relative rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur overflow-hidden max-w-2xl mx-auto">
           {/* glow central sutil */}
           <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-sol-orange/10 to-transparent pointer-events-none" />
           <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-[70%] h-32 bg-sol-pink/10 blur-3xl pointer-events-none" />
 
           <div className="relative p-6 md:p-12">
             <div className="flex flex-wrap items-center justify-center gap-5 md:gap-6">
-              {patrocinadores.map((p, i) => (
+              {patrocinadores.map((p) => (
                 <div
-                  key={i}
-                  className="group h-20 min-w-[12.5rem] px-8 flex items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] text-white/85 text-sm font-medium transition-all duration-500 hover:border-sol-orange/50 hover:from-white/[0.1] hover:text-white hover:-translate-y-1 hover:shadow-[0_1.25rem_2.5rem_-1.25rem_rgba(255,140,0,0.4)]"
+                  key={p.nome}
+                  className="group h-24 min-w-[14rem] px-8 flex items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] transition-all duration-500 hover:border-sol-orange/50 hover:from-white/[0.1] hover:-translate-y-1 hover:shadow-[0_1.25rem_2.5rem_-1.25rem_rgba(255,140,0,0.4)]"
                 >
-                  <span className="font-display tracking-wide text-center leading-tight">
-                    {p.nome}
-                  </span>
+                  <Image
+                    src={p.logo}
+                    alt={p.nome}
+                    width={p.w}
+                    height={p.h}
+                    className={`${p.heightClass} w-auto object-contain brightness-0 invert opacity-90 transition group-hover:opacity-100`}
+                  />
                 </div>
               ))}
             </div>

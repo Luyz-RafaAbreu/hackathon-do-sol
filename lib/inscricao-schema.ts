@@ -86,6 +86,37 @@ export const COMO_SOUBE_OPCOES = [
   "Outro",
 ] as const;
 
+// Nível de formação acadêmica — usado no dropdown obrigatório por integrante.
+// Inclui "em andamento" do ensino médio porque terceiranistas (17-18 anos)
+// podem completar 18 anos até a data do credenciamento (24/06/2026).
+// Assume que todo participante tem pelo menos ensino médio em andamento —
+// daí não tem "Outro" como fallback.
+export const NIVEIS_FORMACAO = [
+  "Ensino Médio em andamento",
+  "Ensino Médio completo",
+  "Graduação em andamento",
+  "Graduação completa",
+  "Pós-graduação em andamento",
+  "Pós-graduação completa",
+] as const;
+
+// Áreas/cursos de formação principal — lista enxuta cobrindo as áreas mais
+// relevantes pra hackathon. "Outra" no fim pra fallback de texto livre.
+export const CURSOS_AREAS = [
+  "Ciência da Computação / Engenharia de Software",
+  "Sistemas de Informação / Análise e Desenvolvimento",
+  "Engenharia (outras)",
+  "Design / UX / UI",
+  "Administração / Gestão",
+  "Marketing / Comunicação",
+  "Economia / Negócios",
+  "Direito",
+  "Saúde / Medicina",
+  "Educação / Pedagogia",
+  "Letras / Humanas",
+  "Outra",
+] as const;
+
 // Estados brasileiros — usado nos selects de UF.
 export const UFS: ReadonlyArray<readonly [string, string]> = [
   ["AC", "Acre"],
@@ -266,7 +297,15 @@ export type IntegranteState = {
   areasConhecimento: string[]; // multi-select
   ocupacaoAtual: string;
   tempoExperiencia: string;
-  formacaoAcademica: string;
+  // Formação Acadêmica (substituiu o campo único de texto livre).
+  // Apenas `nivelFormacao` é obrigatório; o resto é opcional.
+  nivelFormacao: string;        // uma das opções de NIVEIS_FORMACAO
+  cursoFormacao: string;        // uma das opções de CURSOS_AREAS (opcional)
+  anoFormacao: string;          // ano de ingresso ou previsão de formatura
+  instituicao: string;          // nome completo da IES (auto-preenchido pelo autocomplete)
+  instituicaoUF: string;        // UF da sede da IES (auto-preenchido)
+  instituicaoMunicipio: string; // município da sede (auto-preenchido)
+  projetoAcademico: string;     // descrição livre, opcional
   linkedin: string;
   portfolio: string;
   outrasRedes: string; // opcional — outras redes sociais relevantes
@@ -358,7 +397,13 @@ export function createInitialIntegrante(): IntegranteState {
     areasConhecimento: [],
     ocupacaoAtual: "",
     tempoExperiencia: "",
-    formacaoAcademica: "",
+    nivelFormacao: "",
+    cursoFormacao: "",
+    anoFormacao: "",
+    instituicao: "",
+    instituicaoUF: "",
+    instituicaoMunicipio: "",
+    projetoAcademico: "",
     linkedin: "",
     portfolio: "",
     outrasRedes: "",
@@ -439,7 +484,13 @@ export const FIELD_MAX = {
   genero: 120,
   ocupacaoAtual: 150,
   tempoExperiencia: 50,
-  formacaoAcademica: 150,
+  nivelFormacao: 60,
+  cursoFormacao: 80,
+  anoFormacao: 4,
+  instituicao: 200,
+  instituicaoUF: 2,
+  instituicaoMunicipio: 80,
+  projetoAcademico: 1000,
   linkedin: 200,
   portfolio: 200,
   outrasRedes: 250,
@@ -601,12 +652,15 @@ export function validateIntegrante(
     e.contatoEmergenciaParentesco = "Informe o grau de parentesco.";
   if (!i.genero) e.genero = "Selecione uma opção.";
   if (i.areasConhecimento.length === 0)
-    e.areasConhecimento = "Marque ao menos uma área (item 3.4 do Edital).";
+    e.areasConhecimento = "Marque ao menos uma área.";
   if (!i.ocupacaoAtual.trim()) e.ocupacaoAtual = "Informe a ocupação atual.";
   if (!i.tempoExperiencia.trim())
     e.tempoExperiencia = "Informe o tempo de experiência.";
-  if (!i.formacaoAcademica.trim())
-    e.formacaoAcademica = "Informe a formação acadêmica.";
+  // Apenas o nível é obrigatório — o resto é opcional pra reduzir fricção.
+  if (!i.nivelFormacao.trim())
+    e.nivelFormacao = "Selecione o seu nível de formação.";
+  if (i.anoFormacao.trim() && !/^\d{4}$/.test(i.anoFormacao.trim()))
+    e.anoFormacao = "Informe um ano com 4 dígitos (ex: 2024).";
   if (!isValidLinkedIn(i.linkedin))
     e.linkedin = "Informe o link do LinkedIn (linkedin.com/in/seu-perfil).";
   if (i.portfolio.trim() && !isValidUrl(i.portfolio))
@@ -718,7 +772,13 @@ export function normalizeForm(state: InscricaoFormState): InscricaoFormState {
       contatoEmergenciaParentesco: i.contatoEmergenciaParentesco.trim(),
       ocupacaoAtual: i.ocupacaoAtual.trim(),
       tempoExperiencia: i.tempoExperiencia.trim(),
-      formacaoAcademica: i.formacaoAcademica.trim(),
+      nivelFormacao: i.nivelFormacao.trim(),
+      cursoFormacao: i.cursoFormacao.trim(),
+      anoFormacao: i.anoFormacao.trim(),
+      instituicao: i.instituicao.trim(),
+      instituicaoUF: i.instituicaoUF.trim().toUpperCase(),
+      instituicaoMunicipio: i.instituicaoMunicipio.trim(),
+      projetoAcademico: i.projetoAcademico.trim(),
       linkedin: i.linkedin.trim(),
       portfolio: i.portfolio.trim(),
       outrasRedes: i.outrasRedes.trim(),

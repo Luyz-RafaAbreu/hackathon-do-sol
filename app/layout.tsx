@@ -7,6 +7,9 @@ import CustomCursor from "@/components/CustomCursor";
 import CustomScrollbar from "@/components/CustomScrollbar";
 import SmoothScroll from "@/components/SmoothScroll";
 import GrainOverlay from "@/components/GrainOverlay";
+import SessionProviderWrapper from "@/components/SessionProviderWrapper";
+import SignInModalProvider from "@/components/SignInModalProvider";
+import ScrollTopOnNav from "@/components/ScrollTopOnNav";
 import { EVENT } from "@/lib/event";
 import "./globals.css";
 
@@ -144,10 +147,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{ __html: JSON.stringify(eventJsonLd) }}
         />
         <SmoothScroll />
+        <ScrollTopOnNav />
         <CustomScrollbar />
         <CustomCursor />
         <GrainOverlay />
-        {children}
+        <SessionProviderWrapper>
+          <SignInModalProvider>{children}</SignInModalProvider>
+        </SessionProviderWrapper>
         <Analytics />
         <SpeedInsights />
       </body>

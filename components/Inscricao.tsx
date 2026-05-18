@@ -19,12 +19,14 @@ import {
   Send,
 } from "lucide-react";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+import { useSession, signOut } from "next-auth/react";
 import {
   ACEITES_COLETIVOS,
   ACEITES_INDIVIDUAIS,
   ACEITE_LIDER,
   AREAS_CONHECIMENTO,
   COMO_SOUBE_OPCOES,
+  CURSOS_AREAS,
   EquipeState,
   FIELD_MAX,
   GENEROS,
@@ -32,6 +34,7 @@ import {
   InscricaoFormState,
   IntegranteState,
   LiderConfirmacaoState,
+  NIVEIS_FORMACAO,
   PARENTESCO_OPCOES,
   PropostaState,
   TEMPO_EXPERIENCIA_OPCOES,
@@ -48,6 +51,8 @@ import {
   validateProposta,
   validateTrilha,
 } from "@/lib/inscricao-schema";
+import { searchIES } from "@/lib/ies-data";
+import { searchEscolas } from "@/lib/escolas-data";
 import MagneticButton from "./MagneticButton";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
@@ -59,7 +64,11 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 // crashariam em `.trim()`.
 // v3 (2026-05-14): proposta fundida de 6 → 4 campos. Drafts v2 com `resumo`,
 // `problema`, `publico`, `diferencial` quebrariam.
-const DRAFT_KEY = "hackathon-sol-inscricao-draft-v3";
+// v4 (2026-05-18): `formacaoAcademica` (string única) substituída por
+// `nivelFormacao` + `cursoFormacao` + `anoFormacao` + `instituicao` +
+// `instituicaoUF` + `instituicaoMunicipio` + `projetoAcademico`. Drafts v3
+// teriam o campo antigo que não existe mais.
+const DRAFT_KEY = "hackathon-sol-inscricao-draft-v4";
 
 // =============================================================================
 // DEV AUTOFILL — atalho pra preencher o form inteiro com dados válidos durante
@@ -98,7 +107,13 @@ function createTestIntegrante(n: number): IntegranteState {
     areasConhecimento: [AREAS_CONHECIMENTO[0]],
     ocupacaoAtual: `Desenvolvedor(a) ${n}`,
     tempoExperiencia: "2 a 5 anos",
-    formacaoAcademica: "Bacharelado em Ciência da Computação — UFRN",
+    nivelFormacao: "Graduação completa",
+    cursoFormacao: "Ciência da Computação / Engenharia de Software",
+    anoFormacao: "2022",
+    instituicao: "Universidade Federal do Rio Grande do Norte (UFRN)",
+    instituicaoUF: "RN",
+    instituicaoMunicipio: "Natal",
+    projetoAcademico: `Projeto de TCC sobre teste ${n} — ainda em revisão.`,
     linkedin: `https://linkedin.com/in/teste-${n}`,
     portfolio: `https://github.com/teste-${n}`,
     outrasRedes: "",
@@ -240,18 +255,24 @@ export default function Inscricao() {
   // Toast verde de sucesso quando a inscrição é enviada com sucesso.
   const [successToast, setSuccessToast] = useState<{ key: number } | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
+  // Sinaliza que o effect de restore já rodou. Necessário pra orquestrar o
+  // pre-fill via Google sem race condition (o pre-fill espera o draft terminar).
+  const [draftChecked, setDraftChecked] = useState(false);
+  const { data: session } = useSession();
   const messageRef = useRef<HTMLDivElement | null>(null);
   // Cache de cidades do IBGE por UF — evita rede repetida quando o usuário
   // troca de UF e volta. Compartilhado entre todos os selects de cidade do form.
   const cacheCidadesRef = useRef<Record<string, string[]>>({});
 
-  // Restore draft on mount.
+  // Restore draft on mount — tenta localStorage primeiro (instantâneo) e em
+  // paralelo busca do servidor (Upstash). Se localStorage tava vazio E o
+  // servidor tem rascunho, restaura do servidor — é o que cobre o cenário
+  // "comecei no celular, abri no notebook". Se localStorage tinha rascunho,
+  // ignora o do servidor (assume que o que tá local é o mais recente, já
+  // que escrevemos no servidor com debounce).
   useEffect(() => {
+    let localHadDraft = false;
     try {
-      // Limpa rascunhos de versões anteriores do schema (orphans). Bumpamos
-      // o sufixo `-vN` em DRAFT_KEY a cada mudança incompatível de schema,
-      // mas isso deixa rascunhos antigos pendurados no localStorage do usuário.
-      // Limpamos aqui pra não acumular lixo a cada bump.
       localStorage.removeItem("hackathon-sol-inscricao-draft-v1");
       localStorage.removeItem("hackathon-sol-inscricao-draft-v2");
 
@@ -261,30 +282,119 @@ export default function Inscricao() {
         if (parsed && parsed.equipe && Array.isArray(parsed.integrantes)) {
           setState(parsed);
           setDraftRestored(true);
+          localHadDraft = true;
           window.setTimeout(() => setDraftRestored(false), 6000);
         }
       }
     } catch {
-      // localStorage indisponível (modo privado, quota cheia) — segue com o
-      // estado inicial. Não é erro fatal.
+      // localStorage indisponível (modo privado, quota cheia) — segue.
     }
+
+    // Fetch do servidor — só tenta se temos sessão (mesmo que ainda não
+    // tenha chegado no client, o cookie já tá presente, então a request
+    // já é autenticada). O endpoint retorna 401 sem sessão; tratamos como
+    // "sem rascunho remoto" e seguimos.
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/draft", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (cancelled) return;
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          ok: boolean;
+          draft?: InscricaoFormState | null;
+        };
+        if (cancelled) return;
+        if (
+          data.draft &&
+          !localHadDraft &&
+          data.draft.equipe &&
+          Array.isArray(data.draft.integrantes)
+        ) {
+          setState(data.draft);
+          setDraftRestored(true);
+          window.setTimeout(() => setDraftRestored(false), 6000);
+        }
+      } catch {
+        /* servidor indisponível — segue com o que tem no localStorage */
+      } finally {
+        if (!cancelled) setDraftChecked(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Persist on every state change. Debounce desnecessário aqui — escrita é
-  // síncrona e leve (<50KB), e o React batcha re-renders.
+  // Pre-fill do e-mail do líder + e-mail oficial da equipe com o Google do
+  // usuário autenticado. Roda só depois do draft restore (pra não sobrescrever
+  // valor salvo) e só preenche se o campo estiver vazio (respeita edição
+  // manual: se a pessoa quiser usar outro e-mail, é só apagar e digitar).
   useEffect(() => {
+    if (!draftChecked) return;
+    const email = session?.user?.email;
+    if (!email) return;
+    setState((s) => {
+      const lider = s.integrantes[0]!;
+      const needsEquipeEmail = !s.equipe.emailOficial;
+      const needsLiderEmail = !lider.emailPessoal;
+      if (!needsEquipeEmail && !needsLiderEmail) return s;
+      const nextIntegrantes = needsLiderEmail
+        ? ([
+            { ...lider, emailPessoal: email },
+            ...s.integrantes.slice(1),
+          ] as InscricaoFormState["integrantes"])
+        : s.integrantes;
+      return {
+        ...s,
+        equipe: needsEquipeEmail
+          ? { ...s.equipe, emailOficial: email }
+          : s.equipe,
+        integrantes: nextIntegrantes,
+      };
+    });
+  }, [draftChecked, session]);
+
+  // Persist on every state change. localStorage é síncrono e instantâneo —
+  // proteção primária contra F5/fechar aba. Servidor recebe via debounce
+  // (2s) — backup pra cross-device. Não bloqueia nada no caminho crítico.
+  useEffect(() => {
+    if (!draftChecked) return; // não sobrescreve antes do restore terminar
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(state));
     } catch {
       /* quota / private mode */
     }
-  }, [state]);
 
-  // Scroll into view quando muda etapa ou aparece resultado final.
+    const id = window.setTimeout(() => {
+      fetch("/api/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state }),
+        credentials: "include",
+        keepalive: true,
+      }).catch(() => {
+        /* network blip — próxima edição tenta de novo */
+      });
+    }, 2000);
+    return () => window.clearTimeout(id);
+  }, [state, draftChecked]);
+
+  // Scroll into view do header da etapa — disparado direto no click de
+  // Continuar/Voltar (ver goNext/goBack abaixo). Antes era um useEffect em
+  // [step], mas isso também disparava no mount inicial (e em strict mode
+  // duplicado), jogando o usuário direto no form na primeira visita.
   const stepHeaderRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    stepHeaderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [step]);
+  const scrollStepIntoView = () => {
+    // setTimeout 0 pra esperar o React renderizar a nova etapa antes do scroll.
+    window.setTimeout(() => {
+      stepHeaderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
   useEffect(() => {
     if (submitStatus === "success" || submitStatus === "error") {
       messageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -331,6 +441,7 @@ export default function Inscricao() {
     const errCount = Object.keys(errs).length;
     if (errCount === 0) {
       setStep((s) => Math.min(s + 1, STEPS.length - 1));
+      scrollStepIntoView();
     } else {
       triggerValidationToast(errCount);
     }
@@ -338,6 +449,7 @@ export default function Inscricao() {
   const goBack = () => {
     setStepErrors({});
     setStep((s) => Math.max(s - 1, 0));
+    scrollStepIntoView();
   };
 
   const submit = async (ev: FormEvent) => {
@@ -387,6 +499,11 @@ export default function Inscricao() {
         } catch {
           /* */
         }
+        fetch("/api/draft", { method: "DELETE", credentials: "include" }).catch(
+          () => {
+            /* */
+          }
+        );
       } else {
         setSubmitStatus("error");
         setSubmitMessage(
@@ -520,6 +637,12 @@ export default function Inscricao() {
                 } catch {
                   /* ignore */
                 }
+                fetch("/api/draft", {
+                  method: "DELETE",
+                  credentials: "include",
+                }).catch(() => {
+                  /* */
+                });
               }}
               className="underline underline-offset-2 hover:text-amber-100"
             >
@@ -527,6 +650,30 @@ export default function Inscricao() {
             </button>
           </div>
         )}
+        {session?.user?.email && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                aria-hidden="true"
+                className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 flex-shrink-0"
+              />
+              <span className="text-white/55 truncate font-normal normal-case tracking-normal">
+                Logado como{" "}
+                <span className="text-white/85 font-medium">
+                  {session.user.email}
+                </span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="text-white/45 hover:text-white transition flex-shrink-0 underline underline-offset-2 font-normal normal-case tracking-normal"
+            >
+              Sair
+            </button>
+          </div>
+        )}
+
         <ProgressBar current={step} total={STEPS.length} steps={STEPS} />
 
         {draftRestored && (
@@ -799,47 +946,12 @@ function EquipeStep({
         }
       />
 
-      <SectionTitle>Líder da equipe (ponto focal)</SectionTitle>
-      <p className="text-xs text-white/55 -mt-2 normal-case tracking-normal font-normal">
-        Em caso de premiação, o líder coordena a equipe pro recebimento.
-        Comunicação oficial com a COMISSÃO ORGANIZADORA passa por ele(a).
+      <p className="text-xs text-white/55 normal-case tracking-normal font-normal mt-2">
+        <span className="text-sol-orange">★</span> O <strong className="text-white">Integrante 1</strong>{" "}
+        será considerado o <strong className="text-white">líder</strong> da equipe — ponto focal pra
+        comunicação com a COMISSÃO ORGANIZADORA e coordenador da equipe em caso
+        de premiação. Coloque na ordem que faz sentido pro time.
       </p>
-      <div className="grid grid-cols-2 gap-2">
-        {[0, 1, 2, 3].map((idx) => (
-          <label
-            key={idx}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition ${
-              equipe.liderIndex === idx
-                ? "border-sol-orange/60 bg-sol-orange/10"
-                : "border-white/10 bg-white/[0.03] hover:border-white/20"
-            }`}
-          >
-            <input
-              type="radio"
-              name="liderIndex"
-              checked={equipe.liderIndex === idx}
-              onChange={() =>
-                onChange({ liderIndex: idx as 0 | 1 | 2 | 3 })
-              }
-              className="sr-only"
-            />
-            <span
-              aria-hidden
-              className={`block w-3 h-3 rounded-full border ${
-                equipe.liderIndex === idx
-                  ? "border-sol-orange bg-sol-orange"
-                  : "border-white/30 bg-transparent"
-              }`}
-            />
-            <span className="text-xs normal-case tracking-normal font-normal text-white/85">
-              Integrante {idx + 1}
-              {equipe.liderIndex === idx && (
-                <span className="text-sol-orange ml-1">— líder</span>
-              )}
-            </span>
-          </label>
-        ))}
-      </div>
     </div>
   );
 }
@@ -860,9 +972,9 @@ function TrilhaStep({
   return (
     <div className="space-y-4">
       <Intro>
-        Escolha a trilha temática (item 5.3 do Edital). A COMISSÃO ORGANIZADORA
-        pode validar ou ajustar a distribuição entre trilhas conforme equilíbrio
-        técnico e aderência das propostas.
+        Escolha a trilha temática que mais combina com a equipe. A COMISSÃO
+        ORGANIZADORA pode validar ou ajustar a distribuição entre trilhas
+        conforme equilíbrio técnico e aderência das propostas.
       </Intro>
       <div className="space-y-2">
         {TRILHAS.map((t) => (
@@ -1129,8 +1241,8 @@ function IntegranteStep({
 
       <SectionTitle>Identidade de gênero</SectionTitle>
       <p className="text-xs text-white/55 -mt-2 normal-case tracking-normal font-normal">
-        Usado exclusivamente para distribuição dos quartos (item 4.13.3 do
-        Edital). Tratado com confidencialidade.
+        Usado exclusivamente para distribuição dos quartos. Tratado com
+        confidencialidade.
       </p>
 
       <Field
@@ -1155,7 +1267,7 @@ function IntegranteStep({
 
       <Field
         label="Áreas de conhecimento"
-        help="Marque ao menos uma (item 3.4 do Edital). Não precisa marcar todas."
+        help="Marque ao menos uma. Não precisa marcar todas."
         error={errors.areasConhecimento}
         input={
           <div className="space-y-2 mt-1">
@@ -1232,23 +1344,115 @@ function IntegranteStep({
         />
       </div>
 
+      <SectionTitle>Formação acadêmica</SectionTitle>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Field
+          label="Qual seu nível de formação atual?"
+          error={errors.nivelFormacao}
+          input={
+            <select
+              value={integrante.nivelFormacao}
+              onChange={(e) => onChange({ nivelFormacao: e.target.value })}
+            >
+              <option value="">Selecione...</option>
+              {NIVEIS_FORMACAO.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          }
+        />
+        <Field
+          label="Curso / Área de formação principal"
+          help="Opcional."
+          input={
+            <select
+              value={integrante.cursoFormacao}
+              onChange={(e) => onChange({ cursoFormacao: e.target.value })}
+            >
+              <option value="">Selecione...</option>
+              {CURSOS_AREAS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          }
+        />
+      </div>
+
       <Field
-        label="Formação acadêmica"
-        help="Último grau concluído ou em curso."
-        error={errors.formacaoAcademica}
+        label={
+          /completa?$/.test(integrante.nivelFormacao)
+            ? "Ano de conclusão"
+            : integrante.nivelFormacao.endsWith("em andamento")
+              ? "Previsão de formatura"
+              : "Ano de ingresso ou formatura"
+        }
+        help={
+          /completa?$/.test(integrante.nivelFormacao)
+            ? "Opcional. Ex.: 2022"
+            : integrante.nivelFormacao.endsWith("em andamento")
+              ? "Opcional. Ex.: 2027"
+              : "Opcional. Ex.: 2024"
+        }
+        error={errors.anoFormacao}
         input={
           <input
-            value={integrante.formacaoAcademica}
-            onChange={(e) => onChange({ formacaoAcademica: e.target.value })}
-            placeholder="Ex: Cursando Ciência da Computação — UFRN"
-            maxLength={FIELD_MAX.formacaoAcademica}
+            value={integrante.anoFormacao}
+            onChange={(e) =>
+              onChange({ anoFormacao: e.target.value.replace(/\D/g, "").slice(0, 4) })
+            }
+            placeholder={
+              /completa?$/.test(integrante.nivelFormacao)
+                ? "2022"
+                : integrante.nivelFormacao.endsWith("em andamento")
+                  ? "2027"
+                  : "2024"
+            }
+            maxLength={FIELD_MAX.anoFormacao}
+            inputMode="numeric"
+          />
+        }
+      />
+
+      <Field
+        label="Instituição de ensino"
+        help={
+          integrante.nivelFormacao.startsWith("Ensino Médio")
+            ? "Opcional. Comece a digitar o nome da escola — UF e município preenchem automaticamente."
+            : "Opcional. Comece a digitar o nome ou sigla. UF e município preenchem automaticamente."
+        }
+        input={
+          <InstituicaoField
+            value={integrante.instituicao}
+            uf={integrante.instituicaoUF}
+            municipio={integrante.instituicaoMunicipio}
+            nivelFormacao={integrante.nivelFormacao}
+            onChange={(updates) => onChange(updates)}
+          />
+        }
+      />
+
+      <Field
+        label="Você tem algum projeto acadêmico relevante em tecnologia, programação, inovação ou empreendedorismo?"
+        help="Opcional. Descreva brevemente o projeto, seu papel e resultados."
+        input={
+          <textarea
+            value={integrante.projetoAcademico}
+            onChange={(e) => onChange({ projetoAcademico: e.target.value })}
+            placeholder="Ex: TCC em recomendação por IA / app de logística entregue na ACME / pesquisa de iniciação científica em segurança."
+            maxLength={FIELD_MAX.projetoAcademico}
+            rows={3}
           />
         }
       />
 
       <Field
         label="Link do LinkedIn"
-        help="Obrigatório — será analisado em caso de processo seletivo (item 3.3.1.a do Edital)."
+        help="Obrigatório — será analisado em caso de processo seletivo."
         error={errors.linkedin}
         input={
           <input
@@ -1306,8 +1510,8 @@ function IntegranteStep({
 
       <SectionTitle>Informações para o evento</SectionTitle>
       <p className="text-xs text-white/55 -mt-2 normal-case tracking-normal font-normal">
-        Usado exclusivamente para o seu bem-estar durante o evento (Seção 12 do
-        Edital — LGPD).
+        Usado exclusivamente para o seu bem-estar durante o evento, em
+        conformidade com a LGPD.
       </p>
 
       <RestricoesAlimentaresField
@@ -1409,9 +1613,9 @@ function PropostaStep({
     <div className="space-y-4">
       <Intro>
         Será usado pela COMISSÃO ORGANIZADORA pra analisar a inscrição e a
-        aderência à trilha (itens 3.3.1.a e 5.3.4 do Edital). A proposta pode
-        ser ajustada durante o evento — soluções desenvolvidas{" "}
-        <strong>antes</strong> do primeiro dia não são aceitas (item 11.9).
+        aderência à trilha. A proposta pode ser ajustada durante o evento —
+        soluções desenvolvidas <strong>antes</strong> do primeiro dia não
+        são aceitas.
       </Intro>
 
       <Field
@@ -1673,6 +1877,147 @@ function Field({
         {input}
         {error && <p className="text-red-300 text-xs mt-1">{error}</p>}
       </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// InstituicaoField — autocomplete da Formação Acadêmica.
+// -----------------------------------------------------------------------------
+// Lê de lib/ies-data (~200 IES brasileiras). Aceita texto livre como fallback
+// — se o user digitar uma instituição fora da lista, a string vai pro form sem
+// UF/município (não temos como inferir). Onde casa com a lista, auto-preenche
+// `instituicaoUF` + `instituicaoMunicipio` pra usar em analytics e na
+// Detalhes da planilha admin.
+// =============================================================================
+// Entry comum pra renderização do dropdown — IES tem sigla, Escola não tem.
+type InstituicaoSuggestion = {
+  sigla?: string;
+  nome: string;
+  uf: string;
+  municipio: string;
+};
+
+function makeDisplay(s: InstituicaoSuggestion): string {
+  return s.sigla ? `${s.nome} (${s.sigla})` : s.nome;
+}
+
+function InstituicaoField({
+  value,
+  uf,
+  municipio,
+  nivelFormacao,
+  onChange,
+}: {
+  value: string;
+  uf: string;
+  municipio: string;
+  nivelFormacao: string;
+  onChange: (updates: {
+    instituicao: string;
+    instituicaoUF: string;
+    instituicaoMunicipio: string;
+  }) => void;
+}) {
+  // Ensino Médio (em andamento ou completo) busca em escolas-data; o resto
+  // dos níveis busca em ies-data (ensino superior). Os dois datasets são
+  // importados eagerly — pequena penalidade de bundle (~2.5MB extra), mas
+  // simplifica drasticamente o componente.
+  const isEnsMedio = nivelFormacao.startsWith("Ensino Médio");
+  const [query, setQuery] = useState(value);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const results = useMemo<InstituicaoSuggestion[]>(() => {
+    if (isEnsMedio) return searchEscolas(query, 8);
+    return searchIES(query, 8);
+  }, [query, isEnsMedio]);
+
+  // Resincroniza o input local quando o valor externo muda (ex: carga de
+  // rascunho, ou troca de integrante via "limpar todos").
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  // Fecha dropdown ao clicar fora.
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const handleSelect = (s: InstituicaoSuggestion) => {
+    const display = makeDisplay(s);
+    onChange({
+      instituicao: display,
+      instituicaoUF: s.uf,
+      instituicaoMunicipio: s.municipio,
+    });
+    setQuery(display);
+    setOpen(false);
+  };
+
+  // Se o user digitar e desfocar sem selecionar, mantém o texto digitado como
+  // instituição mas zera UF/município — não temos como inferir.
+  const handleBlur = () => {
+    if (query.trim() !== value.trim()) {
+      onChange({
+        instituicao: query.trim(),
+        instituicaoUF: "",
+        instituicaoMunicipio: "",
+      });
+    }
+  };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <input
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={handleBlur}
+        placeholder={isEnsMedio ? "Ex: Colégio Atheneu" : "Ex: UFRN"}
+        maxLength={FIELD_MAX.instituicao}
+        autoComplete="off"
+      />
+      {open && results.length > 0 && (
+        <ul
+          role="listbox"
+          className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-white/15 bg-sol-bgDeep/95 backdrop-blur shadow-2xl"
+        >
+          {results.map((s, i) => (
+            <li
+              key={`${s.sigla || ""}-${s.nome}-${s.municipio}-${i}`}
+              role="option"
+              aria-selected={value === makeDisplay(s)}
+              onMouseDown={(e) => {
+                // mousedown (não click) pra disparar antes do blur do input.
+                e.preventDefault();
+                handleSelect(s);
+              }}
+              className="cursor-pointer px-3 py-2 text-sm hover:bg-white/[0.06] flex items-baseline gap-2 normal-case tracking-normal font-normal"
+            >
+              {s.sigla && (
+                <span className="font-semibold text-white shrink-0">{s.sigla}</span>
+              )}
+              <span className="text-white/70 truncate min-w-0">{s.nome}</span>
+              <span className="ml-auto text-xs text-white/45 whitespace-nowrap shrink-0">
+                {s.municipio}/{s.uf}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {uf && municipio && (
+        <p className="mt-1 text-xs text-white/55 normal-case tracking-normal font-normal">
+          Sede: {municipio}/{uf}
+        </p>
+      )}
     </div>
   );
 }

@@ -9,15 +9,19 @@
     "lint": "next lint",
     "apps-script:push": "clasp -P scripts push --force",
     "apps-script:deploy": "clasp -P scripts push --force && clasp -P scripts redeploy AKfycbwxXrlyb7uP2O0Uk07Apg1YR_bk3b8FaelnLKZevQ-1LdcoPQV-HeI9RE7UliTN2FRR --description \"deploy\"",
-    "apps-script:logs": "clasp -P scripts logs"
+    "apps-script:logs": "clasp -P scripts logs",
+    "generate-ies": "node scripts/generate-ies-data.mjs",
+    "generate-escolas": "node scripts/generate-escolas-data.mjs"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.5.2",
+    "@upstash/redis": "^1.38.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "lenis": "^1.3.23",
     "lucide-react": "^1.14.0",
     "next": "^14.2.33",
+    "next-auth": "^4.24.14",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
@@ -26,6 +30,8 @@
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
     "autoprefixer": "10.4.19",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.33",
     "postcss": "8.4.38",
     "sharp": "^0.34.5",
     "tailwindcss": "3.4.4",

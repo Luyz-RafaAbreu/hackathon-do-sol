@@ -8,6 +8,10 @@ import { NextRequest, NextResponse } from "next/server";
 //
 // CSP de scripts antes era 'unsafe-inline' (decorativo). Agora bloqueia XSS
 // inline de verdade.
+//
+// Auth não é gateada no middleware — o gate é em /inscricao server component
+// (mostra modal de login sobreposto se não tem sessão). Segurança real fica
+// em /api/draft e /api/inscricao, que checam sessão antes de processar.
 export function middleware(request: NextRequest) {
   // Acesso temporariamente liberado no alias .vercel.app pra compartilhar
   // prévia do site (chefe + grupo confiável). O 404 anterior foi removido
@@ -37,12 +41,16 @@ export function middleware(request: NextRequest) {
     // estreito (sem RCE) e Tailwind/styled-jsx dependem disso.
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
-    "img-src 'self' data: blob:",
+    // googleusercontent.com hospeda a foto de perfil do Google OAuth.
+    "img-src 'self' data: blob: https://lh3.googleusercontent.com",
     `connect-src 'self' https://servicodados.ibge.gov.br${isDev ? " ws: wss:" : ""}`,
-    "frame-src https://challenges.cloudflare.com",
+    "frame-src https://challenges.cloudflare.com https://accounts.google.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    // form-action precisa permitir accounts.google.com pra que o redirect
+    // de OAuth pro Google funcione (alguns navegadores tratam o redirect
+    // POST do NextAuth como form submission).
+    "form-action 'self' https://accounts.google.com",
     "object-src 'none'",
   ].join("; ");
 

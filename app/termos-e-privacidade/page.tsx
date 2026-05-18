@@ -52,7 +52,7 @@ export default async function TermosEPrivacidadePage() {
           </div>
 
           <div className="space-y-10 text-white/80 text-[0.9375rem] leading-relaxed">
-            <Bloco titulo="1. Aceite do Edital" item="11.15 do Edital">
+            <Bloco titulo="1. Aceite do Edital">
               <p>
                 Ao se inscrever no {EVENT.NAME}, o participante declara que leu,
                 compreendeu e aceitou integralmente o Edital — incluindo regras
@@ -62,13 +62,13 @@ export default async function TermosEPrivacidadePage() {
               <p>
                 A aceitação eletrônica dos termos no formulário tem plena
                 validade jurídica. A organização poderá exigir, no
-                credenciamento presencial em 24/06/2026, a assinatura física de
-                Termo de Autorização de Uso de Imagem, Voz, Nome e Depoimento
-                (ANEXO III do Edital).
+                credenciamento presencial em 24/06/2026, a assinatura física
+                do Termo de Autorização de Uso de Imagem, Voz, Nome e
+                Depoimento.
               </p>
             </Bloco>
 
-            <Bloco titulo="2. Quem realiza o evento" item="1.1 do Edital">
+            <Bloco titulo="2. Quem realiza o evento">
               <p>
                 O {EVENT.NAME} é um concurso cultural promovido pela{" "}
                 <strong className="text-white">Convívia LTDA</strong>, com sede
@@ -79,7 +79,7 @@ export default async function TermosEPrivacidadePage() {
               </p>
             </Bloco>
 
-            <Bloco titulo="3. Código de conduta e anti-assédio" item="10.1 e 10.2 do Edital">
+            <Bloco titulo="3. Código de conduta e anti-assédio">
               <p>
                 O {EVENT.NAME} é dedicado a oferecer uma experiência livre de
                 assédio para todos, independentemente de raça, sexo, idade,
@@ -102,7 +102,7 @@ export default async function TermosEPrivacidadePage() {
               </p>
             </Bloco>
 
-            <Bloco titulo="4. Propriedade intelectual" item="10.3 do Edital">
+            <Bloco titulo="4. Propriedade intelectual">
               <p>
                 <strong className="text-white">
                   Os projetos desenvolvidos durante o {EVENT.NAME} pertencem às
@@ -140,10 +140,7 @@ export default async function TermosEPrivacidadePage() {
               </ul>
             </Bloco>
 
-            <Bloco
-              titulo="5. Privacidade e proteção de dados (LGPD)"
-              item="Seção 12 do Edital"
-            >
+            <Bloco titulo="5. Privacidade e proteção de dados (LGPD)">
               <p>
                 A Convívia LTDA, como controladora, atua em conformidade com a
                 Lei nº 13.709/2018 (LGPD), assumindo o compromisso de proteger
@@ -166,8 +163,8 @@ export default async function TermosEPrivacidadePage() {
                 <li>Viabilizar a participação do inscrito;</li>
                 <li>Pagamento da premiação às equipes vencedoras;</li>
                 <li>
-                  Divulgação de resultados, fotos e vídeos (conforme
-                  autorização da Seção 13 do Edital);
+                  Divulgação de resultados, fotos e vídeos (mediante
+                  autorização expressa no ato da inscrição);
                 </li>
                 <li>Cumprimento de obrigações legais e regulatórias.</li>
               </ul>
@@ -187,10 +184,7 @@ export default async function TermosEPrivacidadePage() {
               </p>
             </Bloco>
 
-            <Bloco
-              titulo="6. Autorização de uso de imagem, voz e participação audiovisual"
-              item="Seção 13 do Edital"
-            >
+            <Bloco titulo="6. Autorização de uso de imagem, voz e participação audiovisual">
               <p>
                 O {EVENT.NAME} tem natureza{" "}
                 <strong className="text-white">
@@ -244,15 +238,11 @@ export default async function TermosEPrivacidadePage() {
               <p className="text-sm text-white/65">
                 Esta autorização é{" "}
                 <strong className="text-white">condição essencial</strong> para
-                inscrição, permanência e participação no evento (item 13.15.2
-                do Edital).
+                inscrição, permanência e participação no evento.
               </p>
             </Bloco>
 
-            <Bloco
-              titulo="7. Presença obrigatória e regras de permanência"
-              item="4.9 e 13.13 do Edital"
-            >
+            <Bloco titulo="7. Presença obrigatória e regras de permanência">
               <p>
                 A permanência integral nas dependências do hotel durante a
                 programação oficial é{" "}
@@ -270,7 +260,7 @@ export default async function TermosEPrivacidadePage() {
               </p>
             </Bloco>
 
-            <Bloco titulo="8. Hospedagem coletiva" item="4.13.3 do Edital">
+            <Bloco titulo="8. Hospedagem coletiva">
               <p>
                 A hospedagem é coletiva, em quartos do Hotel Praiamar Arena com
                 capacidade para 4 pessoas em 2 camas de casal. Cada cama de
@@ -298,10 +288,7 @@ export default async function TermosEPrivacidadePage() {
               </p>
             </Bloco>
 
-            <Bloco
-              titulo="9. Decisões soberanas e casos omissos"
-              item="8.2.6, 11.10 e 11.16 do Edital"
-            >
+            <Bloco titulo="9. Decisões soberanas e casos omissos">
               <p>
                 As decisões da Banca Julgadora e da comissão organizadora são
                 soberanas e irrecorríveis, não sendo cabível contestação dos
@@ -342,11 +329,9 @@ export default async function TermosEPrivacidadePage() {
 
 function Bloco({
   titulo,
-  item,
   children,
 }: {
   titulo: string;
-  item?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -359,11 +344,6 @@ function Bloco({
         <h2 className="font-display font-bold text-xl md:text-2xl text-white leading-tight">
           {titulo}
         </h2>
-        {item && (
-          <p className="text-[0.6875rem] uppercase tracking-[0.22em] text-sol-orange/85 font-mono mt-1.5">
-            Base legal: item {item}
-          </p>
-        )}
       </header>
       <div className="space-y-3">{children}</div>
     </article>

@@ -303,7 +303,7 @@ export async function POST(req: Request) {
     if (!result?.ok) {
       if (result?.error === "duplicate_cpf") {
         return bad(
-          "Um dos CPFs informados já foi inscrito em outra equipe. Cada CPF só pode constar em uma inscrição (item 3.2 do Edital).",
+          "Um dos CPFs informados já foi inscrito em outra equipe. Cada CPF só pode constar em uma inscrição.",
           409
         );
       }

@@ -18,6 +18,8 @@ node scripts/generate-blur.mjs            # regenera lib/blur-data.ts a partir d
 node scripts/optimize-images.mjs          # gera logo.{webp,png}, story.webp, og.jpg em public/imagens/
 node scripts/generate-icons.mjs --preview # preview do crop do sol em tmp-sun-preview.png (ajustar SUN_* antes do gerar final)
 node scripts/generate-icons.mjs           # gera app/icon.png, app/apple-icon.png, app/favicon.ico
+npm run generate-ies                      # baixa do INEP e regenera lib/ies-data.ts (~2500 IES, atualizar 1x/ano)
+npm run generate-escolas                  # baixa do INEP e regenera lib/escolas-data.ts (~31k escolas com ensino médio, atualizar 1x/ano)
 ```
 
 Não há suíte de testes configurada.

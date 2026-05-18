@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
 import Header from "@/components/Header";
 import InscricaoIntro from "@/components/InscricaoIntro";
 import Inscricao from "@/components/Inscricao";
@@ -7,6 +9,7 @@ import Footer from "@/components/Footer";
 import ScrollProgress from "@/components/ScrollProgress";
 import FloatingActions from "@/components/FloatingActions";
 import ParticlesCanvas from "@/components/ParticlesCanvas";
+import { authOptions } from "@/lib/auth";
 import { getInscriptionsStatus } from "@/lib/inscriptions";
 import { EVENT } from "@/lib/event";
 
@@ -23,7 +26,16 @@ export const metadata: Metadata = {
 };
 
 export default async function InscricaoPage() {
-  const { open: inscriptionsOpen, message } = await getInscriptionsStatus();
+  const [{ open: inscriptionsOpen, message }, session] = await Promise.all([
+    getInscriptionsStatus(),
+    getServerSession(authOptions),
+  ]);
+  // Acesso direto via URL sem sessão: redireciona pra home com flag de
+  // login. O SignInModalProvider detecta o ?login=1, abre o modal e limpa
+  // o param. UX consistente com quem clicou em "Inscreva-se" na home.
+  if (inscriptionsOpen && !session) {
+    redirect("/?login=1");
+  }
   return (
     <>
       <ParticlesCanvas />

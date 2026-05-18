@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { ArrowRight, Lock } from "lucide-react";
 import Countdown from "./Countdown";
 import MagneticButton from "./MagneticButton";
+import InscrevaSeButton from "./InscrevaSeButton";
 import { BLUR } from "@/lib/blur-data";
 import { EVENT } from "@/lib/event";
 
@@ -177,13 +178,13 @@ export default function Hero({
         >
           {inscriptionsOpen ? (
             <MagneticButton>
-              <a href="/inscricao" className="btn-primary group text-sm md:text-base">
+              <InscrevaSeButton className="btn-primary group text-sm md:text-base">
                 <span className="relative z-10">Inscreva-se agora</span>
                 <ArrowRight
                   className="relative z-10 w-4 h-4 transition-transform group-hover:translate-x-1"
                   strokeWidth={2.5}
                 />
-              </a>
+              </InscrevaSeButton>
             </MagneticButton>
           ) : (
             <MagneticButton>
