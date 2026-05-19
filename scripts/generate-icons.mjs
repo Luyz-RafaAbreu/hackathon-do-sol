@@ -22,10 +22,13 @@ const root = join(__dirname, "..");
 const SRC = join(root, "public", "imagens", "logo-hd.webp");
 const OUT_APP = join(root, "app");
 
-// Crop do sol no logo-hd.webp (1200x1200). Centro estimado (600, 640), raio ~140.
-const SUN_LEFT = 460;
-const SUN_TOP = 500;
-const SUN_SIZE = 280;
+// Crop do sol no logo-hd.webp (1200x1200). O sol fica dentro do "O" da
+// palavra SOL — centro real em ~(605, 655), raio do burst ~95. 200x200
+// captura o sol completo com pouca margem de amarelo, sem deixar o roxo
+// vazar pelos cantos.
+const SUN_LEFT = 505;
+const SUN_TOP = 555;
+const SUN_SIZE = 200;
 
 // Cor de fundo dos ícones — sol.bg do tailwind.config.ts (#1a0b3d).
 const BG = { r: 26, g: 11, b: 61, alpha: 1 };
