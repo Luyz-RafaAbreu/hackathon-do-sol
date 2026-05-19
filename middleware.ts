@@ -12,17 +12,25 @@ import { NextRequest, NextResponse } from "next/server";
 // Auth não é gateada no middleware — o gate é em /inscricao server component
 // (mostra modal de login sobreposto se não tem sessão). Segurança real fica
 // em /api/draft e /api/inscricao, que checam sessão antes de processar.
+const CANONICAL_HOST = "hackathondosol.com.br";
+
 export function middleware(request: NextRequest) {
-  // Acesso temporariamente liberado no alias .vercel.app pra compartilhar
-  // prévia do site (chefe + grupo confiável). O 404 anterior foi removido
-  // quando essa decisão foi tomada — restaurar quando o domínio próprio
-  // entrar, pra evitar que o Google indexe URLs duplicadas .vercel.app +
-  // hackathondosol.com.br competindo por SEO.
-  //
-  // Enquanto isso, o `noindex` abaixo cobre o gap: pessoas que recebem o
-  // link entram, mas o Google não indexa.
+  // Domínio canônico oficial: hackathondosol.com.br (configurado na Vercel
+  // após DNS do HostGator apontar pros nameservers da Vercel).
+  // - Tráfego em *.vercel.app → 301 pro canônico (evita duplicação de SEO
+  //   e link sharing fica sempre no domínio bonito).
+  // - Tráfego em www.hackathondosol.com.br → 301 pro apex (canônico SEO).
+  // - Tráfego em hackathondosol.com.br → segue normalmente.
   const host = request.headers.get("host") ?? "";
   const isVercelAlias = host.endsWith(".vercel.app");
+  const isWww = host === "www." + CANONICAL_HOST;
+  if (isVercelAlias || isWww) {
+    const url = new URL(request.url);
+    url.host = CANONICAL_HOST;
+    url.protocol = "https";
+    url.port = "";
+    return NextResponse.redirect(url, 301);
+  }
 
   const nonceBytes = new Uint8Array(16);
   crypto.getRandomValues(nonceBytes);
@@ -70,20 +78,12 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("content-security-policy", csp);
 
-  // No alias .vercel.app, instrui crawlers a NÃO indexar. Cobre o gap até o
-  // domínio próprio entrar — sem isso, o Google indexaria o .vercel.app e
-  // depois apareceriam dois resultados competindo por SEO.
-  if (isVercelAlias) {
-    response.headers.set("x-robots-tag", "noindex, nofollow");
-  }
-
   return response;
 }
 
 export const config = {
-  // Cobre praticamente tudo (inclusive /api, /robots.txt, /sitemap.xml e
-  // /imagens/*) pra que o noindex pegue de verdade no alias .vercel.app.
-  // Excluídos só os assets imutáveis do Next, que têm nomes hash-eados e
-  // não vazam conteúdo sem acesso prévio à página.
+  // Cobre praticamente tudo pra que o redirect canônico + CSP sejam
+  // aplicados consistentemente. Excluídos só os assets imutáveis do Next,
+  // que têm nomes hash-eados.
   matcher: ["/((?!_next/static|_next/image).*)"],
 };
