@@ -112,6 +112,13 @@ const META_COLUMNS = [
   "Data inscrição",    // B
   "Email enviado em",  // C — marcado automaticamente pelo trigger
   "Observações",       // D — campo livre pra anotações internas
+  "Google ID líder",   // E — ID estável da conta Google do líder; preenchido
+                       //     automaticamente no submit pra linkar a inscrição
+                       //     com a sessão do site (usado em /api/inscricao/status)
+  "E-mail Google líder", // F — e-mail da conta Google que fez o submit. Único
+                       //     destinatário das notificações (confirmação,
+                       //     aprovação, reprovação). Os emails pessoais dos
+                       //     4 integrantes ficam só pra registro na planilha.
 ];
 const STATUS_COL = 1;
 const EMAIL_SENT_COL = 3;
@@ -1408,6 +1415,14 @@ function doPost(e) {
       return jsonResponse({ ok: false, error: "Bad request" });
     }
 
+    // Action routing — payload novo pode incluir `action: "status"` pra
+    // consultar status da inscrição pelo e-mail (usado pelo UserMenu).
+    // Sem action ou action="submit" cai no fluxo de submissão (default
+    // pra manter compat com payloads antigos).
+    if (data && data.action === "status") {
+      return handleStatusQuery_({ googleId: data.googleId, email: data.email });
+    }
+
     // Validação estrutural mínima — defesa caso o Next seja burlado
     if (!data || !data.equipe || !Array.isArray(data.integrantes) ||
         data.integrantes.length !== 4 || !data.proposta ||
@@ -1522,12 +1537,14 @@ function doPost(e) {
       console.error("Falha ao adicionar bloco na Detalhes:", errDetalhes);
     }
 
-    // Confirma por e-mail pros 4 integrantes (best-effort)
+    // Confirma por e-mail SÓ pro líder, no e-mail da conta Google que ele
+    // usou pra logar no site. Decisão deliberada: emails do form ficam só
+    // pra registro; comunicação oficial vai 1:1 pro líder.
     try {
-      sendConfirmationEmail_(
-        data.integrantes.map(function (i) { return i.emailPessoal; }),
-        data.equipe.nome
-      );
+      const leaderEmail = String(data.leaderGoogleEmail || "").trim();
+      if (leaderEmail) {
+        sendConfirmationEmail_([leaderEmail], data.equipe.nome);
+      }
     } catch (errMail) {
       console.error("Falha ao enviar e-mail de confirmação:", errMail);
     }
@@ -1547,11 +1564,13 @@ function buildRow_(data) {
   const stamp = Utilities.formatDate(now, CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm");
 
   const row = [];
-  // Meta (4 colunas)
+  // Meta (6 colunas)
   row.push("Pendente");
   row.push(stamp);
   row.push(""); // Email enviado em
   row.push(""); // Observações
+  row.push(String(data.leaderGoogleId || ""));     // Google ID do líder
+  row.push(String(data.leaderGoogleEmail || ""));  // E-mail Google do líder
 
   // Equipe (8 colunas)
   const eq = data.equipe;
@@ -1705,6 +1724,85 @@ function checkPropostaLengths_(p) {
 }
 
 // ============================================================================
+// handleStatusQuery_ — retorna status da inscrição
+// ----------------------------------------------------------------------------
+// Chamado pelo doPost quando o payload tem `action: "status"`. Identifica
+// a inscrição em DUAS estratégias, em ordem:
+//
+//   1. Por Google ID do líder (coluna E "Google ID líder")
+//      → SEMPRE encontra o líder que se inscreveu logado com aquela conta,
+//        mesmo se ele tiver mudado o e-mail oficial depois
+//   2. Por e-mail (5 colunas — oficial + 4 pessoais dos integrantes)
+//      → cobre os 3 integrantes não-líderes (que não logam pra preencher)
+//        + inscrições antigas que não têm googleId gravado
+//
+// Match case-insensitive. Retorna { ok: true, status: "Pendente|Aprovado|Reprovado" }
+// ou { ok: true, status: null } se não encontrar.
+// ============================================================================
+function handleStatusQuery_(payloadInput) {
+  try {
+    // Aceita {googleId, email} (formato novo) ou string solta (formato antigo,
+    // pra manter compat caso algum caller velho ainda exista).
+    let googleId = "", email = "";
+    if (typeof payloadInput === "string") {
+      email = payloadInput;
+    } else if (payloadInput && typeof payloadInput === "object") {
+      googleId = String(payloadInput.googleId || "").trim();
+      email = String(payloadInput.email || "").trim().toLowerCase();
+    }
+    if (!googleId && !email) return jsonResponse({ ok: true, status: null });
+
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.SHEET_NAME);
+    if (!sheet) return jsonResponse({ ok: true, status: null });
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return jsonResponse({ ok: true, status: null });
+
+    const allData = sheet.getRange(2, 1, lastRow - 1, COLUMNS.length).getValues();
+
+    // Status é coluna A (idx 0). Google ID é coluna E (idx 4, META_COLUMNS[4]).
+    const statusColIdx = 0;
+    const googleIdColIdx = META_COLUMNS.indexOf("Google ID líder");
+    const emailColIdxs = [];
+    for (let i = 0; i < COLUMNS.length; i++) {
+      if (COLUMNS[i].indexOf("E-mail oficial") >= 0 || COLUMNS[i].indexOf("— E-mail") >= 0) {
+        emailColIdxs.push(i);
+      }
+    }
+
+    // 1ª passada: busca por Google ID (match exato)
+    if (googleId && googleIdColIdx >= 0) {
+      for (let r = 0; r < allData.length; r++) {
+        const existing = String(allData[r][googleIdColIdx] || "")
+          .trim().replace(/^'/, "");
+        if (existing && existing === googleId) {
+          const status = String(allData[r][statusColIdx] || "").trim() || "Pendente";
+          return jsonResponse({ ok: true, status: status });
+        }
+      }
+    }
+
+    // 2ª passada: fallback por e-mail
+    if (email) {
+      for (let r = 0; r < allData.length; r++) {
+        for (let c = 0; c < emailColIdxs.length; c++) {
+          const existing = String(allData[r][emailColIdxs[c]] || "")
+            .trim().toLowerCase().replace(/^'/, "");
+          if (existing && existing === email) {
+            const status = String(allData[r][statusColIdx] || "").trim() || "Pendente";
+            return jsonResponse({ ok: true, status: status });
+          }
+        }
+      }
+    }
+    return jsonResponse({ ok: true, status: null });
+  } catch (err) {
+    console.error("handleStatusQuery_ falhou:", err && err.message ? err.message : err);
+    return jsonResponse({ ok: false, error: "internal_error" });
+  }
+}
+
+// ============================================================================
 // handleStatusChange — dispara quando o admin muda o Status na planilha
 // ----------------------------------------------------------------------------
 // Trigger MANUAL (installable). Instalação:
@@ -1782,17 +1880,15 @@ function processStatusEdit_(inscricoesRow, oldValueRaw, source, triagemRow) {
   }
   const equipeNome = String(rowData[colIdx("Equipe — Nome")] || "");
   const liderIdx = Number(rowData[colIdx("Líder (índice 1-4)")] || 1);
-  const emails = [
-    String(rowData[colIdx("Int 1 — E-mail")] || ""),
-    String(rowData[colIdx("Int 2 — E-mail")] || ""),
-    String(rowData[colIdx("Int 3 — E-mail")] || ""),
-    String(rowData[colIdx("Int 4 — E-mail")] || ""),
-  ].filter(function (x) { return x.length > 0; })
-   .map(function (x) { return x.replace(/^'/, "").trim(); });
+  // Único destinatário: o e-mail Google da conta que fez o submit
+  // (gravado na col F "E-mail Google líder" no submit).
+  const leaderGoogleEmail = String(rowData[colIdx("E-mail Google líder")] || "")
+    .replace(/^'/, "").trim();
+  const emails = leaderGoogleEmail ? [leaderGoogleEmail] : [];
   const liderNome = String(rowData[colIdx("Int " + liderIdx + " — Nome completo")] || "");
 
   if (emails.length === 0) {
-    inscricoes.getRange(inscricoesRow, EMAIL_SENT_COL).setValue("ERRO: sem e-mails");
+    inscricoes.getRange(inscricoesRow, EMAIL_SENT_COL).setValue("ERRO: sem e-mail Google");
     return;
   }
 

@@ -1346,10 +1346,11 @@ function IntegranteStep({
 
       <SectionTitle>Formação acadêmica</SectionTitle>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-4 items-start">
         <Field
-          label="Qual seu nível de formação atual?"
+          label="Nível de formação atual"
           error={errors.nivelFormacao}
+          alignInput="top"
           input={
             <select
               value={integrante.nivelFormacao}
@@ -1364,40 +1365,15 @@ function IntegranteStep({
             </select>
           }
         />
-        <Field
-          label="Curso / Área de formação principal"
-          help="Opcional."
-          input={
-            <select
-              value={integrante.cursoFormacao}
-              onChange={(e) => onChange({ cursoFormacao: e.target.value })}
-            >
-              <option value="">Selecione...</option>
-              {CURSOS_AREAS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          }
+        <CursoFormacaoField
+          value={integrante.cursoFormacao}
+          onChange={(v) => onChange({ cursoFormacao: v })}
         />
       </div>
 
       <Field
-        label={
-          /completa?$/.test(integrante.nivelFormacao)
-            ? "Ano de conclusão"
-            : integrante.nivelFormacao.endsWith("em andamento")
-              ? "Previsão de formatura"
-              : "Ano de ingresso ou formatura"
-        }
-        help={
-          /completa?$/.test(integrante.nivelFormacao)
-            ? "Opcional. Ex.: 2022"
-            : integrante.nivelFormacao.endsWith("em andamento")
-              ? "Opcional. Ex.: 2027"
-              : "Opcional. Ex.: 2024"
-        }
+        label="Ano de conclusão"
+        help="Opcional. Para formação em andamento, informe a previsão."
         error={errors.anoFormacao}
         input={
           <input
@@ -1405,13 +1381,7 @@ function IntegranteStep({
             onChange={(e) =>
               onChange({ anoFormacao: e.target.value.replace(/\D/g, "").slice(0, 4) })
             }
-            placeholder={
-              /completa?$/.test(integrante.nivelFormacao)
-                ? "2022"
-                : integrante.nivelFormacao.endsWith("em andamento")
-                  ? "2027"
-                  : "2024"
-            }
+            placeholder="2024"
             maxLength={FIELD_MAX.anoFormacao}
             inputMode="numeric"
           />
@@ -1485,7 +1455,7 @@ function IntegranteStep({
           <input
             value={integrante.outrasRedes}
             onChange={(e) => onChange({ outrasRedes: e.target.value })}
-            placeholder="Instagram, X, Dribbble, Medium, etc."
+            placeholder="Instagram, X, Bluesky, etc."
             maxLength={FIELD_MAX.outrasRedes}
           />
         }
@@ -1852,28 +1822,34 @@ function Field({
   help,
   error,
   input,
+  alignInput = "bottom",
 }: {
   label: string;
   help?: string;
   error?: string;
   input: ReactNode;
+  // "bottom" (default): input ancora no fundo. Útil em grids 2-col onde
+  //   um Field tem help e o vizinho não — sem isso, os inputs ficam
+  //   desalinhados verticalmente entre as colunas.
+  // "top": input fica logo abaixo do label/help. Usar quando o conteúdo
+  //   de uma coluna pode crescer muito mais que a outra (ex: input extra
+  //   condicional embaixo do select), pra evitar gaps gigantes.
+  alignInput?: "top" | "bottom";
 }) {
-  // `flex flex-col h-full` + `mt-auto` no input: quando o Field está dentro de
-  // um grid (md:grid-cols-2), cells co-irmãs alongam pra mesma altura. Sem
-  // isso, um Field com `help` empurra o input pra baixo enquanto o vizinho
-  // sem help fica no topo — ficam desalinhados visualmente.
-  //
   // `data-field-error` no wrapper quando tem erro permite que o toast de
   // validação faça scroll pro primeiro campo com erro.
   return (
-    <div className="flex flex-col h-full" data-field-error={error ? "true" : undefined}>
+    <div
+      className={alignInput === "bottom" ? "flex flex-col h-full" : undefined}
+      data-field-error={error ? "true" : undefined}
+    >
       <label>{label}</label>
       {help && (
         <p className="text-xs text-white/55 -mt-1 mb-2 normal-case tracking-normal font-normal">
           {help}
         </p>
       )}
-      <div className="mt-auto">
+      <div className={alignInput === "bottom" ? "mt-auto" : undefined}>
         {input}
         {error && <p className="text-red-300 text-xs mt-1">{error}</p>}
       </div>
@@ -2003,9 +1979,13 @@ function InstituicaoField({
               className="cursor-pointer px-3 py-2 text-sm hover:bg-white/[0.06] flex items-baseline gap-2 normal-case tracking-normal font-normal"
             >
               {s.sigla && (
-                <span className="font-semibold text-white shrink-0">{s.sigla}</span>
+                <span className="font-semibold text-white shrink-0">
+                  {s.sigla}
+                </span>
               )}
-              <span className="text-white/70 truncate min-w-0">{s.nome}</span>
+              <span className="font-semibold text-white truncate min-w-0">
+                {s.nome}
+              </span>
               <span className="ml-auto text-xs text-white/45 whitespace-nowrap shrink-0">
                 {s.municipio}/{s.uf}
               </span>
@@ -2295,6 +2275,72 @@ function ValidationToast({
         </button>
       </div>
     </div>
+  );
+}
+
+// Select de curso/área com fallback de input livre quando o usuário escolhe
+// "Outra". Retorna fragment com 1-2 grid items: o dropdown como Field
+// normal (1 coluna) e, quando "Outra" está ativa, um input adicional que
+// ocupa a largura total via `md:col-span-2` — mais legível do que ficar
+// comprimido só na coluna direita.
+//
+// Estado local `outraAtiva` guarda a intenção do user depois que ele
+// escolheu "Outra" no dropdown — sem isso, o input some na primeira vez
+// que ele apaga o texto pra retypar.
+function CursoFormacaoField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const OUTRA_SENTINEL = "__outra__";
+  const isInList = (CURSOS_AREAS as readonly string[]).includes(value);
+  const [outraAtiva, setOutraAtiva] = useState(!!value && !isInList);
+
+  const showOutraInput = outraAtiva;
+  const dropdownValue = isInList ? value : showOutraInput ? OUTRA_SENTINEL : "";
+
+  return (
+    <>
+      <Field
+        label="Curso ou área (opcional)"
+        alignInput="top"
+        input={
+          <select
+            value={dropdownValue}
+            onChange={(e) => {
+              if (e.target.value === OUTRA_SENTINEL) {
+                setOutraAtiva(true);
+                onChange("");
+              } else {
+                setOutraAtiva(false);
+                onChange(e.target.value);
+              }
+            }}
+          >
+            <option value="">Selecione...</option>
+            {CURSOS_AREAS.filter((c) => c !== "Outra").map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+            <option value={OUTRA_SENTINEL}>Outra (especificar)</option>
+          </select>
+        }
+      />
+      {showOutraInput && (
+        <div className="md:col-span-2">
+          <input
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Especifique o curso ou área"
+            maxLength={FIELD_MAX.cursoFormacao}
+            autoFocus
+          />
+        </div>
+      )}
+    </>
   );
 }
 

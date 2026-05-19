@@ -93,8 +93,8 @@ export default function SignInModal({ onClose }: { onClose: () => void }) {
           </h2>
 
           <p className="text-white/60 text-[0.8125rem] md:text-sm leading-relaxed mb-6">
-            A inscrição é por equipe. O líder se identifica pra começar — assim
-            o rascunho fica salvo entre dispositivos.
+            Sem pressa: a gente salva seu progresso automaticamente. Pode
+            pausar e voltar quando quiser.
           </p>
 
           <SignInButton callbackUrl="/inscricao" />

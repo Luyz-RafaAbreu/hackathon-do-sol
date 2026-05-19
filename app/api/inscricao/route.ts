@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createHmac } from "node:crypto";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import {
   InscricaoFormState,
   normalizeForm,
@@ -277,8 +279,22 @@ export async function POST(req: Request) {
     );
   }
 
-  // Envelope assinado por HMAC-SHA256
-  const payload = JSON.stringify(normalized);
+  // Pega Google ID + e-mail do líder da sessão. O googleId serve de identidade
+  // estável (vincula a inscrição ao usuário mesmo se ele mudar o email
+  // oficial). O leaderGoogleEmail vira o ÚNICO destinatário dos e-mails de
+  // confirmação/aprovação/reprovação — comunicação oficial 1:1 com o líder.
+  const session = await getServerSession(authOptions);
+  // @ts-expect-error — session.user.googleId é extensão custom (ver lib/auth.ts)
+  const leaderGoogleId: string = session?.user?.googleId ?? "";
+  const leaderGoogleEmail: string = session?.user?.email ?? "";
+
+  // Envelope assinado por HMAC-SHA256. Campos extras fora do `state` pra
+  // não bagunçar a normalização/validação do schema do form.
+  const payload = JSON.stringify({
+    ...normalized,
+    leaderGoogleId,
+    leaderGoogleEmail,
+  });
   const ts = Date.now();
   const signature = createHmac("sha256", WEBHOOK_SECRET)
     .update(`${ts}.${payload}`)

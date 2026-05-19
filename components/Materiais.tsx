@@ -12,10 +12,10 @@ type MaterialItem = {
   ctaLabel?: string;    // texto do CTA quando disponível
 };
 
-// Tanto "Edital oficial" quanto "Termos e Privacidade" apontam pra
-// /termos-e-privacidade — a página é o próprio Edital, não há PDF separado.
-// Cards separados pra dar duas portas de entrada (regras completas vs.
-// recorte LGPD/imagem).
+// "Edital oficial" → PDF (download/abre em outra aba), texto original do
+// regulamento com cabeçalho institucional. "Termos e Privacidade" → página
+// HTML com síntese das seções 10/12/13 (LGPD, código de conduta, uso de
+// imagem) — mais leve e fácil de linkar/atualizar do que tocar no PDF.
 const materiais: MaterialItem[] = [
   {
     titulo: "Edital oficial",
@@ -23,8 +23,8 @@ const materiais: MaterialItem[] = [
       "Regras completas do Hackathon do Sol 2026: inscrição, premiação, julgamento, propriedade intelectual e código de conduta.",
     Icon: FileText,
     cor: "from-sol-yellow to-sol-orange",
-    href: "/termos-e-privacidade",
-    ctaLabel: "Ver edital",
+    href: "/materiais/edital.pdf",
+    ctaLabel: "Baixar PDF",
   },
   {
     titulo: "Termos e Privacidade",
@@ -114,11 +114,15 @@ export default function Materiais() {
                   </p>
                 </div>
 
-                {/* CTA — empurrado pra direita no desktop */}
+                {/* CTA — empurrado pra direita no desktop. PDFs abrem em nova
+                    aba (UX padrão de download/visualização) e ganham hint
+                    visual via target="_blank". */}
                 <div className="shrink-0 md:ml-auto">
                   {m.href ? (
                     <Link
                       href={m.href}
+                      target={m.href.endsWith(".pdf") ? "_blank" : undefined}
+                      rel={m.href.endsWith(".pdf") ? "noopener noreferrer" : undefined}
                       className="inline-flex items-center gap-2 rounded-full border-[0.125rem] border-sol-orange/50 bg-sol-orange/10 text-sol-orange font-semibold px-5 py-2.5 text-sm hover:border-sol-orange hover:bg-sol-orange/15 hover:gap-3 transition-all"
                     >
                       <span>{m.ctaLabel ?? "Acessar"}</span>

@@ -261,23 +261,48 @@ function normalize(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
-// Busca por nome ou município. Escolas não têm sigla (diferente das IES),
-// então a busca prioriza prefixos no nome. Retorna até \`limit\` resultados.
+// Busca por nome/município. Tokeniza a query por espaço pra que termos
+// fora de ordem ainda encontrem ("atheneu central" ↔ "Centro Educacional
+// Atheneu"). Score parcial proporcional ao número de tokens que casam.
+// Bônus aditivo +40 pra escolas em RN — favorece resultados locais sem
+// inverter matches exatos de outros estados.
 export function searchEscolas(query: string, limit = 8): Escola[] {
   const q = normalize(query.trim());
-  if (!q || q.length < 2) return []; // exige pelo menos 2 chars
+  if (q.length < 2) return [];
+  const tokens = q.split(/\\s+/).filter((t) => t.length >= 1);
+  if (tokens.length === 0) return [];
+  const total = tokens.length;
 
   const matches: { e: Escola; score: number }[] = [];
   for (const e of ESCOLAS_LIST) {
     const nome = normalize(e.nome);
     const municipio = normalize(e.municipio);
+    const isRN = e.uf.toUpperCase() === "RN";
+
+    let nomeMatched = 0;
+    let municipioMatched = 0;
+    for (const t of tokens) {
+      if (nome.includes(t)) nomeMatched++;
+      if (municipio.includes(t)) municipioMatched++;
+    }
+
     let score = 0;
-    if (nome === q) score = 100;
-    else if (nome.startsWith(q)) score = 80;
-    else if (nome.includes(q)) score = 50;
-    else if (municipio.startsWith(q)) score = 20;
-    else if (municipio.includes(q)) score = 10;
-    if (score > 0) matches.push({ e, score });
+    if (nomeMatched === total) {
+      score = 100;
+      if (nome.startsWith(tokens[0]!)) score += 20;
+    } else if (nomeMatched > 0) {
+      score = Math.round(50 * (nomeMatched / total));
+    }
+
+    if (municipioMatched === total) {
+      score += score > 0 ? 10 : 25;
+    } else if (municipioMatched > 0 && score > 0) {
+      score += 5;
+    }
+
+    if (score === 0) continue;
+    if (isRN) score += 40;
+    matches.push({ e, score });
   }
   matches.sort((a, b) => b.score - a.score);
   return matches.slice(0, limit).map((m) => m.e);

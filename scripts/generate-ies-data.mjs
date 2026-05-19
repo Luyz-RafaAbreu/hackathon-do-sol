@@ -245,26 +245,56 @@ function normalize(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
-// Filtra IES por query — busca em sigla, nome ou município. Vazio retorna
-// lista vazia (não mostra todas pra evitar dropdown gigante no foco).
-// Retorna até \`limit\` resultados, priorizando matches por sigla.
+// Busca tokenizada: query separada por espaço; cada token testado contra
+// sigla, nome e município. Sigla é discriminador forte (score alto). Nome
+// pontua proporcional aos tokens que casam (full > parcial). Município
+// como reforço. Bônus aditivo +50 pra IES em RN — destaca instituições
+// locais sem inverter matches exatos de outros estados.
 export function searchIES(query: string, limit = 8): IES[] {
   const q = normalize(query.trim());
   if (!q) return [];
+  const tokens = q.split(/\\s+/).filter((t) => t.length >= 1);
+  if (tokens.length === 0) return [];
+  const total = tokens.length;
 
   const matches: { ies: IES; score: number }[] = [];
   for (const ies of IES_LIST) {
     const sigla = normalize(ies.sigla);
     const nome = normalize(ies.nome);
     const municipio = normalize(ies.municipio);
-    let score = 0;
-    if (sigla === q) score = 100;
-    else if (sigla.startsWith(q)) score = 90;
-    else if (sigla.includes(q)) score = 70;
-    else if (nome.startsWith(q)) score = 50;
-    else if (nome.includes(q)) score = 30;
-    else if (municipio.includes(q)) score = 10;
-    if (score > 0) matches.push({ ies, score });
+    const isRN = ies.uf.toUpperCase() === "RN";
+
+    let siglaScore = 0;
+    for (const t of tokens) {
+      if (sigla === t) siglaScore = Math.max(siglaScore, 200);
+      else if (sigla.startsWith(t)) siglaScore = Math.max(siglaScore, 150);
+      else if (sigla.includes(t)) siglaScore = Math.max(siglaScore, 100);
+    }
+
+    let nomeMatched = 0;
+    let municipioMatched = 0;
+    for (const t of tokens) {
+      if (nome.includes(t)) nomeMatched++;
+      if (municipio.includes(t)) municipioMatched++;
+    }
+
+    let score = siglaScore;
+    if (nomeMatched === total) {
+      score += 80;
+      if (nome.startsWith(tokens[0]!)) score += 20;
+    } else if (nomeMatched > 0) {
+      score += Math.round(40 * (nomeMatched / total));
+    }
+
+    if (municipioMatched === total) {
+      score += score > 0 ? 15 : 30;
+    } else if (municipioMatched > 0 && score > 0) {
+      score += 8;
+    }
+
+    if (score === 0) continue;
+    if (isRN) score += 50;
+    matches.push({ ies, score });
   }
   matches.sort((a, b) => b.score - a.score);
   return matches.slice(0, limit).map((m) => m.ies);

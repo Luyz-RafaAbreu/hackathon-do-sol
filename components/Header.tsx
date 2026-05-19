@@ -123,19 +123,26 @@ export default function Header({
           href="/"
           className="group relative flex items-center gap-3 font-display font-bold text-base md:text-lg"
         >
-          <div className="relative w-10 h-10 rounded-full overflow-hidden transition-transform duration-500 group-hover:scale-105">
-            {/* glow atrás do logo */}
-            <span className="absolute -inset-1 rounded-full bg-sol-orange/40 blur-md opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
-            <Image
-              src="/imagens/logo.webp"
-              alt="Hackathon do Sol"
-              width={40}
-              height={40}
-              className="relative rounded-full w-full h-full object-cover"
-              priority
-              placeholder="blur"
-              blurDataURL={BLUR.logo}
+          <div className="relative w-10 h-10 transition-transform duration-500 group-hover:scale-105">
+            {/* glow atrás do logo — mix-blend-screen "soma" a luz laranja
+                em cima do roxo do fundo, criando halo natural ao invés de
+                disco opaco sobreposto. */}
+            <span
+              aria-hidden
+              className="absolute -inset-1 rounded-full bg-sol-orange blur-md opacity-50 mix-blend-screen group-hover:opacity-80 transition-opacity duration-500"
             />
+            <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-sol-orange/65 group-hover:ring-white transition-all duration-500">
+              <Image
+                src="/imagens/logo.webp"
+                alt="Hackathon do Sol"
+                width={40}
+                height={40}
+                className="w-full h-full object-cover"
+                priority
+                placeholder="blur"
+                blurDataURL={BLUR.logo}
+              />
+            </div>
           </div>
           <span className="hidden sm:inline whitespace-nowrap">
             Hackathon{" "}
