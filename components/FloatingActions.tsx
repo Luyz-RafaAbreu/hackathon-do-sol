@@ -41,10 +41,10 @@ export default function FloatingActions() {
         </button>
       </MagneticButton>
 
-      {/* WhatsApp / Contato — PLACEHOLDER: trocar número em href quando disponível */}
+      {/* WhatsApp / Contato — número oficial do Hackathon do Sol */}
       <MagneticButton strength={10} radius={70}>
       <a
-        href="https://wa.me/5584000000000?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20Hackathon%20do%20Sol."
+        href="https://wa.me/5584991185097?text=Ol%C3%A1!%20Quero%20saber%20mais%20sobre%20o%20Hackathon%20do%20Sol."
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Fale conosco no WhatsApp"
