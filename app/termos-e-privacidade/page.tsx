@@ -255,7 +255,7 @@ export default async function TermosEPrivacidadePage() {
               </p>
               <p>
                 Casos de ausência por força maior, emergência médica ou
-                família devem ser comunicados imediatamente à comissão
+                familiar devem ser comunicados imediatamente à comissão
                 organizadora.
               </p>
             </Bloco>

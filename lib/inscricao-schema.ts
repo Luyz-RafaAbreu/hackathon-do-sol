@@ -45,7 +45,7 @@ export const GENEROS = [
   "Homem trans",
   "Mulher cis",
   "Mulher trans",
-  "Não-binário / outra identidade — prefiro conversar com a COMISSÃO ORGANIZADORA sobre acomodação",
+  "Não-binário / outra identidade",
 ] as const;
 
 // Faixas de tempo de experiência na área — pra padronizar a resposta e

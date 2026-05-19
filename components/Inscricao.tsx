@@ -51,8 +51,9 @@ import {
   validateProposta,
   validateTrilha,
 } from "@/lib/inscricao-schema";
-import { searchIES } from "@/lib/ies-data";
-import { searchEscolas } from "@/lib/escolas-data";
+// Datasets de instituições são lazy-loaded dentro do InstituicaoField via
+// `await import()` — não importamos aqui pra não estourar o bundle (escolas
+// têm ~3MB, IES ~260KB). Só baixa quando o user seleciona o nível.
 import MagneticButton from "./MagneticButton";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
@@ -362,6 +363,10 @@ export default function Inscricao() {
   // Persist on every state change. localStorage é síncrono e instantâneo —
   // proteção primária contra F5/fechar aba. Servidor recebe via debounce
   // (2s) — backup pra cross-device. Não bloqueia nada no caminho crítico.
+  //
+  // Só faz POST no servidor se houver sessão — sem auth o endpoint retorna
+  // 401 silencioso, polui logs e gasta rate limit pra nada. localStorage
+  // continua salvando independente da sessão.
   useEffect(() => {
     if (!draftChecked) return; // não sobrescreve antes do restore terminar
     try {
@@ -369,6 +374,8 @@ export default function Inscricao() {
     } catch {
       /* quota / private mode */
     }
+
+    if (!session?.user?.email) return; // sem sessão, pula o save no servidor
 
     const id = window.setTimeout(() => {
       fetch("/api/draft", {
@@ -382,7 +389,7 @@ export default function Inscricao() {
       });
     }, 2000);
     return () => window.clearTimeout(id);
-  }, [state, draftChecked]);
+  }, [state, draftChecked, session]);
 
   // Scroll into view do header da etapa — disparado direto no click de
   // Continuar/Voltar (ver goNext/goBack abaixo). Antes era um useEffect em
@@ -1247,6 +1254,11 @@ function IntegranteStep({
 
       <Field
         label="Como você se identifica?"
+        help={
+          integrante.genero === "Não-binário / outra identidade"
+            ? "A organização vai entrar em contato pra alinhar a acomodação."
+            : "Usado só pra organizar quartos por gênero na hospedagem."
+        }
         error={errors.genero}
         input={
           <select
@@ -1718,7 +1730,7 @@ function LiderConfirmacaoStep({
       <Intro>
         O Líder confirma a finalização da inscrição. Os campos abaixo devem
         bater com os dados que você informou na etapa do integrante marcado
-        como líder na Seção 1.
+        como líder.
       </Intro>
 
       <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-xs normal-case tracking-normal font-normal text-white/70 space-y-1">
@@ -1878,6 +1890,8 @@ function makeDisplay(s: InstituicaoSuggestion): string {
   return s.sigla ? `${s.nome} (${s.sigla})` : s.nome;
 }
 
+type InstituicaoSearchFn = (query: string, limit?: number) => InstituicaoSuggestion[];
+
 function InstituicaoField({
   value,
   uf,
@@ -1895,19 +1909,58 @@ function InstituicaoField({
     instituicaoMunicipio: string;
   }) => void;
 }) {
-  // Ensino Médio (em andamento ou completo) busca em escolas-data; o resto
-  // dos níveis busca em ies-data (ensino superior). Os dois datasets são
-  // importados eagerly — pequena penalidade de bundle (~2.5MB extra), mas
-  // simplifica drasticamente o componente.
+  // Ensino Médio (em andamento ou completo) busca em escolas-data (~3MB);
+  // os demais níveis buscam em ies-data (~260KB). Lazy load via dynamic
+  // import: o dataset só é baixado quando o user seleciona o nível —
+  // antes disso o bundle inicial fica ~3MB mais leve.
   const isEnsMedio = nivelFormacao.startsWith("Ensino Médio");
   const [query, setQuery] = useState(value);
+  // `debouncedQuery` lagga 150ms atrás do `query` — é o que de fato roda
+  // a busca. Sem isso, cada keystroke percorria os 31k itens das escolas
+  // (~150ms em devices fracos) e a digitação ficava travada.
+  const [debouncedQuery, setDebouncedQuery] = useState(value);
   const [open, setOpen] = useState(false);
+  const [searchFn, setSearchFn] = useState<InstituicaoSearchFn | null>(null);
+  const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedQuery(query), 150);
+    return () => window.clearTimeout(id);
+  }, [query]);
+
+  useEffect(() => {
+    // Sem nível ainda selecionado, não carrega nada.
+    if (!nivelFormacao) {
+      setSearchFn(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        if (isEnsMedio) {
+          const { searchEscolas } = await import("@/lib/escolas-data");
+          if (!cancelled) setSearchFn(() => searchEscolas as InstituicaoSearchFn);
+        } else {
+          const { searchIES } = await import("@/lib/ies-data");
+          if (!cancelled) setSearchFn(() => searchIES as InstituicaoSearchFn);
+        }
+      } catch (err) {
+        console.error("Falha ao carregar dataset de instituições:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [nivelFormacao, isEnsMedio]);
+
   const results = useMemo<InstituicaoSuggestion[]>(() => {
-    if (isEnsMedio) return searchEscolas(query, 8);
-    return searchIES(query, 8);
-  }, [query, isEnsMedio]);
+    if (!searchFn) return [];
+    return searchFn(debouncedQuery, 8);
+  }, [debouncedQuery, searchFn]);
 
   // Resincroniza o input local quando o valor externo muda (ex: carga de
   // rascunho, ou troca de integrante via "limpar todos").
@@ -1961,11 +2014,16 @@ function InstituicaoField({
         maxLength={FIELD_MAX.instituicao}
         autoComplete="off"
       />
-      {open && results.length > 0 && (
+      {open && (results.length > 0 || (loading && query.length >= 2)) && (
         <ul
           role="listbox"
           className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-white/15 bg-sol-bgDeep/95 backdrop-blur shadow-2xl"
         >
+          {loading && results.length === 0 && (
+            <li className="px-3 py-2 text-xs text-white/55 normal-case tracking-normal font-normal italic">
+              Carregando opções…
+            </li>
+          )}
           {results.map((s, i) => (
             <li
               key={`${s.sigla || ""}-${s.nome}-${s.municipio}-${i}`}

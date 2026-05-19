@@ -284,7 +284,7 @@ export async function POST(req: Request) {
   // oficial). O leaderGoogleEmail vira o ÚNICO destinatário dos e-mails de
   // confirmação/aprovação/reprovação — comunicação oficial 1:1 com o líder.
   const session = await getServerSession(authOptions);
-  // @ts-expect-error — session.user.googleId é extensão custom (ver lib/auth.ts)
+  // googleId é extensão custom (ver lib/auth.ts + types/next-auth.d.ts).
   const leaderGoogleId: string = session?.user?.googleId ?? "";
   const leaderGoogleEmail: string = session?.user?.email ?? "";
 

@@ -4,20 +4,32 @@
  * o site fecha em até ~1min (cache do fetch).
  *
  * Em caso de falha (Apps Script offline, env não setada, JSON malformado),
- * o default é OPEN. Preferimos deixar o usuário tentar do que bloquear
- * injustamente por causa de um blip.
+ * usa o calendário do Edital como guia:
+ *   - Antes ou durante a janela (até INSCRIPTIONS_CLOSE 23:59) → fail-OPEN
+ *     (não bloqueia injustamente por causa de um blip transitório)
+ *   - Depois da janela → fail-CLOSED (não aceita inscrições fora do prazo
+ *     mesmo se o flag da planilha estiver inacessível)
  */
+import { EVENT } from "@/lib/event";
 
 export type InscriptionsStatus = {
   open: boolean;
   message: string;
 };
 
-const DEFAULT_OPEN: InscriptionsStatus = { open: true, message: "" };
+// Fallback baseado no calendário: dentro da janela do Edital → aberto;
+// depois → fechado. Faz o "fail-safe" no pior caso (Apps Script morto
+// pós-prazo), evita o user preencher form que nunca vai ser aceito.
+function fallbackByCalendar(): InscriptionsStatus {
+  const past = Date.now() > EVENT.INSCRIPTIONS_CLOSE_DATE.getTime();
+  return past
+    ? { open: false, message: "" }
+    : { open: true, message: "" };
+}
 
 export async function getInscriptionsStatus(): Promise<InscriptionsStatus> {
   const url = process.env.APPS_SCRIPT_WEBHOOK_URL;
-  if (!url) return DEFAULT_OPEN;
+  if (!url) return fallbackByCalendar();
 
   try {
     const res = await fetch(url, {
@@ -28,7 +40,7 @@ export async function getInscriptionsStatus(): Promise<InscriptionsStatus> {
     // Apps Script em deploys antigos (sem doGet) devolve HTML. Detecta antes
     // de tentar parsear pra evitar exception ruidosa.
     if (!ct.includes("application/json")) {
-      return DEFAULT_OPEN;
+      return fallbackByCalendar();
     }
     const data = (await res.json()) as Partial<InscriptionsStatus>;
     return {
@@ -36,7 +48,11 @@ export async function getInscriptionsStatus(): Promise<InscriptionsStatus> {
       message: typeof data.message === "string" ? data.message : "",
     };
   } catch (err) {
-    console.warn("[inscriptions] falha ao carregar status, default open:", err);
-    return DEFAULT_OPEN;
+    const fb = fallbackByCalendar();
+    console.warn(
+      `[inscriptions] falha ao carregar status, fallback por calendário (open=${fb.open}):`,
+      err
+    );
+    return fb;
   }
 }

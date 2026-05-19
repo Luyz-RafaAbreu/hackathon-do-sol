@@ -46,9 +46,26 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60,
   },
   pages: {
-    signIn: "/signin",
+    // Sem página dedicada de signin — usamos modal global. Quando o NextAuth
+    // precisa redirecionar pra signin (raro: erro de callback, signIn() sem
+    // provider), manda pra home com ?login=1 que o SignInModalProvider
+    // intercepta e abre o modal automaticamente.
+    signIn: "/?login=1",
   },
   callbacks: {
+    // Bloqueia login quando Google não confirmou o e-mail. Maioria das
+    // contas vem com email_verified: true, mas contas Workspace migradas
+    // ou pré-criadas por admin podem vir false — nesse caso o user pode
+    // não ser o dono real do email, abre brecha pra alguém se inscrever
+    // como outra pessoa.
+    async signIn({ profile }) {
+      if (!profile) return false;
+      // Profile do Google tem email_verified, mas o tipo genérico Profile
+      // do NextAuth não — daí o type guard.
+      const p = profile as { email_verified?: boolean };
+      if (p.email_verified === false) return false;
+      return true;
+    },
     // Anexa o ID do Google no token — útil pra usar como chave estável do
     // rascunho no servidor (não muda nem se o usuário trocar de e-mail).
     async jwt({ token, account, profile }) {
@@ -61,8 +78,9 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
+      // Tipos em types/next-auth.d.ts declaram `googleId` em Session.user
+      // e JWT — sem augmentation o TS reclamaria dessa atribuição.
       if (session.user) {
-        // @ts-expect-error — estendendo session.user com googleId
         session.user.googleId = token.googleId;
       }
       return session;

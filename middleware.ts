@@ -32,11 +32,15 @@ export function middleware(request: NextRequest) {
 
   const csp = [
     "default-src 'self'",
-    // 'strict-dynamic' faz navegadores modernos ignorarem 'self' e a allowlist
-    // de hosts em script-src — só scripts com nonce (ou carregados por um já
-    // confiável) rodam. O host do Turnstile fica como fallback pra navegadores
-    // antigos que não entendem strict-dynamic.
-    `script-src 'nonce-${nonce}' 'strict-dynamic' https: 'self'${isDev ? " 'unsafe-eval'" : ""}`,
+    // 'strict-dynamic' faz navegadores modernos ignorarem o allowlist —
+    // só scripts com nonce (ou carregados por um já confiável) rodam.
+    // O allowlist é fallback pra navegadores antigos que não entendem
+    // strict-dynamic. Allowlist explícito (sem `https:` aberto) pra que
+    // browsers legados não aceitem script de qualquer HTTPS:
+    //   - Turnstile (captcha do form)
+    //   - Vercel Analytics
+    //   - Vercel Speed Insights
+    `script-src 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com https://*.vercel-scripts.com https://*.vercel-insights.com 'self'${isDev ? " 'unsafe-eval'" : ""}`,
     // style-src segue com 'unsafe-inline' — CSS injection é vetor muito mais
     // estreito (sem RCE) e Tailwind/styled-jsx dependem disso.
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
@@ -44,7 +48,10 @@ export function middleware(request: NextRequest) {
     // googleusercontent.com hospeda a foto de perfil do Google OAuth.
     "img-src 'self' data: blob: https://lh3.googleusercontent.com",
     `connect-src 'self' https://servicodados.ibge.gov.br${isDev ? " ws: wss:" : ""}`,
-    "frame-src https://challenges.cloudflare.com https://accounts.google.com",
+    // Turnstile renderiza o widget de captcha em iframe — único frame
+    // permitido. OAuth Google é popup (window.open), não precisa de
+    // frame-src.
+    "frame-src https://challenges.cloudflare.com",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     // form-action precisa permitir accounts.google.com pra que o redirect
