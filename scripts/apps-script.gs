@@ -243,7 +243,7 @@ const TRIAGEM_HIDDEN_COL = 10; // coluna J (oculta) — referência pra linha na
 const CRED_DATE = new Date(2026, 5, 24); // mês 5 = junho (0-indexed)
 
 // ============================================================================
-// ABA DETALHES — view estruturada vertical, 1 equipe por bloco (~50 linhas)
+// ABA DETALHES — view estruturada vertical, 1 equipe por bloco (~56 linhas)
 // ----------------------------------------------------------------------------
 // Substitui o uso humano da aba Inscricoes (143 colunas) — ela vira hidden,
 // só backend. Cada equipe vira um relatório legível de cabo a rabo, com os
@@ -251,8 +251,55 @@ const CRED_DATE = new Date(2026, 5, 24); // mês 5 = junho (0-indexed)
 // link "↗ ver detalhes" da Triagem cai aqui, no bloco da equipe específica.
 // ============================================================================
 const DETALHES_SHEET_NAME = "Detalhes";
-const DETALHES_BLOCK_ROWS = 50; // total por bloco (header + integrantes + 4 proposta + spacer)
 const DETALHES_HEADER_ROWS = 1; // linha topo do sheet
+
+// Campos dos integrantes exibidos no bloco Detalhes, na ordem [label, chave].
+// FONTE ÚNICA do layout: o nº de linhas de dados e a posição do rodapé do
+// bloco (separador, PROPOSTA, proposta, spacer) são derivados do tamanho
+// deste array. Adicionar/remover um campo aqui reajusta o bloco inteiro.
+const DETALHES_FIELDS = [
+  ["Nome completo", "nomeCompleto"],
+  ["Nome social", "nomeSocial"],
+  ["CPF", "cpf"],
+  ["RG", "rg"],
+  ["Data de nascimento", "dataNascimento"],
+  ["Nacionalidade", "nacionalidade"],
+  ["Naturalidade", "naturalidade"],
+  ["Cidade de residência", "cidade"],
+  ["Estado de residência", "estado"],
+  ["Endereço", "__endereco__"],
+  ["E-mail pessoal", "emailPessoal"],
+  ["Telefone celular", "telefoneCelular"],
+  ["Contato emerg. — Nome", "contatoEmergenciaNome"],
+  ["Contato emerg. — Tel", "contatoEmergenciaTelefone"],
+  ["Contato emerg. — Parentesco", "contatoEmergenciaParentesco"],
+  ["Gênero", "genero"],
+  ["Áreas de conhecimento", "areasConhecimento"],
+  ["Ocupação atual", "ocupacaoAtual"],
+  ["Tempo de experiência", "tempoExperiencia"],
+  ["Nível de formação", "nivelFormacao"],
+  ["Curso / Área de formação", "cursoFormacao"],
+  ["Ano de ingresso/formatura", "anoFormacao"],
+  ["Instituição de ensino", "instituicao"],
+  ["Instituição — UF", "instituicaoUF"],
+  ["Instituição — Município", "instituicaoMunicipio"],
+  ["Projeto acadêmico relevante", "projetoAcademico"],
+  ["LinkedIn", "linkedin"],
+  ["Portfólio", "portfolio"],
+  ["Outras redes sociais", "outrasRedes"],
+  ["Experiência relevante", "experienciaRelevante"],
+  ["Restrições alimentares", "restricoesAlimentares"],
+  ["Alergias", "alergias"],
+  ["Medicamentos contínuos", "medicamentos"],
+  ["Acessibilidade", "acessibilidade"],
+  ["Outras observações", "outrasObservacoes"],
+  ["Como soube", "comoSoube"],
+  ["Aceites individuais", "aceitesIndividuaisOk"],
+];
+
+// Linhas fixas por bloco = 1 EQUIPE + 6 equipe + 1 sep + 1 INTEGRANTES
+//                        + 1 sep + 1 PROPOSTA + 4 proposta + 4 spacer = 19.
+const DETALHES_BLOCK_ROWS = 19 + DETALHES_FIELDS.length;
 
 // Aba "Aprovados" — lista das equipes aprovadas, alimentada automaticamente
 // (ver processStatusEdit_ / addToAprovados_). Coluna H (oculta) guarda a
@@ -1110,6 +1157,10 @@ function setupDetalhesSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(DETALHES_SHEET_NAME);
   if (sheet) {
+    // breakApart antes do clear: clear() não desfaz mesclagens. Sem isso,
+    // blocos antigos deixariam células mescladas órfãs nas linhas erradas
+    // quando o layout muda (ex.: nº de campos diferente do build anterior).
+    sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()).breakApart();
     sheet.clear();
     sheet.clearConditionalFormatRules();
   } else {
@@ -1206,49 +1257,9 @@ function buildDetalhesBlockAt_(sheet, startRow, data, inscricoesRow) {
     (3 === liderIdx ? "★ Int 4 (LÍDER)" : "Int 4"),
   ]);
 
-  // ── Linhas de dados dos integrantes (linhas 9-39, 31 linhas) ──
+  // ── Linhas de dados dos integrantes (uma por campo de DETALHES_FIELDS) ──
   // Cada linha: [label, valor int 1, valor int 2, valor int 3, valor int 4]
-  const fields = [
-    ["Nome completo", "nomeCompleto"],
-    ["Nome social", "nomeSocial"],
-    ["CPF", "cpf"],
-    ["RG", "rg"],
-    ["Data de nascimento", "dataNascimento"],
-    ["Nacionalidade", "nacionalidade"],
-    ["Naturalidade", "naturalidade"],
-    ["Cidade de residência", "cidade"],
-    ["Estado de residência", "estado"],
-    ["Endereço", "__endereco__"],
-    ["E-mail pessoal", "emailPessoal"],
-    ["Telefone celular", "telefoneCelular"],
-    ["Contato emerg. — Nome", "contatoEmergenciaNome"],
-    ["Contato emerg. — Tel", "contatoEmergenciaTelefone"],
-    ["Contato emerg. — Parentesco", "contatoEmergenciaParentesco"],
-    ["Gênero", "genero"],
-    ["Áreas de conhecimento", "areasConhecimento"],
-    ["Ocupação atual", "ocupacaoAtual"],
-    ["Tempo de experiência", "tempoExperiencia"],
-    ["Nível de formação", "nivelFormacao"],
-    ["Curso / Área de formação", "cursoFormacao"],
-    ["Ano de ingresso/formatura", "anoFormacao"],
-    ["Instituição de ensino", "instituicao"],
-    ["Instituição — UF", "instituicaoUF"],
-    ["Instituição — Município", "instituicaoMunicipio"],
-    ["Projeto acadêmico relevante", "projetoAcademico"],
-    ["LinkedIn", "linkedin"],
-    ["Portfólio", "portfolio"],
-    ["Outras redes sociais", "outrasRedes"],
-    ["Experiência relevante", "experienciaRelevante"],
-    ["Restrições alimentares", "restricoesAlimentares"],
-    ["Alergias", "alergias"],
-    ["Medicamentos contínuos", "medicamentos"],
-    ["Acessibilidade", "acessibilidade"],
-    ["Outras observações", "outrasObservacoes"],
-    ["Como soube", "comoSoube"],
-    ["Aceites individuais", "aceitesIndividuaisOk"],
-  ];
-
-  fields.forEach(function (pair) {
+  DETALHES_FIELDS.forEach(function (pair) {
     const label = pair[0];
     const key = pair[1];
     if (key === "aceitesIndividuaisOk") {
@@ -1262,13 +1273,13 @@ function buildDetalhesBlockAt_(sheet, startRow, data, inscricoesRow) {
     }
   });
 
-  // ── Separador (linha 40) ──
+  // ── Separador (após os campos dos integrantes) ──
   rows.push(["", "", "", "", ""]);
 
-  // ── Header da proposta (linha 41) ──
+  // ── Header da proposta ──
   rows.push(["PROPOSTA", "", "", "", ""]);
 
-  // ── 4 campos da proposta (linhas 42-45) ──
+  // ── 4 campos da proposta ──
   const propostaFields = [
     ["Ideia e diferencial", "ideiaDiferencial"],
     ["Problema e público", "problemaPublico"],
@@ -1280,7 +1291,7 @@ function buildDetalhesBlockAt_(sheet, startRow, data, inscricoesRow) {
     rows.push([pair[0], v, "", "", ""]);
   });
 
-  // ── Spacer (linhas 48-51, 4 linhas — separa bem do próximo bloco) ──
+  // ── Spacer (4 linhas — separa bem do próximo bloco) ──
   rows.push(["", "", "", "", ""]);
   rows.push(["", "", "", "", ""]);
   rows.push(["", "", "", "", ""]);
@@ -1309,9 +1320,12 @@ function buildDetalhesBlockAt_(sheet, startRow, data, inscricoesRow) {
       .build()
   );
 
-  // LinkedIn e Portfólio como links clicáveis
-  const liRow = startRow + 8 + 20; // row de "LinkedIn"
-  const portRow = startRow + 8 + 21; // row de "Portfólio"
+  // LinkedIn e Portfólio como links clicáveis — linha derivada do índice do
+  // campo em DETALHES_FIELDS (1ª linha de dados dos integrantes = startRow+9).
+  const liRow = startRow + 9 +
+    DETALHES_FIELDS.findIndex(function (p) { return p[1] === "linkedin"; });
+  const portRow = startRow + 9 +
+    DETALHES_FIELDS.findIndex(function (p) { return p[1] === "portfolio"; });
   for (let i = 0; i < 4; i++) {
     const it = integrantes[i] || {};
     if (it.linkedin && String(it.linkedin).trim() !== "—") {
@@ -1335,6 +1349,23 @@ function buildDetalhesBlockAt_(sheet, startRow, data, inscricoesRow) {
   }
 
   applyDetalhesBlockFormatting_(sheet, startRow, liderIdx);
+}
+
+// ============================================================================
+// estimateWrapHeight_ — altura (px) de uma célula mesclada com wrap
+// ----------------------------------------------------------------------------
+// autoResizeRows é ignorado em células mescladas, então a altura tem que ser
+// calculada na mão. Estima nº de linhas a partir do comprimento do texto
+// (respeitando quebras \n explícitas) e converte pra pixels.
+// ============================================================================
+function estimateWrapHeight_(text, charsPerLine, lineHeight, padding) {
+  const s = String(text == null ? "" : text);
+  if (!s) return 40;
+  let lines = 0;
+  s.split("\n").forEach(function (seg) {
+    lines += Math.max(1, Math.ceil(seg.length / charsPerLine));
+  });
+  return Math.min(600, Math.max(40, lines * lineHeight + padding));
 }
 
 // ============================================================================
@@ -1385,8 +1416,9 @@ function applyDetalhesBlockFormatting_(sheet, startRow, liderIdx) {
       .setBackground(isLider ? "#fef9c3" : "#fafaf9");
   }
 
-  // Rows 9-39 — Linhas de dados (31 linhas)
-  for (let i = 0; i < 31; i++) {
+  // Linhas de dados dos integrantes — N linhas a partir de startRow + 9
+  const N = DETALHES_FIELDS.length;
+  for (let i = 0; i < N; i++) {
     const r = startRow + 9 + i;
     sheet.setRowHeight(r, 26);
     sheet.getRange(r, 1)
@@ -1403,24 +1435,33 @@ function applyDetalhesBlockFormatting_(sheet, startRow, liderIdx) {
     }
   }
 
-  // Row 40 — Separator
-  sheet.getRange(startRow + 40, 1, 1, 5).setBackground("#f4f4f5");
-  sheet.setRowHeight(startRow + 40, 6);
+  // Rodapé do bloco — posições derivadas de N pra acompanhar mudanças em
+  // DETALHES_FIELDS. Antes eram offsets fixos (40/41/42/46) e desalinhavam
+  // quando o array de campos crescia (era o que fazia a PROPOSTA vazar).
+  const sepRow = startRow + 9 + N;        // separador
+  const propHeaderRow = sepRow + 1;        // cabeçalho PROPOSTA
+  const propFirstRow = propHeaderRow + 1;  // 1ª das 4 linhas da proposta
+  const spacerFirstRow = propFirstRow + 4;
 
-  // Row 41 — Header da proposta
-  sheet.getRange(startRow + 41, 1, 1, 5)
+  // Separador
+  sheet.getRange(sepRow, 1, 1, 5).setBackground("#f4f4f5");
+  sheet.setRowHeight(sepRow, 6);
+
+  // Cabeçalho da proposta
+  sheet.getRange(propHeaderRow, 1, 1, 5)
     .setBackground("#18181b").setFontColor("#ffffff")
     .setFontWeight("bold").setFontSize(11)
     .setHorizontalAlignment("center").setVerticalAlignment("middle");
-  sheet.setRowHeight(startRow + 41, 32);
-  sheet.getRange(startRow + 41, 2, 1, 4).merge();
+  sheet.setRowHeight(propHeaderRow, 32);
+  sheet.getRange(propHeaderRow, 2, 1, 4).merge();
 
-  // Rows 42-45 — 4 campos da proposta (label A, valor B:E merged, wrap)
-  // Wrap explícito via WrapStrategy.WRAP — setWrap(true) é ambíguo em alguns
-  // contextos de merged cells. Aplicado na range merged INTEIRA pra garantir
-  // que o estado wrap se propague na cell consolidada.
+  // 4 campos da proposta (label A, valor B:E mesclado, wrap)
+  // Texto da proposta é longo. Mescla B:E pra dar largura, ativa wrap e
+  // calcula a altura na mão — autoResizeRows é ignorado em células mescladas,
+  // então a linha ficava na altura mínima e o texto vazava pra fora.
+  const propostaVals = sheet.getRange(propFirstRow, 2, 4, 1).getValues();
   for (let i = 0; i < 4; i++) {
-    const r = startRow + 42 + i;
+    const r = propFirstRow + i;
     sheet.getRange(r, 2, 1, 4)
       .merge()
       .setWrapStrategy(SpreadsheetApp.WrapStrategy.WRAP);
@@ -1431,14 +1472,13 @@ function applyDetalhesBlockFormatting_(sheet, startRow, liderIdx) {
     sheet.getRange(r, 2)
       .setFontSize(10).setFontColor("#18181b").setVerticalAlignment("top")
       .setBackground("#fffbeb");
+    // B:E mesclada ≈ 880px de largura → ~125 chars/linha a 10pt (com folga).
+    sheet.setRowHeight(r, estimateWrapHeight_(propostaVals[i][0], 125, 16, 14));
   }
-  // Auto-resize das 4 linhas pra altura crescer com o conteúdo.
-  // autoResizeRows precisa que o wrap já tenha sido aplicado (acima).
-  sheet.autoResizeRows(startRow + 42, 4);
 
-  // Rows 46-49 — Spacer 4-linha — banda cinza-média que separa os blocos
-  sheet.getRange(startRow + 46, 1, 4, 5).setBackground("#9ca3af");
-  for (let i = 0; i < 4; i++) sheet.setRowHeight(startRow + 46 + i, 4);
+  // Spacer 4-linha — banda cinza-média que separa os blocos
+  sheet.getRange(spacerFirstRow, 1, 4, 5).setBackground("#9ca3af");
+  for (let i = 0; i < 4; i++) sheet.setRowHeight(spacerFirstRow + i, 4);
 
   // Borders externos do bloco inteiro — média, delimita cada equipe
   sheet.getRange(startRow, 1, DETALHES_BLOCK_ROWS - 4, 5)
