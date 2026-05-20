@@ -39,7 +39,7 @@ const faqs = [
   },
   {
     q: "O que preciso levar?",
-    a: "Notebook ou laptop é OBRIGATÓRIO (sob pena de desclassificação). No credenciamento (24/06, das 10h às 14h) traga 3 itens: (a) documento original com foto válido em território nacional — RG, CNH, passaporte ou carteira funcional reconhecida por lei; (b) e-mail de confirmação da inscrição, impresso ou digital; (c) comprovante de confirmação de presença. Para os dias do evento: roupa para 3 dias, carregadores e itens de higiene pessoal completam o básico.",
+    a: "Notebook ou laptop é OBRIGATÓRIO (sob pena de desclassificação). No credenciamento (24/06, das 10h às 14h) traga 3 itens: (a) documento original com foto válido em território nacional — RG, CNH, passaporte ou carteira funcional reconhecida por lei; (b) o e-mail de confirmação da inscrição, impresso ou digital — ele é enviado à conta Google do líder, que deve repassá-lo a todos os integrantes; (c) comprovante de confirmação de presença. Para os dias do evento: roupa para 3 dias, carregadores e itens de higiene pessoal completam o básico.",
   },
   {
     q: "O que a minha equipe precisa entregar?",
@@ -59,7 +59,7 @@ const faqs = [
   },
   {
     q: "Como são as trilhas temáticas?",
-    a: "Três trilhas oficiais: (1) Turismo Inteligente e Experiências do Sol, (2) Tecnologia para o Bem e Impacto Social, (3) Supermercados do Futuro e Varejo Inteligente. A equipe indica a trilha de preferência na inscrição; a organização pode validar ou ajustar a distribuição entre as trilhas conforme equilíbrio, perfil técnico e aderência.",
+    a: "Três trilhas oficiais: (1) Turismo Inteligente e Experiências do Sol, (2) Tecnologia para o Bem e Impacto Social, (3) Varejo Inteligente, Alimento Seguro e Conexão Humana. A equipe indica a trilha de preferência na inscrição; a organização pode validar ou ajustar a distribuição entre as trilhas conforme equilíbrio, perfil técnico e aderência.",
   },
 ];
 

@@ -4,11 +4,9 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Scrollbar custom em DOM — substitui a nativa.
  *
- * Por que existir: a scrollbar nativa é pintada pelo SO numa camada acima
- * de qualquer elemento HTML, então `z-index` não alcança. Sem essa
- * substituição, o cursor custom seria sempre cortado pela barra. Aqui
- * escondemos a nativa (globals.css) e renderizamos uma réplica em DOM,
- * onde z-index funciona normal — cursor passa por cima sem cortar.
+ * Por que existir: a scrollbar nativa não acompanha a identidade visual do
+ * site. Aqui escondemos a nativa (globals.css) e renderizamos uma réplica
+ * estilizada em DOM (gradiente roxo/laranja da marca).
  *
  * Roda do mouse continua funcionando direto no document (não interceptamos).
  * Drag do thumb e click no track pulam pra posição esperada. Mobile/touch
@@ -137,7 +135,6 @@ export default function CustomScrollbar() {
     >
       <div
         ref={thumbRef}
-        data-cursor="hand"
         className="absolute left-0 right-0 rounded-[0.625rem]"
         style={{
           background: "linear-gradient(180deg, #7c3aed, #ff8c00)",

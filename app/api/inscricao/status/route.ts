@@ -7,9 +7,10 @@
 // Apps Script qual o status da inscrição. Sem inscrição → status: null.
 //
 // Defesas contra abuso:
-//   1. Cache de 20s por googleId — UserMenu pode ser aberto/fechado várias
-//      vezes sem cada um virar request ao Apps Script. Mudança de status
-//      pelo chefe demora no máximo 20s pra refletir, aceitável.
+//   1. Cache de 20s por googleId, SÓ pra status positivo (Pendente/Aprovado/
+//      Reprovado) — UserMenu pode ser aberto/fechado várias vezes sem cada um
+//      virar request. `null` ("sem inscrição") NUNCA é cacheado: senão um F5
+//      logo após o envio veria o estado velho e liberaria o formulário.
 //   2. Rate limit 20 req/5min por googleId — impede usuário autenticado de
 //      floodear o quota do Apps Script (cada consulta lê linhas da planilha).
 //
@@ -121,7 +122,13 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: "upstream" }, { status: 502 });
     }
     const status = data.status ?? null;
-    statusCache.set(cacheKey, { status, expiresAt: Date.now() + CACHE_TTL_MS });
+    // Só cacheia status POSITIVO. `null` ("sem inscrição") fica de fora: é
+    // exatamente o estado que vira obsoleto no instante em que a pessoa
+    // envia — cacheá-lo abriria a janela de "F5 logo após enviar mostra o
+    // formulário de novo". Quem não tem inscrição sempre consulta fresco.
+    if (status !== null) {
+      statusCache.set(cacheKey, { status, expiresAt: Date.now() + CACHE_TTL_MS });
+    }
     return NextResponse.json({ ok: true, status });
   } catch {
     return NextResponse.json({ ok: false, error: "network" }, { status: 502 });

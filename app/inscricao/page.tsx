@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import Header from "@/components/Header";
 import InscricaoIntro from "@/components/InscricaoIntro";
-import Inscricao from "@/components/Inscricao";
+import InscricaoGate from "@/components/InscricaoGate";
 import InscricoesEncerradas from "@/components/InscricoesEncerradas";
 import Footer from "@/components/Footer";
 import ScrollProgress from "@/components/ScrollProgress";
@@ -46,7 +46,7 @@ export default async function InscricaoPage() {
             do header fixo + dá respiro pra hero — sem wrapper extra. */}
         <InscricaoIntro inscriptionsOpen={inscriptionsOpen} />
         {inscriptionsOpen ? (
-          <Inscricao />
+          <InscricaoGate />
         ) : (
           <InscricoesEncerradas message={message} />
         )}

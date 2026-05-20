@@ -1,4 +1,11 @@
-import { FileText, ShieldCheck, Clock, ArrowRight, type LucideIcon } from "lucide-react";
+import {
+  FileText,
+  ShieldCheck,
+  ListChecks,
+  Clock,
+  ArrowRight,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import Reveal from "./Reveal";
 import TiltCard from "./TiltCard";
@@ -25,6 +32,16 @@ const materiais: MaterialItem[] = [
     cor: "from-sol-yellow to-sol-orange",
     href: "/materiais/edital.pdf",
     ctaLabel: "Baixar PDF",
+  },
+  {
+    titulo: "Lista de aprovados",
+    descricao:
+      "Equipes selecionadas para o Hackathon do Sol 2026, divulgada após o processo seletivo do Edital.",
+    Icon: ListChecks,
+    cor: "from-sol-pink to-sol-purpleLight",
+    // Sem href ainda → card aparece como "Em breve". Quando o PDF estiver
+    // pronto, suba pra public/materiais/ e adicione:
+    //   href: "/materiais/aprovados.pdf", ctaLabel: "Baixar PDF",
   },
   {
     titulo: "Termos e Privacidade",

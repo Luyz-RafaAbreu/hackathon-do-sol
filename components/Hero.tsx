@@ -1,10 +1,11 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useRef } from "react";
-import { ArrowRight, Lock } from "lucide-react";
+import { ArrowRight, Lock, CheckCircle2 } from "lucide-react";
 import Countdown from "./Countdown";
 import MagneticButton from "./MagneticButton";
 import InscrevaSeButton from "./InscrevaSeButton";
+import { useInscricaoStatus } from "./InscricaoStatusProvider";
 import { BLUR } from "@/lib/blur-data";
 import { EVENT } from "@/lib/event";
 
@@ -15,6 +16,7 @@ export default function Hero({
 }) {
   const heroRef = useRef<HTMLElement | null>(null);
   const logoWrapRef = useRef<HTMLDivElement | null>(null);
+  const { jaInscrito, loading: statusLoading } = useInscricaoStatus();
 
   useEffect(() => {
     const el = heroRef.current;
@@ -176,7 +178,23 @@ export default function Hero({
           className="mt-4 md:mt-5 flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 animate-fade-up"
           style={{ animationDelay: "600ms" }}
         >
-          {inscriptionsOpen ? (
+          {inscriptionsOpen && statusLoading ? (
+            // Status da inscrição ainda carregando — placeholder neutro, NÃO
+            // clicável. Sem isto, um inscrito veria o botão "Inscreva-se"
+            // clicável nessa janela curta e poderia entrar no formulário.
+            <div className="inline-flex items-center gap-2 rounded-full border-[0.125rem] border-white/10 bg-white/[0.03] text-white/40 font-semibold px-7 py-3 text-sm md:text-base">
+              <span
+                aria-hidden
+                className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white/55 animate-spin"
+              />
+              <span>Carregando…</span>
+            </div>
+          ) : inscriptionsOpen && jaInscrito ? (
+            <div className="inline-flex items-center gap-2 rounded-full border-[0.125rem] border-sol-orange/50 bg-sol-orange/10 text-sol-orange font-semibold px-7 py-3 text-sm md:text-base">
+              <CheckCircle2 className="w-4 h-4" strokeWidth={2.5} />
+              <span>Você já está inscrito</span>
+            </div>
+          ) : inscriptionsOpen ? (
             <MagneticButton>
               <InscrevaSeButton className="btn-primary group text-sm md:text-base">
                 <span className="relative z-10">Inscreva-se agora</span>

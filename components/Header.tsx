@@ -3,9 +3,9 @@ import Image from "next/image";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import MagneticButton from "./MagneticButton";
 import UserMenu from "./UserMenu";
 import InscrevaSeButton from "./InscrevaSeButton";
+import { useInscricaoStatus } from "./InscricaoStatusProvider";
 import { BLUR } from "@/lib/blur-data";
 
 const links = [
@@ -31,6 +31,7 @@ export default function Header({
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<string>("");
+  const { jaInscrito, loading: statusLoading } = useInscricaoStatus();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -152,8 +153,10 @@ export default function Header({
           </span>
         </a>
 
-        {/* Nav desktop */}
-        <ul className="hidden md:flex items-center gap-1 text-sm">
+        {/* Nav desktop — posicionado no centro absoluto da nav (não no meio
+            do espaço entre logo e ações, que tornaria a centralização
+            dependente das larguras desses dois). */}
+        <ul className="hidden md:flex items-center gap-1 text-sm absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
           {links.map((l) => {
             const isActive = active === l.href;
             return (
@@ -181,13 +184,6 @@ export default function Header({
         {/* Ações à direita */}
         <div className="flex items-center gap-3">
           <UserMenu variant="desktop" />
-          {inscriptionsOpen && (
-            <MagneticButton className="hidden md:inline-block">
-              <InscrevaSeButton className="btn-primary !px-5 !py-2 text-sm">
-                Inscreva-se
-              </InscrevaSeButton>
-            </MagneticButton>
-          )}
 
           {/* Hamburger animado */}
           <button
@@ -230,7 +226,12 @@ export default function Header({
         <div className="absolute bottom-20 -right-20 w-60 h-60 bg-sol-pink/10 blur-3xl pointer-events-none" />
 
         {/* conteúdo */}
-        <div className="relative h-full flex flex-col overflow-y-auto">
+        {/* data-lenis-prevent: o menu rola nativamente sem o Lenis interceptar
+            o gesto; overscroll-contain: o scroll não vaza pra fora do menu. */}
+        <div
+          data-lenis-prevent
+          className="relative h-full flex flex-col overflow-y-auto overscroll-contain"
+        >
           <nav aria-label="Menu de navegação" className="flex-1 px-6 pt-8">
             <ul className="flex flex-col gap-1">
               {links.map((l, idx) => {
@@ -298,7 +299,7 @@ export default function Header({
           >
             <UserMenu variant="mobile" />
 
-            {inscriptionsOpen && (
+            {inscriptionsOpen && !statusLoading && !jaInscrito && (
               <InscrevaSeButton
                 onClick={() => setOpen(false)}
                 className="btn-primary group w-full"

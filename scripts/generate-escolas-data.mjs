@@ -261,23 +261,86 @@ function normalize(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
+// Municípios da Grande Natal (região metropolitana), normalizados. Natal e
+// Parnamirim ficam fora desse set — recebem tier ainda mais alto.
+const GRANDE_NATAL = new Set([
+  "sao goncalo do amarante",
+  "macaiba",
+  "extremoz",
+  "ceara-mirim",
+  "monte alegre",
+  "nisia floresta",
+  "sao jose de mipibu",
+  "vera cruz",
+  "maxaranguape",
+  "ielmo marinho",
+  "ares",
+  "goianinha",
+  "bom jesus",
+]);
+
+// Bônus de proximidade. Dois critérios, nesta ordem de prioridade:
+//   1º (sede do evento): Natal/Parnamirim e Grande Natal.
+//   2º (cidade do próprio integrante): a cidade/UF declarada no form.
+// Tiers (não-aditivos — o maior aplicável vence):
+//   • Natal / Parnamirim          → +80
+//   • Grande Natal                → +50
+//   • Cidade declarada pelo user  → +45
+//   • Resto do RN                 → +25
+//   • Estado declarado (fora RN)  → +20
+//   • Outros                      → 0
+// \`municipioNorm\` e \`userCidadeNorm\` já vêm normalizados pelo chamador.
+function proximidadeBonus(
+  municipioNorm: string,
+  uf: string,
+  userCidadeNorm: string,
+  userUf: string
+): number {
+  const ufUp = uf.toUpperCase();
+  if (ufUp === "RN") {
+    if (municipioNorm === "natal" || municipioNorm === "parnamirim") return 80;
+    if (GRANDE_NATAL.has(municipioNorm)) return 50;
+  }
+  if (
+    userCidadeNorm &&
+    municipioNorm === userCidadeNorm &&
+    userUf &&
+    ufUp === userUf.toUpperCase()
+  ) {
+    return 45;
+  }
+  if (ufUp === "RN") return 25;
+  if (userUf && ufUp === userUf.toUpperCase()) return 20;
+  return 0;
+}
+
+// Stopwords PT — preposições/artigos sem valor de busca (ver searchIES em
+// ies-data.ts pro caso "do" × sigla "DOCTUM").
+const STOPWORDS = new Set(["da", "de", "do", "das", "dos", "e"]);
+
 // Busca por nome/município. Tokeniza a query por espaço pra que termos
 // fora de ordem ainda encontrem ("atheneu central" ↔ "Centro Educacional
 // Atheneu"). Score parcial proporcional ao número de tokens que casam.
-// Bônus aditivo +40 pra escolas em RN — favorece resultados locais sem
-// inverter matches exatos de outros estados.
-export function searchEscolas(query: string, limit = 8): Escola[] {
+// O bônus de proximidade (ver proximidadeBonus) prioriza Natal/Parnamirim,
+// Grande Natal e depois a cidade declarada pelo integrante no form.
+export function searchEscolas(
+  query: string,
+  limit = 8,
+  userLoc?: { cidade: string; uf: string }
+): Escola[] {
   const q = normalize(query.trim());
   if (q.length < 2) return [];
-  const tokens = q.split(/\\s+/).filter((t) => t.length >= 1);
+  const tokens = q.split(/\\s+/).filter((t) => t.length >= 1 && !STOPWORDS.has(t));
   if (tokens.length === 0) return [];
   const total = tokens.length;
+
+  const userCidadeNorm = userLoc ? normalize(userLoc.cidade.trim()) : "";
+  const userUf = userLoc ? userLoc.uf.trim() : "";
 
   const matches: { e: Escola; score: number }[] = [];
   for (const e of ESCOLAS_LIST) {
     const nome = normalize(e.nome);
     const municipio = normalize(e.municipio);
-    const isRN = e.uf.toUpperCase() === "RN";
 
     let nomeMatched = 0;
     let municipioMatched = 0;
@@ -301,7 +364,7 @@ export function searchEscolas(query: string, limit = 8): Escola[] {
     }
 
     if (score === 0) continue;
-    if (isRN) score += 40;
+    score += proximidadeBonus(municipio, e.uf, userCidadeNorm, userUf);
     matches.push({ e, score });
   }
   matches.sort((a, b) => b.score - a.score);

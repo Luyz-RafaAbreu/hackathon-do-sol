@@ -16,7 +16,7 @@
 export const TRILHAS = [
   "Trilha 1 — Turismo Inteligente e Experiências do Sol",
   "Trilha 2 — Tecnologia para o Bem e Impacto Social",
-  "Trilha 3 — Supermercados do Futuro e Varejo Inteligente",
+  "Trilha 3 — Varejo Inteligente, Alimento Seguro e Conexão Humana",
 ] as const;
 
 // Descrições conforme Formulário de Inscrição (Seção 2), pra ajudar a equipe
@@ -24,11 +24,11 @@ export const TRILHAS = [
 // 5.3.3.1, 5.3.3.2 e 5.3.3.3 do Edital — aqui só o resumo.
 export const TRILHAS_DESCRICAO: Record<string, string> = {
   "Trilha 1 — Turismo Inteligente e Experiências do Sol":
-    "Para equipes que desejam criar soluções para turismo, experiências, roteiros, cultura, natureza, eventos, mobilidade, gastronomia, hospedagem e promoção do Rio Grande do Norte.",
+    "Para equipes que desejam criar soluções de turismo inteligente: monitorar a experiência do turista no RN em tempo real, com avaliações via QR Code, agregação de reviews (TripAdvisor, Google, Booking) e planos de ação para destinos e negócios.",
   "Trilha 2 — Tecnologia para o Bem e Impacto Social":
     "Para equipes que desejam criar soluções para beneficência, voluntariado, doações, transparência, instituições sociais, campanhas solidárias, impacto comunitário e redes de colaboração.",
-  "Trilha 3 — Supermercados do Futuro e Varejo Inteligente":
-    "Para equipes que desejam criar soluções para supermercados, mercadinhos, varejo alimentar, gestão de estoque, redução de perdas, experiência do consumidor, fidelização, delivery, sustentabilidade e eficiência operacional.",
+  "Trilha 3 — Varejo Inteligente, Alimento Seguro e Conexão Humana":
+    "Para equipes que desejam criar soluções para o varejo alimentar: segurança e rastreabilidade do alimento, experiência humana e sensorial da compra, e eficiência operacional de supermercados, mercadinhos e pequenos varejistas.",
 };
 
 export const AREAS_CONHECIMENTO = [
@@ -46,6 +46,207 @@ export const GENEROS = [
   "Mulher cis",
   "Mulher trans",
   "Não-binário / outra identidade",
+] as const;
+
+// Nacionalidades — gentílicos no masculino (mais reconhecíveis). Brasil no
+// topo (maioria absoluta dos casos); resto alfabético. O Edital (item 3.1)
+// prevê só brasileiros, mas a lista completa cobre bi-nacionais e padroniza
+// a resposta (sem texto livre divergente). País entre parênteses onde o
+// adjetivo não é óbvio.
+export const NACIONALIDADES = [
+  "Brasileiro",
+  "Afegão",
+  "Albanês",
+  "Alemão",
+  "Andorrano",
+  "Angolano",
+  "Antiguano (Antígua e Barbuda)",
+  "Argelino",
+  "Argentino",
+  "Armênio",
+  "Australiano",
+  "Austríaco",
+  "Azerbaijano",
+  "Bahamense",
+  "Bangladês",
+  "Barbadiano",
+  "Barenita (Bahrein)",
+  "Belga",
+  "Belizenho",
+  "Beninense (Benin)",
+  "Bielorrusso",
+  "Boliviano",
+  "Bósnio (Bósnia e Herzegovina)",
+  "Botsuano",
+  "Britânico (Reino Unido)",
+  "Bruneano (Brunei)",
+  "Búlgaro",
+  "Burquinense (Burkina Faso)",
+  "Burundinês (Burundi)",
+  "Butanês (Butão)",
+  "Cabo-verdiano",
+  "Camaronês (Camarões)",
+  "Cambojano",
+  "Canadense",
+  "Catariano (Catar)",
+  "Cazaque (Cazaquistão)",
+  "Chadiano (Chade)",
+  "Chileno",
+  "Chinês",
+  "Cipriota (Chipre)",
+  "Colombiano",
+  "Comorense (Comores)",
+  "Congolês (Rep. do Congo)",
+  "Congolês (Rep. Dem. do Congo)",
+  "Norte-coreano (Coreia do Norte)",
+  "Sul-coreano (Coreia do Sul)",
+  "Costa-marfinense (Costa do Marfim)",
+  "Costarriquenho (Costa Rica)",
+  "Croata",
+  "Cubano",
+  "Dinamarquês",
+  "Djibutiano (Djibuti)",
+  "Dominicano (Rep. Dominicana)",
+  "Dominiquês (Dominica)",
+  "Egípcio",
+  "Emiratense (Emirados Árabes Unidos)",
+  "Equatoguineense (Guiné Equatorial)",
+  "Equatoriano (Equador)",
+  "Eritreu",
+  "Eslovaco",
+  "Esloveno",
+  "Espanhol",
+  "Essuatiniano (Eswatini)",
+  "Estadunidense (EUA)",
+  "Estoniano",
+  "Etíope",
+  "Fijiano (Fiji)",
+  "Filipino",
+  "Finlandês",
+  "Francês",
+  "Gabonês (Gabão)",
+  "Gambiano (Gâmbia)",
+  "Ganês (Gana)",
+  "Georgiano (Geórgia)",
+  "Granadino (Granada)",
+  "Grego",
+  "Guatemalteco",
+  "Guianense (Guiana)",
+  "Guineense (Guiné)",
+  "Guineense (Guiné-Bissau)",
+  "Haitiano",
+  "Hondurenho (Honduras)",
+  "Húngaro",
+  "Iemenita (Iêmen)",
+  "Indiano",
+  "Indonésio",
+  "Iraniano",
+  "Iraquiano",
+  "Irlandês",
+  "Islandês",
+  "Israelense",
+  "Italiano",
+  "Jamaicano",
+  "Japonês",
+  "Jordaniano",
+  "Kiribatiano (Kiribati)",
+  "Kuwaitiano (Kuwait)",
+  "Laosiano (Laos)",
+  "Lesotense (Lesoto)",
+  "Letão (Letônia)",
+  "Libanês",
+  "Liberiano (Libéria)",
+  "Líbio",
+  "Liechtensteinense",
+  "Lituano",
+  "Luxemburguês",
+  "Macedônio (Macedônia do Norte)",
+  "Malaio (Malásia)",
+  "Malauiano (Malaui)",
+  "Maldívio (Maldivas)",
+  "Malgaxe (Madagascar)",
+  "Malinês (Mali)",
+  "Maltês (Malta)",
+  "Marfinense",
+  "Marroquino (Marrocos)",
+  "Marshalês (Ilhas Marshall)",
+  "Mauriciano (Maurício)",
+  "Mauritano (Mauritânia)",
+  "Mexicano",
+  "Mianmarense (Myanmar)",
+  "Micronésio",
+  "Moçambicano",
+  "Moldavo (Moldávia)",
+  "Monegasco (Mônaco)",
+  "Mongol (Mongólia)",
+  "Montenegrino (Montenegro)",
+  "Namibiano (Namíbia)",
+  "Nauruano (Nauru)",
+  "Nepalês (Nepal)",
+  "Neozelandês (Nova Zelândia)",
+  "Nicaraguense (Nicarágua)",
+  "Nigerino (Níger)",
+  "Nigeriano (Nigéria)",
+  "Norueguês",
+  "Neerlandês (Países Baixos)",
+  "Omani (Omã)",
+  "Palauano (Palau)",
+  "Palestino",
+  "Panamenho (Panamá)",
+  "Papua-nova-guineense",
+  "Paquistanês",
+  "Paraguaio",
+  "Peruano",
+  "Polonês",
+  "Português",
+  "Queniano (Quênia)",
+  "Quirguiz (Quirguistão)",
+  "Romeno",
+  "Ruandês (Ruanda)",
+  "Russo",
+  "Salvadorenho (El Salvador)",
+  "Samoano (Samoa)",
+  "Santa-lucense (Santa Lúcia)",
+  "São-cristovense (São Cristóvão e Névis)",
+  "São-tomense (São Tomé e Príncipe)",
+  "São-vicentino (São Vicente e Granadinas)",
+  "Saudita (Arábia Saudita)",
+  "Seichelense (Seicheles)",
+  "Senegalês (Senegal)",
+  "Serra-leonês (Serra Leoa)",
+  "Sérvio",
+  "Singapurense (Singapura)",
+  "Sírio",
+  "Somali (Somália)",
+  "Cingalês (Sri Lanka)",
+  "Sudanês (Sudão)",
+  "Sul-sudanês (Sudão do Sul)",
+  "Sueco",
+  "Suíço",
+  "Surinamês (Suriname)",
+  "Tadjique (Tadjiquistão)",
+  "Tailandês",
+  "Taiwanês (Taiwan)",
+  "Tanzaniano (Tanzânia)",
+  "Tcheco (Tchéquia)",
+  "Timorense (Timor-Leste)",
+  "Togolês (Togo)",
+  "Tonganês (Tonga)",
+  "Trinitino-tobagense (Trinidad e Tobago)",
+  "Tunisiano (Tunísia)",
+  "Turco",
+  "Turcomano (Turcomenistão)",
+  "Tuvaluano (Tuvalu)",
+  "Ucraniano",
+  "Ugandense (Uganda)",
+  "Uruguaio",
+  "Uzbeque (Uzbequistão)",
+  "Vanuatuense (Vanuatu)",
+  "Vaticano",
+  "Venezuelano",
+  "Vietnamita",
+  "Zambiano (Zâmbia)",
+  "Zimbabuano (Zimbábue)",
 ] as const;
 
 // Faixas de tempo de experiência na área — pra padronizar a resposta e
@@ -287,7 +488,12 @@ export type IntegranteState = {
   naturalidade: string;
   cidade: string;
   estado: string;
-  enderecoCompleto: string;
+  // Endereço estruturado — CEP-first, autopreenchido via ViaCEP no wizard.
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
   emailPessoal: string;
   telefoneCelular: string;
   contatoEmergenciaNome: string;
@@ -387,7 +593,11 @@ export function createInitialIntegrante(): IntegranteState {
     naturalidade: "",
     cidade: "",
     estado: "",
-    enderecoCompleto: "",
+    cep: "",
+    logradouro: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
     emailPessoal: "",
     telefoneCelular: "",
     contatoEmergenciaNome: "",
@@ -475,7 +685,11 @@ export const FIELD_MAX = {
   naturalidade: 100,
   cidade: 60,
   estado: 2,
-  enderecoCompleto: 250,
+  cep: 9,
+  logradouro: 150,
+  numero: 15,
+  complemento: 60,
+  bairro: 80,
   emailPessoal: 254,
   telefoneCelular: 20,
   contatoEmergenciaNome: 120,
@@ -553,6 +767,17 @@ export function formatPhoneBR(raw: string): string {
 export function isValidPhoneBR(raw: string): boolean {
   const d = raw.replace(/\D/g, "");
   return d.length === 10 || d.length === 11;
+}
+
+// CEP — formata pra "00000-000" enquanto o user digita.
+export function formatCEP(raw: string): string {
+  const d = raw.replace(/\D/g, "").slice(0, 8);
+  if (d.length <= 5) return d;
+  return `${d.slice(0, 5)}-${d.slice(5)}`;
+}
+
+export function isValidCEP(raw: string): boolean {
+  return raw.replace(/\D/g, "").length === 8;
 }
 
 export function isValidEmail(raw: string): boolean {
@@ -637,10 +862,14 @@ export function validateIntegrante(
   if (!i.nacionalidade.trim()) e.nacionalidade = "Informe a nacionalidade.";
   if (!i.naturalidade.trim())
     e.naturalidade = "Informe a naturalidade (cidade/UF).";
+  if (!isValidCEP(i.cep)) e.cep = "Informe um CEP válido (8 dígitos).";
+  if (!i.logradouro.trim())
+    e.logradouro = "Informe o logradouro (rua/avenida).";
+  if (!i.numero.trim()) e.numero = "Informe o número (ou S/N).";
+  if (!i.bairro.trim()) e.bairro = "Informe o bairro.";
   if (!i.cidade.trim()) e.cidade = "Informe a cidade onde reside.";
   if (!i.estado.trim()) e.estado = "Informe o estado.";
-  if (!i.enderecoCompleto.trim())
-    e.enderecoCompleto = "Informe o endereço completo.";
+  // `complemento` é opcional — sem validação.
   if (!isValidEmail(i.emailPessoal)) e.emailPessoal = "E-mail inválido.";
   if (!isValidPhoneBR(i.telefoneCelular))
     e.telefoneCelular = "Telefone inválido. Inclua DDD.";
@@ -661,8 +890,9 @@ export function validateIntegrante(
     e.nivelFormacao = "Selecione o seu nível de formação.";
   if (i.anoFormacao.trim() && !/^\d{4}$/.test(i.anoFormacao.trim()))
     e.anoFormacao = "Informe um ano com 4 dígitos (ex: 2024).";
-  if (!isValidLinkedIn(i.linkedin))
-    e.linkedin = "Informe o link do LinkedIn (linkedin.com/in/seu-perfil).";
+  // LinkedIn é opcional — só valida o formato se algo foi digitado.
+  if (i.linkedin.trim() && !isValidLinkedIn(i.linkedin))
+    e.linkedin = "Link do LinkedIn inválido (linkedin.com/in/seu-perfil).";
   if (i.portfolio.trim() && !isValidUrl(i.portfolio))
     e.portfolio = "Link de portfólio inválido.";
   if (i.experienciaRelevante.trim().length < 20)
@@ -764,7 +994,11 @@ export function normalizeForm(state: InscricaoFormState): InscricaoFormState {
       naturalidade: i.naturalidade.trim(),
       cidade: i.cidade.trim(),
       estado: i.estado.trim().toUpperCase(),
-      enderecoCompleto: i.enderecoCompleto.trim(),
+      cep: formatCEP(i.cep),
+      logradouro: i.logradouro.trim(),
+      numero: i.numero.trim(),
+      complemento: i.complemento.trim(),
+      bairro: i.bairro.trim(),
       emailPessoal: i.emailPessoal.trim().toLowerCase(),
       telefoneCelular: formatPhoneBR(i.telefoneCelular),
       contatoEmergenciaNome: i.contatoEmergenciaNome.trim(),

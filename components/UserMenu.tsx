@@ -9,7 +9,7 @@
 //
 // Mobile (variant="mobile"): renderizado dentro do menu hamburger; sem
 // dropdown, mostra status + sair direto no card.
-import { signOut, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, LogOut } from "lucide-react";
 
@@ -86,7 +86,33 @@ export default function UserMenu({ variant = "desktop" }: { variant?: Variant })
     fetchStatus();
   }, [variant, open, statusState.kind, fetchStatus]);
 
-  if (authStatus !== "authenticated" || !session?.user?.email) return null;
+  // Deslogado → botão de login destacado (branco + glow, glifo colorido do
+  // Google). Durante `loading` também mostra o botão: a maioria dos visitantes
+  // está deslogada; havendo sessão, o menu de conta substitui logo em seguida.
+  if (authStatus !== "authenticated" || !session?.user?.email) {
+    if (variant === "mobile") {
+      return (
+        <button
+          type="button"
+          onClick={() => signIn("google")}
+          className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl bg-white text-zinc-900 font-semibold text-[0.95rem] px-4 py-3.5 shadow-lg shadow-black/25 hover:bg-white/95 transition normal-case tracking-normal"
+        >
+          <GoogleGlyph className="h-5 w-5" />
+          Entrar com Google
+        </button>
+      );
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => signIn("google")}
+        className="hidden md:inline-flex items-center gap-2 rounded-full bg-white text-zinc-900 font-semibold text-sm pl-3 pr-4 py-2 shadow-[0_0.5rem_1.25rem_-0.375rem_rgba(255,255,255,0.45)] hover:-translate-y-px hover:shadow-[0_0.75rem_1.75rem_-0.375rem_rgba(255,255,255,0.7)] transition-all duration-300 normal-case tracking-normal"
+      >
+        <GoogleGlyph className="h-4 w-4" />
+        Entrar com Google
+      </button>
+    );
+  }
 
   const email = session.user.email;
   const fullName = session.user.name || email;
@@ -163,7 +189,10 @@ export default function UserMenu({ variant = "desktop" }: { variant?: Variant })
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-72 z-[70] rounded-xl bg-sol-bgDeep ring-1 ring-white/10 shadow-[0_1.5rem_3.5rem_-0.75rem_rgba(0,0,0,0.55),0_0_3rem_-0.5rem_rgba(255,165,48,0.35)] overflow-hidden normal-case tracking-normal font-normal"
+          // Lenis (smooth scroll global) não intercepta a roda aqui, e o
+          // scroll não vaza pra página — consistente com os outros dropdowns.
+          data-lenis-prevent
+          className="absolute right-0 mt-2 w-72 z-[70] rounded-xl bg-sol-bgDeep ring-1 ring-white/10 shadow-[0_1.5rem_3.5rem_-0.75rem_rgba(0,0,0,0.55),0_0_3rem_-0.5rem_rgba(255,165,48,0.35)] overflow-hidden overscroll-contain normal-case tracking-normal font-normal"
         >
           <div className="px-4 py-3 border-b border-white/[0.08] flex items-center gap-3">
             <Avatar
@@ -266,6 +295,31 @@ function StatusChip({ state }: { state: StatusFetchState }) {
 function Dot({ className }: { className: string }) {
   return (
     <span aria-hidden="true" className={`inline-block h-1.5 w-1.5 rounded-full ${className}`} />
+  );
+}
+
+// Glifo "G" oficial do Google (multicolor). Mantém o login reconhecível à
+// primeira vista.
+function GoogleGlyph({ className }: { className: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={className} focusable="false">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      />
+    </svg>
   );
 }
 

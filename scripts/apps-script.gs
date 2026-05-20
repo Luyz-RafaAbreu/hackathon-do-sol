@@ -8,9 +8,9 @@
  *    2. Salva cada equipe como UMA linha na aba "Inscricoes" (143 colunas:
  *       4 meta + 8 equipe + 6 proposta + 1 aceites coletivos + 31 × 4 integrantes).
  *    3. Dedup por CPF (item 3.2 do Edital) e por e-mail (oficial + 4 pessoais).
- *    4. Envia e-mail de confirmação imediato aos 4 integrantes.
+ *    4. Envia e-mail de confirmação imediato pro líder (conta Google do submit).
  *    5. Quando o admin muda o Status da equipe na planilha pra Aprovado ou
- *       Reprovado, envia e-mail correspondente aos 4 integrantes.
+ *       Reprovado, envia e-mail correspondente pro líder.
  *
  *  Importante: o site Next envia um envelope `{ v: 2, ts, payload, signature }`
  *  assinado por HMAC-SHA256(`${ts}.${payload}`, WEBHOOK_SECRET). Aqui
@@ -78,7 +78,8 @@ const FIELD_MAX = {
   equipeEmail: 254, equipeTelefone: 20, equipeTrilha: 120,
   nomeCompleto: 120, nomeSocial: 120, cpf: 14, rg: 30, dataNascimento: 10,
   nacionalidade: 50, naturalidade: 100, cidade: 60, estado: 2,
-  enderecoCompleto: 250, emailPessoal: 254, telefoneCelular: 20,
+  cep: 9, logradouro: 150, numero: 15, complemento: 60, bairro: 80,
+  emailPessoal: 254, telefoneCelular: 20,
   contatoEmergenciaNome: 120,
   contatoEmergenciaTelefone: 20, contatoEmergenciaParentesco: 50,
   genero: 120, ocupacaoAtual: 150, tempoExperiencia: 50,
@@ -153,7 +154,11 @@ const INTEGRANTE_FIELDS = [
   "Naturalidade",
   "Cidade",
   "Estado",
-  "Endereço",
+  "CEP",
+  "Logradouro",
+  "Número",
+  "Complemento",
+  "Bairro",
   "E-mail",
   "Telefone",
   "Contato emergência — Nome",
@@ -249,6 +254,16 @@ const DETALHES_SHEET_NAME = "Detalhes";
 const DETALHES_BLOCK_ROWS = 50; // total por bloco (header + integrantes + 4 proposta + spacer)
 const DETALHES_HEADER_ROWS = 1; // linha topo do sheet
 
+// Aba "Aprovados" — lista das equipes aprovadas, alimentada automaticamente
+// (ver processStatusEdit_ / addToAprovados_). Coluna H (oculta) guarda a
+// linha correspondente na aba Inscricoes, pra localizar/remover.
+const APROVADOS_SHEET_NAME = "Aprovados";
+const APROVADOS_HEADERS = [
+  "Data de aprovação", "Equipe", "Trilha",
+  "Integrante 1", "Integrante 2", "Integrante 3", "Integrante 4",
+];
+const APROVADOS_REF_COL = 8; // coluna H (oculta) — linha na aba Inscricoes
+
 // ============================================================================
 // SETUP — rode 1x para preparar a planilha
 // ============================================================================
@@ -317,13 +332,14 @@ function setup() {
     const col = COLUMNS[i];
     let w = 140;
     if (col.indexOf("Resumo") >= 0 || col.indexOf("Experiência relevante") >= 0) w = 280;
-    else if (col.indexOf("Endereço") >= 0) w = 240;
+    else if (col.indexOf("Logradouro") >= 0) w = 220;
     else if (col === "Status") w = 110;
     else if (col === "Observações") w = 200;
     sheet.setColumnWidth(i + 1, w);
   }
 
   setupConfigSheet();
+  setupAprovadosSheet_(); // cria aba Aprovados (idempotente)
   regenerarTriagem();   // cria aba Triagem + cards
   regenerarDetalhes();  // cria aba Detalhes + blocos
   tidyUpSheets_();      // esconde Inscricoes + reordena
@@ -336,6 +352,7 @@ function setup() {
     "• Aba \"Triagem\" criada com cards visuais por equipe\n" +
     "• Aba \"Detalhes\" criada com bloco por equipe (review profundo)\n" +
     "• Aba \"Configurações\" criada (controle aberto/fechado)\n" +
+    "• Aba \"Aprovados\" criada (lista automática de equipes aprovadas)\n" +
     "• Trigger handleStatusChange instalado\n\n" +
     "Workflow: admin trabalha na aba Triagem.\n" +
     "Mudar Status no card dispara o e-mail e sincroniza com a Inscricoes.\n\n" +
@@ -377,7 +394,7 @@ function tidyUpSheets_() {
   //    → Inscricoes (hidden no fim). Antes de mover, "showSheet" se estiver
   //    hidden — moveActiveSheet falha em sheet escondida. Usa contador de
   //    posição efetiva (`pos`) pra não tentar posição > qtd de sheets.
-  const order = [TRIAGEM_SHEET_NAME, DETALHES_SHEET_NAME, CONFIG.CONFIG_SHEET_NAME, CONFIG.SHEET_NAME];
+  const order = [TRIAGEM_SHEET_NAME, DETALHES_SHEET_NAME, CONFIG.CONFIG_SHEET_NAME, APROVADOS_SHEET_NAME, CONFIG.SHEET_NAME];
   let pos = 1;
   const totalSheets = ss.getSheets().length;
   for (let i = 0; i < order.length; i++) {
@@ -484,6 +501,107 @@ function setupConfigSheet() {
   sheet.getRange("A4").setValue(
     "ℹ Pra fechar/abrir inscrições, basta marcar/desmarcar a checkbox em B1."
   ).setFontColor("#666666").setFontStyle("italic");
+}
+
+// ============================================================================
+// ABA APROVADOS — lista das equipes aprovadas, alimentada automaticamente
+// ----------------------------------------------------------------------------
+// Sempre que uma equipe vira "Aprovado" (ver processStatusEdit_), ela entra
+// aqui; se o status deixar de ser "Aprovado", ela sai. Rode criarAbaAprovados()
+// uma vez pra adicionar a aba a uma planilha que já está em uso.
+// ============================================================================
+
+// Rode 1x pra adicionar a aba "Aprovados" a uma planilha JÁ em uso, sem tocar
+// nas inscrições existentes. Equipes que já estão com Status "Aprovado" são
+// listadas retroativamente.
+function criarAbaAprovados() {
+  setupAprovadosSheet_();
+  backfillAprovados_();
+  tidyUpSheets_();
+  const msg =
+    "✓ Aba \"Aprovados\" pronta.\n\n" +
+    "Ela fica ao lado da aba \"Configurações\". A partir de agora, sempre que " +
+    "você mudar o Status de uma equipe para \"Aprovado\", ela entra nessa aba " +
+    "automaticamente — e sai se você desfizer a aprovação.";
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) { console.log(msg); }
+}
+
+// Cria a aba "Aprovados" com cabeçalho. Idempotente: se já existe, não mexe.
+function setupAprovadosSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName(APROVADOS_SHEET_NAME)) return;
+  const sheet = ss.insertSheet(APROVADOS_SHEET_NAME);
+  sheet.getRange(1, 1, 1, APROVADOS_HEADERS.length).setValues([APROVADOS_HEADERS]);
+  sheet.getRange(1, 1, 1, APROVADOS_HEADERS.length)
+    .setFontWeight("bold").setBackground("#065f46").setFontColor("#ffffff")
+    .setVerticalAlignment("middle");
+  sheet.setFrozenRows(1);
+  sheet.setRowHeight(1, 32);
+  sheet.setColumnWidth(1, 150); // Data de aprovação
+  sheet.setColumnWidth(2, 210); // Equipe
+  sheet.setColumnWidth(3, 250); // Trilha
+  for (let c = 4; c <= 7; c++) sheet.setColumnWidth(c, 180); // Integrantes
+  sheet.hideColumns(APROVADOS_REF_COL); // coluna de referência interna
+}
+
+// Localiza a linha da aba Aprovados que referencia `inscricoesRow`. -1 se não há.
+function findAprovadosRow_(sheet, inscricoesRow) {
+  const last = sheet.getLastRow();
+  if (last < 2) return -1;
+  const refs = sheet.getRange(2, APROVADOS_REF_COL, last - 1, 1).getValues();
+  for (let i = 0; i < refs.length; i++) {
+    if (Number(refs[i][0]) === inscricoesRow) return i + 2;
+  }
+  return -1;
+}
+
+// Adiciona a equipe da linha `inscricoesRow` na aba Aprovados (idempotente).
+function addToAprovados_(inscricoesRow) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(APROVADOS_SHEET_NAME);
+  if (!sheet) { setupAprovadosSheet_(); sheet = ss.getSheetByName(APROVADOS_SHEET_NAME); }
+  if (!sheet) return;
+  if (findAprovadosRow_(sheet, inscricoesRow) > 0) return; // já está na lista
+
+  const inscricoes = ss.getSheetByName(CONFIG.SHEET_NAME);
+  if (!inscricoes) return;
+  const rowData = inscricoes.getRange(inscricoesRow, 1, 1, COLUMNS.length).getValues()[0];
+  function colVal(name) {
+    const i = COLUMNS.indexOf(name);
+    return i >= 0 ? String(rowData[i] || "").replace(/^'/, "") : "";
+  }
+  function nomeInt(i) {
+    return (colVal("Int " + i + " — Nome social").trim() ||
+            colVal("Int " + i + " — Nome completo").trim());
+  }
+  const linha = [
+    Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm"),
+    colVal("Equipe — Nome"),
+    colVal("Trilha temática"),
+    nomeInt(1), nomeInt(2), nomeInt(3), nomeInt(4),
+    inscricoesRow,
+  ];
+  sheet.appendRow(linha.map(sanitizeCell_));
+}
+
+// Remove a equipe da linha `inscricoesRow` da aba Aprovados, se estiver lá.
+function removeFromAprovados_(inscricoesRow) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(APROVADOS_SHEET_NAME);
+  if (!sheet) return;
+  const row = findAprovadosRow_(sheet, inscricoesRow);
+  if (row > 0) sheet.deleteRow(row);
+}
+
+// Popula a aba Aprovados com as equipes que já estão com Status "Aprovado".
+function backfillAprovados_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const inscricoes = ss.getSheetByName(CONFIG.SHEET_NAME);
+  if (!inscricoes || inscricoes.getLastRow() < 2) return;
+  const statuses = inscricoes
+    .getRange(2, STATUS_COL, inscricoes.getLastRow() - 1, 1).getValues();
+  for (let i = 0; i < statuses.length; i++) {
+    if (String(statuses[i][0]).trim() === "Aprovado") addToAprovados_(i + 2);
+  }
 }
 
 // ============================================================================
@@ -859,14 +977,14 @@ function applyCardFormatting_(sheet, startRow, liderIdx) {
     .setBackground("#fafaf9").setFontColor("#f97316")
     .setHorizontalAlignment("center").setVerticalAlignment("middle");
 
-  // ── Row 8: SPACER (linha sutil, não barra grossa) ──
-  sheet.getRange(startRow + 7, 1, 1, TRIAGEM_CARD_COLS).setBackground("#e4e4e7");
-  sheet.setRowHeight(startRow + 7, 3);
+  // ── Row 8: SPACER — banda cinza-média que delimita cada equipe ──
+  sheet.getRange(startRow + 7, 1, 1, TRIAGEM_CARD_COLS).setBackground("#9ca3af");
+  sheet.setRowHeight(startRow + 7, 14);
 
   // ── Borders do card inteiro ──
-  // Borda externa quase imperceptível
+  // Borda externa média — separa claramente um card do outro
   sheet.getRange(startRow, 1, TRIAGEM_CARD_ROWS - 1, TRIAGEM_CARD_COLS)
-    .setBorder(true, true, true, true, false, false, "#e4e4e7", SpreadsheetApp.BorderStyle.SOLID);
+    .setBorder(true, true, true, true, false, false, "#9ca3af", SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
   // Linha mais marcada SOB o header (separa título do conteúdo)
   sheet.getRange(startRow, 1, 1, TRIAGEM_CARD_COLS)
     .setBorder(null, null, true, null, null, null, "#d4d4d8", SpreadsheetApp.BorderStyle.SOLID);
@@ -925,7 +1043,11 @@ function parseRowToCardData_(row) {
       naturalidade: val("Int " + i + " — Naturalidade"),
       cidade: val("Int " + i + " — Cidade"),
       estado: val("Int " + i + " — Estado"),
-      enderecoCompleto: val("Int " + i + " — Endereço"),
+      cep: val("Int " + i + " — CEP"),
+      logradouro: val("Int " + i + " — Logradouro"),
+      numero: val("Int " + i + " — Número"),
+      complemento: val("Int " + i + " — Complemento"),
+      bairro: val("Int " + i + " — Bairro"),
       emailPessoal: val("Int " + i + " — E-mail"),
       telefoneCelular: val("Int " + i + " — Telefone"),
       contatoEmergenciaNome: val("Int " + i + " — Contato emergência — Nome"),
@@ -1020,6 +1142,17 @@ function setupDetalhesSheet_() {
   return sheet;
 }
 
+// Compõe o endereço estruturado (cep/logradouro/numero/complemento/bairro)
+// numa linha legível pra exibir na Detalhes. Pula partes vazias.
+function composeEndereco_(it) {
+  const ruaNum = [it.logradouro, it.numero]
+    .filter(function (x) { return x && String(x).trim(); })
+    .join(", ");
+  return [ruaNum, it.complemento, it.bairro, it.cep]
+    .filter(function (x) { return x && String(x).trim(); })
+    .join(" · ");
+}
+
 // ============================================================================
 // buildDetalhesBlockAt_ — escreve um bloco de equipe na aba Detalhes
 // ============================================================================
@@ -1085,7 +1218,7 @@ function buildDetalhesBlockAt_(sheet, startRow, data, inscricoesRow) {
     ["Naturalidade", "naturalidade"],
     ["Cidade de residência", "cidade"],
     ["Estado de residência", "estado"],
-    ["Endereço completo", "enderecoCompleto"],
+    ["Endereço", "__endereco__"],
     ["E-mail pessoal", "emailPessoal"],
     ["Telefone celular", "telefoneCelular"],
     ["Contato emerg. — Nome", "contatoEmergenciaNome"],
@@ -1120,6 +1253,10 @@ function buildDetalhesBlockAt_(sheet, startRow, data, inscricoesRow) {
     const key = pair[1];
     if (key === "aceitesIndividuaisOk") {
       rows.push([label].concat(integrantes.map(function (it) { return aceitesSummary(it[key]); })));
+    } else if (key === "__endereco__") {
+      // Endereço é estruturado em 5 campos (cep/logradouro/numero/
+      // complemento/bairro); na Detalhes mostramos composto numa linha só.
+      rows.push([label].concat(integrantes.map(function (it) { return composeEndereco_(it); })));
     } else {
       rows.push([label].concat(integrantes.map(function (it) { return f(it, key); })));
     }
@@ -1299,13 +1436,13 @@ function applyDetalhesBlockFormatting_(sheet, startRow, liderIdx) {
   // autoResizeRows precisa que o wrap já tenha sido aplicado (acima).
   sheet.autoResizeRows(startRow + 42, 4);
 
-  // Rows 46-49 — Spacer 4-linha (delimitação forte entre blocos)
-  sheet.getRange(startRow + 46, 1, 4, 5).setBackground("#e4e4e7");
+  // Rows 46-49 — Spacer 4-linha — banda cinza-média que separa os blocos
+  sheet.getRange(startRow + 46, 1, 4, 5).setBackground("#9ca3af");
   for (let i = 0; i < 4; i++) sheet.setRowHeight(startRow + 46 + i, 4);
 
-  // Borders externos do bloco inteiro
+  // Borders externos do bloco inteiro — média, delimita cada equipe
   sheet.getRange(startRow, 1, DETALHES_BLOCK_ROWS - 4, 5)
-    .setBorder(true, true, true, true, false, false, "#d4d4d8", SpreadsheetApp.BorderStyle.SOLID);
+    .setBorder(true, true, true, true, false, false, "#9ca3af", SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 }
 
 // ============================================================================
@@ -1464,6 +1601,18 @@ function doPost(e) {
       return jsonResponse({ ok: false, error: "internal_error" });
     }
 
+    // ---------- LOCK ----------
+    // Serializa execuções concorrentes do doPost: dois envios simultâneos
+    // (ex.: retry) poderiam passar pelo dedup ao mesmo tempo e gravar duas
+    // linhas. Liberado logo após a gravação da linha (ou no fim da execução).
+    const lock = LockService.getScriptLock();
+    try {
+      lock.waitLock(25000);
+    } catch (errLock) {
+      console.error("doPost: não conseguiu o lock:", errLock);
+      return jsonResponse({ ok: false, error: "internal_error" });
+    }
+
     // ---------- DEDUP por CPF (item 3.2 do Edital) ----------
     // Coleta CPFs dos novos integrantes, normalizados pra dígitos.
     const novosCPFs = data.integrantes.map(function (i) {
@@ -1484,7 +1633,28 @@ function doPost(e) {
         if (COLUMNS[i].indexOf("— CPF") >= 0) cpfColIdxs.push(i);
         if (COLUMNS[i].indexOf("E-mail oficial") >= 0 || COLUMNS[i].indexOf("— E-mail") >= 0) emailColIdxs.push(i);
       }
+      // IDEMPOTÊNCIA: se já existe linha do mesmo líder (Google ID ou e-mail
+      // da conta Google), a inscrição já está registrada — ex.: retry após
+      // timeout do cliente, com o Apps Script ainda rodando. Devolve ok:true
+      // sem regravar; senão o dedup por CPF abaixo acusaria "duplicate_cpf"
+      // da própria linha recém-criada.
+      const googleIdColIdx = COLUMNS.indexOf("Google ID líder");
+      const googleEmailColIdx = COLUMNS.indexOf("E-mail Google líder");
+      const leaderGoogleId = String(data.leaderGoogleId || "").replace(/^'/, "").trim();
+      const leaderGoogleEmail = String(data.leaderGoogleEmail || "").replace(/^'/, "").trim().toLowerCase();
       for (let r = 0; r < allData.length; r++) {
+        if (leaderGoogleId && googleIdColIdx >= 0) {
+          const existingGid = String(allData[r][googleIdColIdx] || "").replace(/^'/, "").trim();
+          if (existingGid && existingGid === leaderGoogleId) {
+            return jsonResponse({ ok: true });
+          }
+        }
+        if (leaderGoogleEmail && googleEmailColIdx >= 0) {
+          const existingGem = String(allData[r][googleEmailColIdx] || "").replace(/^'/, "").trim().toLowerCase();
+          if (existingGem && existingGem === leaderGoogleEmail) {
+            return jsonResponse({ ok: true });
+          }
+        }
         for (let c = 0; c < cpfColIdxs.length; c++) {
           const existing = String(allData[r][cpfColIdxs[c]] || "").replace(/\D/g, "").replace(/^'/, "");
           if (existing && novosCPFs.indexOf(existing) >= 0) {
@@ -1505,6 +1675,9 @@ function doPost(e) {
     const row = buildRow_(data);
     sheet.appendRow(row.map(sanitizeCell_));
     const inscricoesRow = sheet.getLastRow();
+    // Linha gravada — o dedup não pode mais colidir; libera o lock antes das
+    // partes lentas (cards na Triagem/Detalhes, e-mail de confirmação).
+    lock.releaseLock();
 
     // Adiciona card na aba Triagem (best-effort — não quebra se falhar)
     try {
@@ -1608,7 +1781,11 @@ function buildRow_(data) {
     row.push(String(it.naturalidade || ""));
     row.push(String(it.cidade || ""));
     row.push(String(it.estado || ""));
-    row.push(String(it.enderecoCompleto || ""));
+    row.push(String(it.cep || ""));
+    row.push(String(it.logradouro || ""));
+    row.push(String(it.numero || ""));
+    row.push(String(it.complemento || ""));
+    row.push(String(it.bairro || ""));
     row.push(String(it.emailPessoal || ""));
     row.push(String(it.telefoneCelular || ""));
     row.push(String(it.contatoEmergenciaNome || ""));
@@ -1674,7 +1851,11 @@ function checkIntegranteLengths_(it, num) {
     ["naturalidade", FIELD_MAX.naturalidade],
     ["cidade", FIELD_MAX.cidade],
     ["estado", FIELD_MAX.estado],
-    ["enderecoCompleto", FIELD_MAX.enderecoCompleto],
+    ["cep", FIELD_MAX.cep],
+    ["logradouro", FIELD_MAX.logradouro],
+    ["numero", FIELD_MAX.numero],
+    ["complemento", FIELD_MAX.complemento],
+    ["bairro", FIELD_MAX.bairro],
     ["emailPessoal", FIELD_MAX.emailPessoal],
     ["telefoneCelular", FIELD_MAX.telefoneCelular],
     ["contatoEmergenciaNome", FIELD_MAX.contatoEmergenciaNome],
@@ -1870,6 +2051,16 @@ function processStatusEdit_(inscricoesRow, oldValueRaw, source, triagemRow) {
   }
 
   if (newStatus === oldStatus) return;
+
+  // Sincroniza a aba "Aprovados" (best-effort): entra ao virar Aprovado,
+  // sai ao deixar de ser (Reprovado/Pendente).
+  try {
+    if (newStatus === "Aprovado") addToAprovados_(inscricoesRow);
+    else removeFromAprovados_(inscricoesRow);
+  } catch (errAprov) {
+    console.error("Falha ao sincronizar aba Aprovados:", errAprov);
+  }
+
   if (["Aprovado", "Reprovado"].indexOf(newStatus) < 0) return;
 
   // Recupera dados da linha pra montar o e-mail
@@ -1929,8 +2120,10 @@ function syncStatusToTriagemCard_(triagem, inscricoesRow, newStatus) {
 // ============================================================================
 // Envio dos e-mails
 // ----------------------------------------------------------------------------
-// Os 4 integrantes recebem juntos (todos no `to:`). Como são uma equipe, ver
-// o e-mail dos colegas é esperado.
+// Notificações (confirmação, aprovação, reprovação) vão SÓ pro líder, no
+// e-mail da conta Google que fez o submit. Os e-mails pessoais dos 4
+// integrantes ficam só pra registro na planilha. `emails` chega sempre como
+// array de um único endereço.
 // ============================================================================
 function sendConfirmationEmail_(emails, equipeNome) {
   const to = emails.join(",");

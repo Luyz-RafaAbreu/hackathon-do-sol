@@ -9,8 +9,8 @@ import {
 } from "@/lib/inscricao-schema";
 
 export const runtime = "nodejs";
-// Folga pra cobrir 1 retry de até 12s + backoff em caso de Apps Script lento.
-export const maxDuration = 30;
+// Cobre a verificação Turnstile + 1 chamada ao Apps Script (timeout de 22s).
+export const maxDuration = 45;
 
 /**
  * POST /api/inscricao
@@ -134,42 +134,21 @@ function bad(message: string, status = 400) {
   return NextResponse.json({ ok: false, message }, { status });
 }
 
-// Retenta o webhook do Apps Script em caso de timeout/erro de rede ou 5xx.
-async function fetchAppsScriptWithRetry(
-  url: string,
-  body: string
-): Promise<Response> {
-  const MAX_ATTEMPTS = 2;
-  const PER_ATTEMPT_TIMEOUT_MS = 12_000;
-  const BACKOFF_MS = 500;
-
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-        signal: AbortSignal.timeout(PER_ATTEMPT_TIMEOUT_MS),
-      });
-      if (res.status < 500) return res;
-      const text = await res.text().catch(() => "");
-      console.warn(
-        `[inscricao] Apps Script ${res.status} (tentativa ${attempt}/${MAX_ATTEMPTS}): ${text}`
-      );
-      lastError = new Error(`HTTP ${res.status}`);
-    } catch (err) {
-      console.warn(
-        `[inscricao] Apps Script falhou (tentativa ${attempt}/${MAX_ATTEMPTS}):`,
-        err
-      );
-      lastError = err;
-    }
-    if (attempt < MAX_ATTEMPTS) {
-      await new Promise((r) => setTimeout(r, BACKOFF_MS * attempt));
-    }
-  }
-  throw lastError ?? new Error("Apps Script unreachable");
+// Chamada única ao webhook do Apps Script — SEM retry automático.
+//
+// Por que não retenta: se a 1ª tentativa estoura o timeout do cliente mas o
+// Apps Script segue rodando no servidor, ela grava a linha mesmo assim. Um
+// retry automático cairia no dedup e devolveria "duplicate_cpf" — apesar de a
+// inscrição ter sido registrada. O Apps Script é idempotente por líder (ver
+// doPost), então um retry MANUAL do usuário é recuperável; retry automático
+// aqui só duplicaria trabalho e produziria erro enganoso.
+async function fetchAppsScript(url: string, body: string): Promise<Response> {
+  return fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    signal: AbortSignal.timeout(22_000),
+  });
 }
 
 export async function POST(req: Request) {
@@ -302,7 +281,7 @@ export async function POST(req: Request) {
   const signedBody = JSON.stringify({ v: 2, ts, payload, signature });
 
   try {
-    const res = await fetchAppsScriptWithRetry(WEBHOOK_URL, signedBody);
+    const res = await fetchAppsScript(WEBHOOK_URL, signedBody);
 
     if (!res.ok) {
       const text = await res.text().catch(() => "");

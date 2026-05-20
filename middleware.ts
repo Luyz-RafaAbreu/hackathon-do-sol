@@ -55,7 +55,7 @@ export function middleware(request: NextRequest) {
     "font-src 'self' https://fonts.gstatic.com data:",
     // googleusercontent.com hospeda a foto de perfil do Google OAuth.
     "img-src 'self' data: blob: https://lh3.googleusercontent.com",
-    `connect-src 'self' https://servicodados.ibge.gov.br${isDev ? " ws: wss:" : ""}`,
+    `connect-src 'self' https://servicodados.ibge.gov.br https://viacep.com.br${isDev ? " ws: wss:" : ""}`,
     // Turnstile renderiza o widget de captcha em iframe — único frame
     // permitido. OAuth Google é popup (window.open), não precisa de
     // frame-src.

@@ -3,14 +3,16 @@ import { headers } from "next/headers";
 import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import CustomCursor from "@/components/CustomCursor";
 import CustomScrollbar from "@/components/CustomScrollbar";
 import SmoothScroll from "@/components/SmoothScroll";
 import GrainOverlay from "@/components/GrainOverlay";
 import SessionProviderWrapper from "@/components/SessionProviderWrapper";
 import SignInModalProvider from "@/components/SignInModalProvider";
+import InscricaoStatusProvider from "@/components/InscricaoStatusProvider";
 import ScrollTopOnNav from "@/components/ScrollTopOnNav";
 import { EVENT } from "@/lib/event";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import "./globals.css";
 
 // next/font baixa as fontes no build, serve do nosso próprio domínio (sem
@@ -125,10 +127,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   // Nonce vem do middleware (ver middleware.ts). CSP em produção só executa
   // scripts inline que tenham esse nonce — sem ele, o JSON-LD seria bloqueado.
   const nonce = headers().get("x-nonce") ?? undefined;
+  // Sessão resolvida no servidor e repassada ao SessionProvider — o client já
+  // sabe se há login no 1º render, sem o flash de "loading" do useSession.
+  const session = await getServerSession(authOptions);
 
   return (
     <html
@@ -149,10 +158,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SmoothScroll />
         <ScrollTopOnNav />
         <CustomScrollbar />
-        <CustomCursor />
         <GrainOverlay />
-        <SessionProviderWrapper>
-          <SignInModalProvider>{children}</SignInModalProvider>
+        <SessionProviderWrapper session={session}>
+          <InscricaoStatusProvider>
+            <SignInModalProvider>{children}</SignInModalProvider>
+          </InscricaoStatusProvider>
         </SessionProviderWrapper>
         <Analytics />
         <SpeedInsights />

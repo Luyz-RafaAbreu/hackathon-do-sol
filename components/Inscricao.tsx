@@ -30,6 +30,7 @@ import {
   EquipeState,
   FIELD_MAX,
   GENEROS,
+  NACIONALIDADES,
   INITIAL_FORM_STATE,
   InscricaoFormState,
   IntegranteState,
@@ -43,6 +44,7 @@ import {
   TRILHAS_DESCRICAO,
   UFS,
   formatCPF,
+  formatCEP,
   formatPhoneBR,
   validateAceitesColetivos,
   validateEquipe,
@@ -55,6 +57,8 @@ import {
 // `await import()` — não importamos aqui pra não estourar o bundle (escolas
 // têm ~3MB, IES ~260KB). Só baixa quando o user seleciona o nível.
 import MagneticButton from "./MagneticButton";
+import JaInscritoModal from "./JaInscritoModal";
+import { useInscricaoStatus } from "./InscricaoStatusProvider";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
@@ -69,7 +73,10 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 // `nivelFormacao` + `cursoFormacao` + `anoFormacao` + `instituicao` +
 // `instituicaoUF` + `instituicaoMunicipio` + `projetoAcademico`. Drafts v3
 // teriam o campo antigo que não existe mais.
-const DRAFT_KEY = "hackathon-sol-inscricao-draft-v4";
+// v5 (2026-05-20): `enderecoCompleto` (string única) substituída por
+// `cep` + `logradouro` + `numero` + `complemento` + `bairro`. Drafts v4
+// teriam o campo antigo que não existe mais.
+const DRAFT_KEY = "hackathon-sol-inscricao-draft-v5";
 
 // =============================================================================
 // DEV AUTOFILL — atalho pra preencher o form inteiro com dados válidos durante
@@ -94,11 +101,15 @@ function createTestIntegrante(n: number): IntegranteState {
     cpf: TEST_CPFS[n - 1]!,
     rg: `12.345.67${n} SSP/RN`,
     dataNascimento: "2000-01-15",
-    nacionalidade: "Brasileira",
+    nacionalidade: NACIONALIDADES[0],
     naturalidade: "Natal/RN",
     cidade: "Natal",
     estado: "RN",
-    enderecoCompleto: "Rua Teste, 123, Tirol, Natal/RN, 59000-000",
+    cep: "59056-000",
+    logradouro: "Avenida Teste",
+    numero: `${n}23`,
+    complemento: n === 1 ? "Apto 101" : "",
+    bairro: "Tirol",
     emailPessoal: `test+${n}@gmail.com`,
     telefoneCelular: `(84) 99999-000${n}`,
     contatoEmergenciaNome: `Contato Emergência ${n}`,
@@ -121,9 +132,9 @@ function createTestIntegrante(n: number): IntegranteState {
     experienciaRelevante:
       "Experiência relevante de teste em diversos projetos importantes nos últimos anos, contribuindo com soluções escaláveis.",
     restricoesAlimentares: "Nenhuma",
-    alergias: "Nenhuma",
-    medicamentos: "Nenhum",
-    acessibilidade: "Nenhuma",
+    alergias: "",
+    medicamentos: "",
+    acessibilidade: "",
     outrasObservacoes: "",
     comoSoube: COMO_SOUBE_OPCOES[0],
     aceites: ACEITES_INDIVIDUAIS.reduce<Record<string, boolean>>((acc, a) => {
@@ -243,6 +254,9 @@ export default function Inscricao() {
   const [stepErrors, setStepErrors] = useState<StepErrors>({});
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance | null>(null);
+  // Trava de reentrada do submit — síncrona, bloqueia clique duplo antes do
+  // botão re-renderizar como disabled. Ver submit().
+  const submittingRef = useRef(false);
   const [submitStatus, setSubmitStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
@@ -253,13 +267,12 @@ export default function Inscricao() {
     count: number;
     key: number;
   } | null>(null);
-  // Toast verde de sucesso quando a inscrição é enviada com sucesso.
-  const [successToast, setSuccessToast] = useState<{ key: number } | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
   // Sinaliza que o effect de restore já rodou. Necessário pra orquestrar o
   // pre-fill via Google sem race condition (o pre-fill espera o draft terminar).
   const [draftChecked, setDraftChecked] = useState(false);
   const { data: session } = useSession();
+  const { markInscrito } = useInscricaoStatus();
   const messageRef = useRef<HTMLDivElement | null>(null);
   // Cache de cidades do IBGE por UF — evita rede repetida quando o usuário
   // troca de UF e volta. Compartilhado entre todos os selects de cidade do form.
@@ -403,7 +416,7 @@ export default function Inscricao() {
     }, 0);
   };
   useEffect(() => {
-    if (submitStatus === "success" || submitStatus === "error") {
+    if (submitStatus === "error") {
       messageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [submitStatus]);
@@ -418,14 +431,6 @@ export default function Inscricao() {
     const id = window.setTimeout(() => setValidationToast(null), 5000);
     return () => window.clearTimeout(id);
   }, [validationToast]);
-
-  // Auto-dismiss do toast verde de sucesso após 8s (mais tempo pra ler,
-  // já que é a mensagem final do fluxo).
-  useEffect(() => {
-    if (!successToast) return;
-    const id = window.setTimeout(() => setSuccessToast(null), 8000);
-    return () => window.clearTimeout(id);
-  }, [successToast]);
 
   // Quando bate erro, mostra toast + rola pro primeiro campo com erro pra
   // o usuário ver onde tá o problema. O DOM precisa renderizar os erros
@@ -461,6 +466,13 @@ export default function Inscricao() {
 
   const submit = async (ev: FormEvent) => {
     ev.preventDefault();
+    // Trava de reentrada — clique duplo rápido dispara submit() duas vezes
+    // antes do botão re-renderizar como disabled. A 2ª chamada gravaria
+    // de novo e ricochetearia na dedup de CPF ("CPF já inscrito"), assustando
+    // o usuário mesmo com a 1ª inscrição já salva. O ref é síncrono, então
+    // bloqueia antes de qualquer await.
+    if (submittingRef.current) return;
+
     // Valida a etapa final primeiro
     const errs = currentStep.validate(state);
     if (!turnstileToken) {
@@ -473,6 +485,9 @@ export default function Inscricao() {
       return;
     }
 
+    // A partir daqui há um envio em curso — só liberamos de volta em caso
+    // de erro (sucesso mantém travado: não há motivo pra reenviar).
+    submittingRef.current = true;
     setSubmitStatus("loading");
     setSubmitMessage("");
 
@@ -495,11 +510,9 @@ export default function Inscricao() {
       const result = (await res.json()) as { ok: boolean; message?: string };
       if (res.ok && result.ok) {
         setSubmitStatus("success");
-        setSubmitMessage(
-          result.message ||
-            "Inscrição da equipe recebida! Cada integrante vai receber um e-mail de confirmação."
-        );
-        setSuccessToast({ key: Date.now() });
+        // Marca o usuário como inscrito na hora — sem isto, o gating de "já
+        // inscrito" (Hero / Header / InscricaoGate) só pegaria num reload.
+        markInscrito();
         // Limpa o rascunho — submissão bem-sucedida, não tem motivo pra manter
         try {
           localStorage.removeItem(DRAFT_KEY);
@@ -520,11 +533,13 @@ export default function Inscricao() {
         // Token Turnstile é single-use — reseta pra próxima tentativa
         setTurnstileToken(null);
         turnstileRef.current?.reset();
+        submittingRef.current = false; // erro — libera pra nova tentativa
       }
     } catch {
       setSubmitStatus("error");
       setSubmitMessage("Erro de conexão. Verifique sua internet e tente novamente.");
       setTurnstileToken(null);
+      submittingRef.current = false; // erro — libera pra nova tentativa
       turnstileRef.current?.reset();
     }
   };
@@ -572,25 +587,28 @@ export default function Inscricao() {
           onDismiss={() => setValidationToast(null)}
         />
       )}
-      {successToast && (
-        <SuccessToast
-          key={successToast.key}
-          onDismiss={() => setSuccessToast(null)}
+      {submitStatus === "success" && (
+        <JaInscritoModal
+          title="Inscrição"
+          titleHighlight="enviada"
+          message="Sua equipe entrou na lista de análise do Hackathon do Sol. Enviamos um e-mail de confirmação pra conta Google do líder — confira a caixa de entrada."
         />
       )}
       <form
         onSubmit={submit}
         noValidate
-        className="relative rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 md:p-8 space-y-5 overflow-hidden"
+        className="relative rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 md:p-8 space-y-5"
       >
+        {/* Decorações ficam num clipper próprio (overflow-hidden) em vez de
+            o form inteiro ter overflow-hidden — senão o dropdown do
+            autocomplete de instituição era cortado pela borda do form. */}
         <div
           aria-hidden
-          className="absolute inset-x-0 top-0 h-[0.125rem] bg-gradient-to-r from-sol-yellow via-sol-orange to-sol-pink"
-        />
-        <div
-          aria-hidden
-          className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-sol-orange/8 blur-3xl pointer-events-none"
-        />
+          className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none"
+        >
+          <div className="absolute inset-x-0 top-0 h-[0.125rem] bg-gradient-to-r from-sol-yellow via-sol-orange to-sol-pink" />
+          <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-sol-orange/8 blur-3xl" />
+        </div>
         {/* Honeypot — escondido visualmente E pra leitor de tela. Bots
             preenchem, humanos não chegam aqui. */}
         <div
@@ -626,6 +644,7 @@ export default function Inscricao() {
                 setStepErrors({});
                 setSubmitStatus("idle");
                 setSubmitMessage("");
+                submittingRef.current = false;
               }}
               className="ml-auto underline underline-offset-2 hover:text-amber-100"
             >
@@ -639,6 +658,7 @@ export default function Inscricao() {
                 setStepErrors({});
                 setSubmitStatus("idle");
                 setSubmitMessage("");
+                submittingRef.current = false;
                 try {
                   localStorage.removeItem(DRAFT_KEY);
                 } catch {
@@ -706,7 +726,12 @@ export default function Inscricao() {
           />
         )}
         {step >= 2 && step <= 5 && (
+          // key por integrante: força remontagem ao trocar de integrante, pra
+          // que estado LOCAL de UI (checkboxes de restrições/saúde, opção
+          // "Outro" de selects, autocomplete de instituição, lookup de CEP)
+          // não vaze de um integrante pro outro.
           <IntegranteStep
+            key={step - 2}
             idx={step - 2}
             isLider={state.equipe.liderIndex === step - 2}
             integrante={state.integrantes[step - 2]!}
@@ -801,14 +826,6 @@ export default function Inscricao() {
           <p className="text-red-300 text-xs">{stepErrors.robot}</p>
         )}
 
-        {submitStatus === "success" && (
-          <div
-            ref={messageRef}
-            className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 text-emerald-200 px-4 py-3 text-sm"
-          >
-            ✓ {submitMessage}
-          </div>
-        )}
         {submitStatus === "error" && (
           <div
             ref={messageRef}
@@ -1121,12 +1138,17 @@ function IntegranteStep({
           label="Nacionalidade"
           error={errors.nacionalidade}
           input={
-            <input
+            <select
               value={integrante.nacionalidade}
               onChange={(e) => onChange({ nacionalidade: e.target.value })}
-              placeholder="Ex: brasileira"
-              maxLength={FIELD_MAX.nacionalidade}
-            />
+            >
+              <option value="">Selecione...</option>
+              {NACIONALIDADES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
           }
         />
       </div>
@@ -1144,31 +1166,17 @@ function IntegranteStep({
         }
       />
 
-      <CidadeUFFields
+      <EnderecoFields
+        cep={integrante.cep}
+        logradouro={integrante.logradouro}
+        numero={integrante.numero}
+        complemento={integrante.complemento}
+        bairro={integrante.bairro}
         cidade={integrante.cidade}
         estado={integrante.estado}
-        onCidade={(v) => onChange({ cidade: v })}
-        onEstado={(v) => onChange({ estado: v, cidade: "" })}
-        errorCidade={errors.cidade}
-        errorEstado={errors.estado}
+        onChange={onChange}
+        errors={errors}
         cacheCidades={cacheCidades}
-        labelCidade="Cidade onde reside"
-        labelEstado="Estado onde reside"
-      />
-
-      <Field
-        label="Endereço completo"
-        help="Rua, número, bairro, CEP"
-        error={errors.enderecoCompleto}
-        input={
-          <input
-            value={integrante.enderecoCompleto}
-            onChange={(e) => onChange({ enderecoCompleto: e.target.value })}
-            placeholder="Ex: Rua das Dunas, 123, Ponta Negra, 59090-000"
-            autoComplete="street-address"
-            maxLength={FIELD_MAX.enderecoCompleto}
-          />
-        }
       />
 
       <div className="grid md:grid-cols-2 gap-4">
@@ -1413,6 +1421,8 @@ function IntegranteStep({
             uf={integrante.instituicaoUF}
             municipio={integrante.instituicaoMunicipio}
             nivelFormacao={integrante.nivelFormacao}
+            userCidade={integrante.cidade}
+            userUf={integrante.estado}
             onChange={(updates) => onChange(updates)}
           />
         }
@@ -1433,8 +1443,8 @@ function IntegranteStep({
       />
 
       <Field
-        label="Link do LinkedIn"
-        help="Obrigatório — será analisado em caso de processo seletivo."
+        label="Link do LinkedIn (opcional)"
+        help="Se tiver, ajuda na análise em caso de processo seletivo."
         error={errors.linkedin}
         input={
           <input
@@ -1890,19 +1900,29 @@ function makeDisplay(s: InstituicaoSuggestion): string {
   return s.sigla ? `${s.nome} (${s.sigla})` : s.nome;
 }
 
-type InstituicaoSearchFn = (query: string, limit?: number) => InstituicaoSuggestion[];
+type InstituicaoSearchFn = (
+  query: string,
+  limit?: number,
+  userLoc?: { cidade: string; uf: string }
+) => InstituicaoSuggestion[];
 
 function InstituicaoField({
   value,
   uf,
   municipio,
   nivelFormacao,
+  userCidade,
+  userUf,
   onChange,
 }: {
   value: string;
   uf: string;
   municipio: string;
   nivelFormacao: string;
+  // Cidade/estado que o integrante declarou no próprio cadastro — usado
+  // como 2º critério de proximidade na busca de instituição.
+  userCidade: string;
+  userUf: string;
   onChange: (updates: {
     instituicao: string;
     instituicaoUF: string;
@@ -1959,8 +1979,8 @@ function InstituicaoField({
 
   const results = useMemo<InstituicaoSuggestion[]>(() => {
     if (!searchFn) return [];
-    return searchFn(debouncedQuery, 8);
-  }, [debouncedQuery, searchFn]);
+    return searchFn(debouncedQuery, 8, { cidade: userCidade, uf: userUf });
+  }, [debouncedQuery, searchFn, userCidade, userUf]);
 
   // Resincroniza o input local quando o valor externo muda (ex: carga de
   // rascunho, ou troca de integrante via "limpar todos").
@@ -2010,14 +2030,19 @@ function InstituicaoField({
         }}
         onFocus={() => setOpen(true)}
         onBlur={handleBlur}
-        placeholder={isEnsMedio ? "Ex: Colégio Atheneu" : "Ex: UFRN"}
+        placeholder={isEnsMedio ? "Ex: IFRN" : "Ex: UFRN"}
         maxLength={FIELD_MAX.instituicao}
         autoComplete="off"
       />
       {open && (results.length > 0 || (loading && query.length >= 2)) && (
         <ul
           role="listbox"
-          className="absolute z-20 mt-1 w-full max-h-60 overflow-auto rounded-lg border border-white/15 bg-sol-bgDeep/95 backdrop-blur shadow-2xl"
+          // Lenis (SmoothScroll) intercepta a roda do mouse globalmente —
+          // sem `data-lenis-prevent`, rolar sobre o dropdown rolaria a página.
+          // `overscroll-contain` impede o scroll-chaining: ao chegar no fim da
+          // lista, o scroll restante não "vaza" pra página atrás.
+          data-lenis-prevent
+          className="absolute z-20 mt-1 w-full max-h-60 overflow-auto overscroll-contain rounded-lg border border-white/15 bg-sol-bgDeep shadow-2xl"
         >
           {loading && results.length === 0 && (
             <li className="px-3 py-2 text-xs text-white/55 normal-case tracking-normal font-normal italic">
@@ -2099,11 +2124,12 @@ function BundleAceiteBlock({
         </div>
 
         {/* Scroll com as cláusulas — `data-lenis-prevent` libera o scroll
-            nativo dentro desse box, senão o smooth-scroll do Lenis (global)
-            intercepta o wheel e a caixa não rola. */}
+            nativo dentro desse box (senão o Lenis global intercepta o wheel e
+            a caixa não rola); `overscroll-contain` impede o scroll de vazar
+            pra página ao chegar no fim da lista. */}
         <div
           data-lenis-prevent
-          className="max-h-96 overflow-y-auto px-5 py-4 space-y-5 bundle-aceite-scroll"
+          className="max-h-96 overflow-y-auto overscroll-contain px-5 py-4 space-y-5 bundle-aceite-scroll"
         >
           {items.map((a, idx) => (
             <div key={a.key}>
@@ -2249,46 +2275,6 @@ function AceiteCheckbox({
 // e some. Em paralelo, a função triggerValidationToast faz scroll pro
 // primeiro campo com erro pra usuário visualizar o problema imediatamente.
 // =============================================================================
-// =============================================================================
-// SuccessToast — versão verde do ValidationToast, aparece quando a inscrição
-// é enviada com sucesso. Mesma animação/posicionamento.
-// =============================================================================
-function SuccessToast({ onDismiss }: { onDismiss: () => void }) {
-  return (
-    <div
-      role="alert"
-      aria-live="polite"
-      className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(28rem,calc(100vw-2rem))] animate-validation-toast-in"
-    >
-      <div className="rounded-xl border border-emerald-400/40 bg-emerald-950/95 backdrop-blur-sm text-white px-4 py-3 shadow-2xl shadow-emerald-950/30 flex items-start gap-3">
-        <span
-          aria-hidden
-          className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500/25 text-emerald-200 shrink-0 font-semibold text-xs"
-        >
-          ✓
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold normal-case tracking-normal leading-snug">
-            Inscrição enviada!
-          </p>
-          <p className="mt-0.5 text-xs text-emerald-100/80 normal-case tracking-normal font-normal leading-relaxed">
-            A equipe entrou na lista de análise. Cada integrante vai receber um
-            e-mail de confirmação.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label="Fechar aviso"
-          className="text-emerald-200/70 hover:text-white shrink-0 text-lg leading-none -mt-0.5"
-        >
-          ×
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function ValidationToast({
   count,
   onDismiss,
@@ -2358,6 +2344,7 @@ function CursoFormacaoField({
 
   const showOutraInput = outraAtiva;
   const dropdownValue = isInList ? value : showOutraInput ? OUTRA_SENTINEL : "";
+  const outraInputRef = useFocusOnReveal<HTMLInputElement>(showOutraInput);
 
   return (
     <>
@@ -2390,11 +2377,11 @@ function CursoFormacaoField({
       {showOutraInput && (
         <div className="md:col-span-2">
           <input
+            ref={outraInputRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder="Especifique o curso ou área"
             maxLength={FIELD_MAX.cursoFormacao}
-            autoFocus
           />
         </div>
       )}
@@ -2421,6 +2408,7 @@ function ParentescoField({
 
   const showOutroInput = outroAtivo;
   const dropdownValue = isInList ? value : showOutroInput ? OUTRO : "";
+  const outroInputRef = useFocusOnReveal<HTMLInputElement>(showOutroInput);
 
   return (
     <Field
@@ -2450,17 +2438,36 @@ function ParentescoField({
           </select>
           {showOutroInput && (
             <input
+              ref={outroInputRef}
               value={value}
               onChange={(e) => onChange(e.target.value)}
               placeholder="Especifique o parentesco"
               maxLength={FIELD_MAX.contatoEmergenciaParentesco}
-              autoFocus
             />
           )}
         </div>
       }
     />
   );
+}
+
+// =============================================================================
+// useFocusOnReveal — foca o campo revelado (textarea/input) quando o usuário
+// ABRE o campo, mas não quando ele já aparece preenchido no mount. Sem isso, ao
+// revisitar a etapa de um integrante (que remonta o IntegranteStep) o foco
+// pularia pra um campo opcional já preenchido — possivelmente fora da tela.
+// =============================================================================
+function useFocusOnReveal<T extends HTMLElement>(revealed: boolean) {
+  const ref = useRef<T>(null);
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    if (revealed) ref.current?.focus();
+  }, [revealed]);
+  return ref;
 }
 
 // =============================================================================
@@ -2486,6 +2493,7 @@ function RestricoesAlimentaresField({
   const [hasRestricoes, setHasRestricoes] = useState(
     !!value && value !== NENHUMA
   );
+  const textareaRef = useFocusOnReveal<HTMLTextAreaElement>(hasRestricoes);
 
   return (
     <div>
@@ -2523,12 +2531,12 @@ function RestricoesAlimentaresField({
         </label>
         {hasRestricoes && (
           <textarea
+            ref={textareaRef}
             rows={2}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder="Quais? Ex: vegetariano, intolerante a lactose"
             maxLength={FIELD_MAX.restricoesAlimentares}
-            autoFocus
           />
         )}
       </div>
@@ -2562,6 +2570,7 @@ function OptionalDescriptionField({
   // State local — mesmo motivo do RestricoesAlimentaresField. Não dá pra
   // derivar de `value` porque ao marcar limpamos pra "" e o checkbox sumiria.
   const [checked, setChecked] = useState(!!value);
+  const textareaRef = useFocusOnReveal<HTMLTextAreaElement>(checked);
 
   return (
     <div>
@@ -2595,16 +2604,197 @@ function OptionalDescriptionField({
         </label>
         {checked && (
           <textarea
+            ref={textareaRef}
             rows={2}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             maxLength={maxLength}
-            autoFocus
           />
         )}
       </div>
     </div>
+  );
+}
+
+// =============================================================================
+// EnderecoFields — bloco de endereço CEP-first com autopreenchimento ViaCEP.
+// -----------------------------------------------------------------------------
+// O CEP é o primeiro campo. Ao completar 8 dígitos, consulta a API ViaCEP
+// (gratuita, oficial dos Correios) e autopreenche logradouro, bairro, cidade
+// e estado. Todos os campos seguem editáveis — se o CEP for genérico (cidade
+// pequena sem logradouro) ou a API errar, o usuário corrige na mão.
+// =============================================================================
+function EnderecoFields({
+  cep,
+  logradouro,
+  numero,
+  complemento,
+  bairro,
+  cidade,
+  estado,
+  onChange,
+  errors,
+  cacheCidades,
+}: {
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  onChange: (patch: Partial<IntegranteState>) => void;
+  errors: StepErrors;
+  cacheCidades: Record<string, string[]>;
+}) {
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepMsg, setCepMsg] = useState("");
+  // Evita reconsultar o mesmo CEP (ex: usuário sai e volta no campo).
+  const lastLookedUp = useRef("");
+
+  const lookupCep = async (digits: string) => {
+    if (digits === lastLookedUp.current) return;
+    lastLookedUp.current = digits;
+    setCepLoading(true);
+    setCepMsg("");
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`, {
+        signal: AbortSignal.timeout(8000),
+      });
+      const data = (await res.json()) as {
+        erro?: boolean;
+        logradouro?: string;
+        bairro?: string;
+        localidade?: string;
+        uf?: string;
+      };
+      if (data.erro) {
+        setCepMsg("CEP não encontrado — preencha o endereço manualmente.");
+        return;
+      }
+      // Só sobrescreve o que a API retornou preenchido. CEP de cidade
+      // pequena às vezes vem sem logradouro/bairro — nesse caso o usuário
+      // completa. Cidade/estado quase sempre vêm.
+      const patch: Partial<IntegranteState> = {};
+      if (data.logradouro) patch.logradouro = data.logradouro;
+      if (data.bairro) patch.bairro = data.bairro;
+      if (data.localidade) patch.cidade = data.localidade;
+      if (data.uf) patch.estado = data.uf;
+      onChange(patch);
+    } catch {
+      setCepMsg("Não foi possível consultar o CEP — preencha manualmente.");
+    } finally {
+      setCepLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <Field
+        label="CEP"
+        help="Digite o CEP — preenchemos o resto do endereço automaticamente."
+        error={errors.cep}
+        input={
+          <div className="space-y-1">
+            <input
+              value={cep}
+              inputMode="numeric"
+              autoComplete="postal-code"
+              placeholder="00000-000"
+              maxLength={9}
+              onChange={(e) => {
+                const formatted = formatCEP(e.target.value);
+                onChange({ cep: formatted });
+                const digits = formatted.replace(/\D/g, "");
+                if (digits.length === 8) {
+                  lookupCep(digits);
+                } else {
+                  lastLookedUp.current = "";
+                  setCepMsg("");
+                }
+              }}
+            />
+            {cepLoading && (
+              <p className="text-xs text-white/55 normal-case tracking-normal font-normal">
+                Buscando endereço…
+              </p>
+            )}
+            {cepMsg && (
+              <p className="text-xs text-amber-300 normal-case tracking-normal font-normal">
+                {cepMsg}
+              </p>
+            )}
+          </div>
+        }
+      />
+
+      <Field
+        label="Logradouro (rua / avenida)"
+        error={errors.logradouro}
+        input={
+          <input
+            value={logradouro}
+            onChange={(e) => onChange({ logradouro: e.target.value })}
+            placeholder="Ex: Av. Senador Salgado Filho"
+            autoComplete="address-line1"
+            maxLength={FIELD_MAX.logradouro}
+          />
+        }
+      />
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Field
+          label="Número"
+          error={errors.numero}
+          input={
+            <input
+              value={numero}
+              onChange={(e) => onChange({ numero: e.target.value })}
+              placeholder="Ex: 1906 ou S/N"
+              maxLength={FIELD_MAX.numero}
+            />
+          }
+        />
+        <Field
+          label="Complemento (opcional)"
+          input={
+            <input
+              value={complemento}
+              onChange={(e) => onChange({ complemento: e.target.value })}
+              placeholder="Ex: Apto 302, Bloco B"
+              autoComplete="address-line2"
+              maxLength={FIELD_MAX.complemento}
+            />
+          }
+        />
+      </div>
+
+      <Field
+        label="Bairro"
+        error={errors.bairro}
+        input={
+          <input
+            value={bairro}
+            onChange={(e) => onChange({ bairro: e.target.value })}
+            placeholder="Ex: Lagoa Nova"
+            maxLength={FIELD_MAX.bairro}
+          />
+        }
+      />
+
+      <CidadeUFFields
+        cidade={cidade}
+        estado={estado}
+        onCidade={(v) => onChange({ cidade: v })}
+        onEstado={(v) => onChange({ estado: v, cidade: "" })}
+        errorCidade={errors.cidade}
+        errorEstado={errors.estado}
+        cacheCidades={cacheCidades}
+        labelCidade="Cidade onde reside"
+        labelEstado="Estado onde reside"
+      />
+    </>
   );
 }
 

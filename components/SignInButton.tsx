@@ -1,102 +1,16 @@
 "use client";
 import { signIn } from "next-auth/react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-// Sinal que /auth/popup-callback envia via postMessage quando o login
-// completa. Mantém em sync com o constante exportado lá.
-const POPUP_AUTH_DONE = "hackathon-sol:auth-done";
-
-// Botão "Entrar com Google" — abre OAuth num popup ao invés de fazer
-// redirect full-page. Fluxo:
-//
-//   1. Click → window.open("/auth/popup-start") numa janela pequena
-//   2. /auth/popup-start dispara signIn() do NextAuth → popup vai pro Google
-//   3. Usuário autoriza no Google → popup volta pra /api/auth/callback/google
-//      → NextAuth seta o cookie → popup vai pra /auth/popup-callback
-//   4. /auth/popup-callback faz window.opener.postMessage("auth-done") + close
-//   5. Janela principal recebe a message → full reload pra callbackUrl
-//      (que renderiza com a sessão fresca via SSR)
-//
-// O postMessage é o sinal canônico de sucesso. Polling em popup.closed serve
-// só pra detectar quando o usuário fecha o popup MANUALMENTE (cancelou) — aí
-// só liberamos o botão sem navegar.
-//
-// Fallback: se popup blocker barrar o window.open, cai pro signIn() padrão
-// que faz redirect full-page tradicional.
+// Botão "Continuar com Google" — login via redirect full-page, na mesma
+// janela (sem popup). Ao voltar do Google, o usuário cai na callbackUrl já
+// com a sessão renderizada via SSR.
 export default function SignInButton({ callbackUrl }: { callbackUrl: string }) {
   const [loading, setLoading] = useState(false);
-  const popupRef = useRef<Window | null>(null);
-  const intervalRef = useRef<number | null>(null);
-  const completedRef = useRef(false);
-
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current !== null) {
-        window.clearInterval(intervalRef.current);
-      }
-    };
-  }, []);
-
-  const cleanup = () => {
-    if (intervalRef.current !== null) {
-      window.clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    popupRef.current = null;
-  };
 
   const handleClick = () => {
     setLoading(true);
-    completedRef.current = false;
-
-    const w = 500;
-    const h = 650;
-    const left = Math.max(0, window.screenX + (window.outerWidth - w) / 2);
-    const top = Math.max(0, window.screenY + (window.outerHeight - h) / 2);
-
-    const popup = window.open(
-      "/auth/popup-start",
-      "hackathon-sol-auth",
-      `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,location=no,resizable=yes,scrollbars=yes`
-    );
-
-    if (!popup) {
-      // Popup bloqueado pelo navegador — usa redirect full-page como fallback.
-      signIn("google", { callbackUrl });
-      return;
-    }
-    popupRef.current = popup;
-
-    // Listener da mensagem do popup-callback. Verifica origin pra não
-    // aceitar postMessage de janelas estranhas.
-    const onMessage = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin) return;
-      if (e.data !== POPUP_AUTH_DONE) return;
-      completedRef.current = true;
-      window.removeEventListener("message", onMessage);
-      cleanup();
-      // Full reload pra /inscricao — o servidor vê a sessão fresca e
-      // renderiza o wizard.
-      window.location.href = callbackUrl;
-    };
-    window.addEventListener("message", onMessage);
-
-    // Polling backup pra detectar fechamento manual do popup (usuário
-    // cancelou). Se a mensagem chegou primeiro, completedRef é true e
-    // este branch fica como no-op.
-    intervalRef.current = window.setInterval(() => {
-      if (!popup.closed) return;
-      window.clearInterval(intervalRef.current!);
-      intervalRef.current = null;
-      // Se NÃO recebeu a mensagem de sucesso até aqui, é cancelamento.
-      // Damos uma pequena folga (300ms) pra a mensagem ainda chegar caso
-      // close e postMessage tenham acontecido na mesma vizinhança temporal.
-      window.setTimeout(() => {
-        if (completedRef.current) return;
-        window.removeEventListener("message", onMessage);
-        setLoading(false);
-      }, 300);
-    }, 400);
+    signIn("google", { callbackUrl });
   };
 
   return (
@@ -111,7 +25,7 @@ export default function SignInButton({ callbackUrl }: { callbackUrl: string }) {
       ) : (
         <GoogleIcon />
       )}
-      <span>{loading ? "Aguardando autorização…" : "Continuar com Google"}</span>
+      <span>{loading ? "Redirecionando…" : "Continuar com Google"}</span>
     </button>
   );
 }
