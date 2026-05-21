@@ -9,15 +9,15 @@
 //   node scripts/generate-ies-data.mjs
 //
 // O que o script faz:
-//   1. Baixa o ZIP de microdados do INEP (~500MB — é o único formato oficial
-//      disponível; o cadastro IES vem dentro)
-//   2. Extrai usando `tar -xf` (nativo no Windows 10+/macOS/Linux)
-//   3. Acha o CSV de cadastro IES no diretório extraído
-//   4. Parseia (encoding ISO-8859-1, separador "|") e mapeia pra
-//      { sigla, nome, uf, municipio }
-//   5. Dedupa por (sigla+nome) — IES com vários campi vira 1 entrada
-//   6. Escreve lib/ies-data.ts com header indicando auto-geração
-//   7. Limpa os arquivos temporários
+//   1. Baixa o ZIP de microdados do INEP e extrai
+//   2. Lê o cadastro de IES (CO_IES → sigla, nome, UF, município da sede)
+//   3. Lê o cadastro de CURSOS em streaming e coleta, por IES, os municípios
+//      onde há curso PRESENCIAL — cada um vira um "campus" selecionável.
+//      EAD é ignorado (polo de EAD existe em milhares de cidades).
+//   4. Combina sede + campi numa lista achatada { sigla, nome, uf, municipio },
+//      dedupada e ordenada — UMA ENTRADA POR UNIDADE/CAMPUS
+//   5. Escreve lib/ies-data.ts com header indicando auto-geração
+//   6. Limpa os arquivos temporários
 //
 // QUANDO RODAR:
 //   • Quando o INEP publicar novo Censo (anualmente, geralmente em outubro)
@@ -32,6 +32,7 @@
 
 import { spawnSync } from "node:child_process";
 import {
+  createReadStream,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -143,68 +144,158 @@ function findIesCSV(dir) {
   return candidates[0];
 }
 
-function parseCSV(csvPath) {
-  log(`▼ parseando CSV`);
-  const raw = readFileSync(csvPath);
-  // INEP usa ISO-8859-1 (Latin-1). TextDecoder converte pra UTF-8.
-  const text = new TextDecoder("latin1").decode(raw);
-  const lines = text.split(/\r?\n/);
-  if (lines.length < 2) throw new Error("CSV vazio ou sem header");
+// Acha o CSV de CADASTRO DE CURSOS — onde estão os locais de oferta: cada
+// curso traz o município em que é ministrado, que é o que vira "campus".
+function findCursosCSV(dir) {
+  const candidates = [];
+  function walk(d) {
+    for (const name of readdirSync(d)) {
+      const p = join(d, name);
+      let s;
+      try {
+        s = statSync(p);
+      } catch {
+        continue;
+      }
+      if (s.isDirectory()) walk(p);
+      else if (/\.CSV$/i.test(name) && /CURSO/i.test(name)) candidates.push(p);
+    }
+  }
+  walk(dir);
+  if (candidates.length === 0) {
+    throw new Error(`CSV de cursos não encontrado em ${dir}.`);
+  }
+  log(`✓ CSV de cursos localizado: ${relative(cwd(), candidates[0])}`);
+  return candidates[0];
+}
 
-  // Separador é ";" (confirmado no Censo 2024). Anos antigos usavam "|".
+// Parseia o cadastro de IES → Map CO_IES → { sigla, nome, uf, municipio (sede) }.
+function parseIES(csvPath) {
+  log(`▼ parseando cadastro de IES`);
+  const text = new TextDecoder("latin1").decode(readFileSync(csvPath));
+  const lines = text.split(/\r?\n/);
+  if (lines.length < 2) throw new Error("CSV de IES vazio ou sem header");
   const sep = lines[0].includes(";") ? ";" : "|";
-  const header = lines[0].split(sep);
+  const h = lines[0].split(sep);
   const idx = {
-    sigla: header.indexOf("SG_IES"),
-    nome: header.indexOf("NO_IES"),
-    uf: header.indexOf("SG_UF_IES"),
-    municipio: header.indexOf("NO_MUNICIPIO_IES"),
+    co: h.indexOf("CO_IES"),
+    sigla: h.indexOf("SG_IES"),
+    nome: h.indexOf("NO_IES"),
+    uf: h.indexOf("SG_UF_IES"),
+    municipio: h.indexOf("NO_MUNICIPIO_IES"),
   };
   const missing = Object.entries(idx).filter(([, i]) => i < 0);
   if (missing.length > 0) {
     throw new Error(
-      `Colunas faltando no CSV: ${missing.map((m) => m[0]).join(", ")}\n  ` +
-        `Header encontrado: ${header.slice(0, 20).join(" | ")}...`
+      `Colunas faltando no CSV de IES: ${missing.map((m) => m[0]).join(", ")}`
     );
   }
-
-  const ies = [];
+  const map = new Map();
   for (const line of lines.slice(1)) {
     if (!line.trim()) continue;
-    const cols = line.split(sep);
-    const sigla = (cols[idx.sigla] || "").trim();
-    const nome = (cols[idx.nome] || "").trim();
-    const uf = (cols[idx.uf] || "").trim();
-    const municipio = (cols[idx.municipio] || "").trim();
-    if (!nome) continue; // linha sem dados
-    ies.push({ sigla, nome, uf, municipio });
+    const c = line.split(sep);
+    const co = (c[idx.co] || "").trim();
+    const nome = (c[idx.nome] || "").trim();
+    if (!co || !nome) continue;
+    map.set(co, {
+      sigla: (c[idx.sigla] || "").trim(),
+      nome,
+      uf: (c[idx.uf] || "").trim(),
+      municipio: (c[idx.municipio] || "").trim(),
+    });
   }
-  log(`✓ ${ies.length} linhas brutas`);
-  return ies;
+  log(`✓ ${map.size} IES no cadastro`);
+  return map;
 }
 
-function dedupe(ies) {
-  // Censo lista linhas por unidade de oferta — uma IES grande pode aparecer N
-  // vezes com a mesma sigla+nome. Mantém a primeira ocorrência (geralmente a
-  // sede administrativa).
+// Lê o CSV de cursos (centenas de MB) em streaming e coleta os municípios
+// distintos onde cada IES oferta curso PRESENCIAL. EAD é ignorado: cursos a
+// distância têm "polo" em milhares de cidades — não são campus físico.
+async function parseCursosPresencial(csvPath) {
+  log(`▼ parseando cursos (streaming) — só presencial`);
+  const dec = new TextDecoder("latin1");
+  const campusSet = new Set(); // "co\tmunicipio\tuf"
+  let idx = null;
+  let leftover = "";
+  let rows = 0;
+  let presencial = 0;
+
+  const processLine = (line) => {
+    if (!line) return;
+    if (idx === null) {
+      const h = line.split(";");
+      idx = {
+        co: h.indexOf("CO_IES"),
+        municipio: h.indexOf("NO_MUNICIPIO"),
+        uf: h.indexOf("SG_UF"),
+        modalidade: h.indexOf("TP_MODALIDADE_ENSINO"),
+      };
+      const missing = Object.entries(idx).filter(([, i]) => i < 0);
+      if (missing.length > 0) {
+        throw new Error(
+          `Colunas faltando no CSV de cursos: ${missing.map((m) => m[0]).join(", ")}`
+        );
+      }
+      return;
+    }
+    rows++;
+    const c = line.split(";");
+    // TP_MODALIDADE_ENSINO: 1 = Presencial, 2 = EAD. Só presencial.
+    if ((c[idx.modalidade] || "").trim() !== "1") return;
+    const co = (c[idx.co] || "").trim();
+    const municipio = (c[idx.municipio] || "").trim();
+    const uf = (c[idx.uf] || "").trim();
+    if (!co || !municipio) return;
+    presencial++;
+    campusSet.add(`${co}\t${municipio}\t${uf}`);
+  };
+
+  for await (const chunk of createReadStream(csvPath)) {
+    const lines = (leftover + dec.decode(chunk)).split(/\r?\n/);
+    leftover = lines.pop() ?? "";
+    for (const line of lines) processLine(line);
+  }
+  if (leftover) processLine(leftover);
+
+  log(
+    `✓ ${rows} cursos lidos, ${presencial} presenciais → ${campusSet.size} locais distintos`
+  );
+  return campusSet;
+}
+
+// Combina sede (cadastro de IES) + campi presenciais (cursos) numa lista
+// achatada { sigla, nome, uf, municipio } — uma entrada por campus. Dedupa e
+// ordena. A sede entra sempre, garantindo ≥1 entrada mesmo pra IES 100% EAD.
+function buildEntries(iesByCode, campusSet) {
   const seen = new Set();
   const out = [];
-  for (const i of ies) {
-    if (!i.nome) continue;
-    const key = `${i.sigla}|${i.nome}|${i.uf}`;
-    if (seen.has(key)) continue;
+  const add = (sigla, nome, uf, municipio) => {
+    if (!nome || !municipio) return;
+    const key = `${sigla}\t${nome}\t${uf}\t${municipio}`;
+    if (seen.has(key)) return;
     seen.add(key);
-    out.push(i);
+    out.push({ sigla, nome, uf, municipio });
+  };
+  for (const ies of iesByCode.values()) {
+    add(ies.sigla, ies.nome, ies.uf, ies.municipio);
   }
+  for (const key of campusSet) {
+    const [co, municipio, uf] = key.split("\t");
+    const ies = iesByCode.get(co);
+    if (!ies) continue;
+    add(ies.sigla, ies.nome, uf || ies.uf, municipio);
+  }
+  // Ordena: sigla, depois nome, depois município — diff fácil de inspecionar.
   out.sort((a, b) => {
-    // Ordena: sigla primeiro (alfabético), depois nome — torna o arquivo
-    // gerado fácil de inspecionar/diff.
     if (a.sigla && !b.sigla) return -1;
     if (!a.sigla && b.sigla) return 1;
     const s = (a.sigla || "").localeCompare(b.sigla || "", "pt-BR");
-    return s !== 0 ? s : a.nome.localeCompare(b.nome, "pt-BR");
+    if (s !== 0) return s;
+    const n = a.nome.localeCompare(b.nome, "pt-BR");
+    if (n !== 0) return n;
+    return a.municipio.localeCompare(b.municipio, "pt-BR");
   });
-  log(`✓ ${out.length} entradas após dedupe + sort`);
+  log(`✓ ${out.length} entradas (campi) após combinar + dedupe + sort`);
   return out;
 }
 
@@ -226,7 +317,9 @@ function writeTSFile(ies, outPath) {
 // Educação Superior ${CENSUS_YEAR} (INEP). NÃO EDITAR À MÃO — pra atualizar,
 // rode \`node scripts/generate-ies-data.mjs\`.
 //
-// Total de IES: ${ies.length}
+// Uma entrada por UNIDADE/CAMPUS (instituição + município de oferta
+// presencial), pra a pessoa poder selecionar exatamente a unidade dela.
+// Total de entradas: ${ies.length}
 // ============================================================================
 
 export type IES = {
@@ -375,10 +468,10 @@ async function main() {
   try {
     await download(ZIP_URL, ZIP_PATH);
     extract(ZIP_PATH, TEMP_DIR);
-    const csv = findIesCSV(TEMP_DIR);
-    let ies = parseCSV(csv);
-    ies = dedupe(ies);
-    writeTSFile(ies, OUTPUT);
+    const iesByCode = parseIES(findIesCSV(TEMP_DIR));
+    const campusSet = await parseCursosPresencial(findCursosCSV(TEMP_DIR));
+    const entries = buildEntries(iesByCode, campusSet);
+    writeTSFile(entries, OUTPUT);
     log(`\n✓ Pronto. Revisa o diff e commita.`);
   } finally {
     rmSync(TEMP_DIR, { recursive: true, force: true });
