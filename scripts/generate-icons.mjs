@@ -1,16 +1,20 @@
 // Gera ícones do app a partir de public/imagens/logo-hd.webp:
-//   - app/icon.png         512x512  (Android, navegador moderno, PWA)
-//   - app/apple-icon.png   180x180  (iOS home screen)
-//   - app/favicon.ico      32x32    (aba do navegador)
+//   - app/icon.png         512x512  REDONDO (Android, navegador, PWA, atalho de desktop)
+//   - app/apple-icon.png   180x180  quadrado (iOS — o próprio iOS arredonda)
+//   - app/favicon.ico      32x32    REDONDO (aba do navegador)
 //
-// TODOS os ícones usam SÓ o sol recortado em fundo sol-bg (#1a0b3d) — em
-// tamanhos pequenos (atalhos de desktop, Start Menu, taskbar), o logo
-// completo com texto fica ilegível e parece bagunçado. O sol limpo num
-// fundo da marca escala bem em qualquer tamanho.
+// Todos mostram SÓ o sol (o swirl que fica dentro do "O" de SOL) sobre um
+// círculo roxo da marca — o logo completo com texto fica ilegível em
+// tamanhos pequenos (atalho de desktop, taskbar, aba).
 //
-// O retângulo do sol no logo-hd.webp é estimado abaixo — ajuste SUN_* se
-// sair errado. Rode `node scripts/generate-icons.mjs --preview` antes pra
-// ver o crop sem regerar tudo.
+// icon.png e favicon.ico são recortados EM CÍRCULO (cantos transparentes) —
+// é o que dá o visual "redondinho" no atalho de desktop e na aba. O
+// apple-icon fica QUADRADO de propósito: o iOS preenche transparência com
+// preto e aplica a própria máscara arredondada, então um PNG circular lá
+// ganharia cantos pretos.
+//
+// Rode `node scripts/generate-icons.mjs --preview` antes pra inspecionar o
+// ícone final em tmp-sun-preview.png.
 
 import sharp from "sharp";
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
@@ -22,23 +26,32 @@ const root = join(__dirname, "..");
 const SRC = join(root, "public", "imagens", "logo-hd.webp");
 const OUT_APP = join(root, "app");
 
-// Crop do sol no logo-hd.webp (1200x1200). O sol fica dentro do "O" da
-// palavra SOL — centro real em ~(605, 655), raio do burst ~95. 200x200
-// captura o sol completo com pouca margem de amarelo, sem deixar o roxo
-// vazar pelos cantos.
-const SUN_LEFT = 505;
-const SUN_TOP = 555;
-const SUN_SIZE = 200;
+// Crop do sol no logo-hd.webp (1200x1200). O centro do swirl fica em
+// ~(625, 655); 300x300 captura o sol completo com uma borda fininha de
+// laranja, sem deixar as letras S/L nem o roxo do fundo entrarem no recorte.
+// (Valores conferidos por análise de pixels — ver histórico do commit.)
+const SUN_LEFT = 475;
+const SUN_TOP = 505;
+const SUN_SIZE = 300;
 
 // Cor de fundo dos ícones — sol.bg do tailwind.config.ts (#1a0b3d).
 const BG = { r: 26, g: 11, b: 61, alpha: 1 };
 
-// % do canvas que o sol ocupa. 70% deixa um respiro elegante e dá margem
-// segura caso o OS aplique máscara circular/squircle por cima.
-const SUN_FILL_RATIO = 0.7;
+// Diâmetro do disco do sol como % do lado do ícone. 0.85 deixa um anel
+// roxo fino emoldurando o sol — sol bem visível, borda da marca presente.
+const SUN_FILL_RATIO = 0.85;
 
-// Modo "preview": gera só o sol em 256x256 num temp pra inspeção visual.
+// Modo "preview": gera o ícone final em 256x256 num temp pra inspeção.
 const previewOnly = process.argv.includes("--preview");
+
+// SVG de um círculo branco — usado como máscara `dest-in` (mantém o que está
+// dentro do círculo, zera o resto deixando transparente).
+function circleMask(size) {
+  const r = size / 2;
+  return Buffer.from(
+    `<svg width="${size}" height="${size}"><circle cx="${r}" cy="${r}" r="${r}" fill="#fff"/></svg>`
+  );
+}
 
 async function main() {
   if (!existsSync(SRC)) {
@@ -49,59 +62,75 @@ async function main() {
   const meta = await sharp(SRC).metadata();
   console.log(`Logo fonte: ${meta.width}x${meta.height}`);
 
+  // Crop bruto do sol (PNG) — base pra todos os ícones.
+  const sunBuf = await sharp(SRC)
+    .extract({ left: SUN_LEFT, top: SUN_TOP, width: SUN_SIZE, height: SUN_SIZE })
+    .png()
+    .toBuffer();
+
+  // Sol recortado em círculo, no diâmetro pedido (cantos transparentes).
+  async function roundSun(diameter) {
+    const resized = await sharp(sunBuf)
+      .resize(diameter, diameter)
+      .png()
+      .toBuffer();
+    return sharp(resized)
+      .composite([{ input: circleMask(diameter), blend: "dest-in" }])
+      .png()
+      .toBuffer();
+  }
+
+  // Ícone redondo: círculo roxo + sol centralizado, cantos transparentes.
+  async function roundIcon(size) {
+    const sun = await roundSun(Math.round(size * SUN_FILL_RATIO));
+    const composed = await sharp({
+      create: { width: size, height: size, channels: 4, background: BG },
+    })
+      .composite([{ input: sun, gravity: "center" }])
+      .png()
+      .toBuffer();
+    return sharp(composed)
+      .composite([{ input: circleMask(size), blend: "dest-in" }])
+      // palette: quantiza pra paleta — ícone de cor chapada comprime muito
+      // melhor assim (sem perda visível), ~78KB em vez de ~174KB.
+      .png({ compressionLevel: 9, palette: true })
+      .toBuffer();
+  }
+
+  // Ícone quadrado: quadrado roxo cheio + sol redondo centralizado. Pro
+  // iOS, que arredonda sozinho e não lida bem com transparência.
+  async function squareIcon(size) {
+    const sun = await roundSun(Math.round(size * SUN_FILL_RATIO));
+    return sharp({
+      create: { width: size, height: size, channels: 4, background: BG },
+    })
+      .composite([{ input: sun, gravity: "center" }])
+      .png({ compressionLevel: 9, palette: true })
+      .toBuffer();
+  }
+
   if (previewOnly) {
     const out = join(root, "tmp-sun-preview.png");
-    await sharp(SRC)
-      .extract({ left: SUN_LEFT, top: SUN_TOP, width: SUN_SIZE, height: SUN_SIZE })
-      .resize(256, 256)
-      .png()
-      .toFile(out);
+    await sharp(await roundIcon(512)).resize(256, 256).toFile(out);
     console.log("Preview salvo em", out);
     return;
   }
 
   if (!existsSync(OUT_APP)) mkdirSync(OUT_APP, { recursive: true });
 
-  // Crop bruto do sol (PNG transparente, pra recompor sobre cor de fundo)
-  const sunBuf = await sharp(SRC)
-    .extract({ left: SUN_LEFT, top: SUN_TOP, width: SUN_SIZE, height: SUN_SIZE })
-    .png()
-    .toBuffer();
+  // app/icon.png — 512x512 redondo (PWA / Android / atalho de desktop)
+  writeFileSync(join(OUT_APP, "icon.png"), await roundIcon(512));
+  console.log("  ✓ app/icon.png (512x512, redondo)");
 
-  // Compõe ícone em qualquer tamanho: canvas N×N com fundo roxo + sol
-  // centralizado ocupando SUN_FILL_RATIO do lado.
-  async function composeIcon(size) {
-    const sunSize = Math.round(size * SUN_FILL_RATIO);
-    const sunResized = await sharp(sunBuf)
-      .resize(sunSize, sunSize)
-      .png()
-      .toBuffer();
-    return sharp({
-      create: { width: size, height: size, channels: 4, background: BG },
-    })
-      .composite([{ input: sunResized, gravity: "center" }])
-      .png({ compressionLevel: 9 })
-      .toBuffer();
-  }
+  // app/apple-icon.png — 180x180 quadrado (iOS arredonda por conta própria)
+  writeFileSync(join(OUT_APP, "apple-icon.png"), await squareIcon(180));
+  console.log("  ✓ app/apple-icon.png (180x180, quadrado pro iOS)");
 
-  // app/icon.png — 512x512 do sol em fundo da marca (PWA / Android)
-  writeFileSync(join(OUT_APP, "icon.png"), await composeIcon(512));
-  console.log("  ✓ app/icon.png (512x512, sol em fundo roxo)");
-
-  // app/apple-icon.png — 180x180 do sol em fundo da marca (iOS)
-  writeFileSync(join(OUT_APP, "apple-icon.png"), await composeIcon(180));
-  console.log("  ✓ app/apple-icon.png (180x180, sol em fundo roxo)");
-
-  // app/favicon.ico — 32x32 do sol cropado direto (sem fundo extra, pra
-  // não quebrar contraste em backgrounds claros que alguns navegadores usam)
-  const sunPng32 = await sharp(SRC)
-    .extract({ left: SUN_LEFT, top: SUN_TOP, width: SUN_SIZE, height: SUN_SIZE })
-    .resize(32, 32)
-    .png({ compressionLevel: 9 })
-    .toBuffer();
-  const ico = buildIco([{ size: 32, png: sunPng32 }]);
+  // app/favicon.ico — 32x32 redondo (aba do navegador)
+  const favPng = await roundIcon(32);
+  const ico = buildIco([{ size: 32, png: favPng }]);
   writeFileSync(join(OUT_APP, "favicon.ico"), ico);
-  console.log("  ✓ app/favicon.ico (32x32, sol recortado)");
+  console.log("  ✓ app/favicon.ico (32x32, redondo)");
 }
 
 // Encoder ICO mínimo: header (6 bytes) + N entradas (16 bytes cada) + payloads PNG concatenados.
