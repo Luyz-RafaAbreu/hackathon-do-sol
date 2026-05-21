@@ -21,7 +21,13 @@ export function middleware(request: NextRequest) {
   //   e link sharing fica sempre no domínio bonito).
   // - Tráfego em www.hackathondosol.com.br → 301 pro apex (canônico SEO).
   // - Tráfego em hackathondosol.com.br → segue normalmente.
-  const host = request.headers.get("host") ?? "";
+  // Prioriza x-forwarded-host (setado pelo proxy da Vercel) sobre o header
+  // Host cru; lowercase porque comparação de host é case-insensitive.
+  const host = (
+    request.headers.get("x-forwarded-host") ??
+    request.headers.get("host") ??
+    ""
+  ).toLowerCase();
   const isVercelAlias = host.endsWith(".vercel.app");
   const isWww = host === "www." + CANONICAL_HOST;
   if (isVercelAlias || isWww) {

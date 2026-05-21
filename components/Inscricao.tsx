@@ -598,6 +598,24 @@ export default function Inscricao() {
       liderConfirmacao: { ...s.liderConfirmacao, ...patch },
     }));
 
+  // Inscrição enviada: renderiza só o modal de confirmação. O formulário não
+  // tem mais função aqui — deixá-lo montado no DOM (mesmo coberto pelo modal)
+  // é desnecessário, então sai de cena de vez.
+  if (submitStatus === "success") {
+    return (
+      <section
+        id="inscricao"
+        className="relative px-6 md:px-10 max-w-3xl mx-auto pb-20 md:pb-24"
+      >
+        <JaInscritoModal
+          title="Inscrição"
+          titleHighlight="enviada"
+          message="Sua equipe entrou na lista de análise do Hackathon do Sol. Enviamos um e-mail de confirmação pra conta Google do líder — confira a caixa de entrada."
+        />
+      </section>
+    );
+  }
+
   return (
     <section
       id="inscricao"
@@ -608,13 +626,6 @@ export default function Inscricao() {
           key={validationToast.key}
           count={validationToast.count}
           onDismiss={() => setValidationToast(null)}
-        />
-      )}
-      {submitStatus === "success" && (
-        <JaInscritoModal
-          title="Inscrição"
-          titleHighlight="enviada"
-          message="Sua equipe entrou na lista de análise do Hackathon do Sol. Enviamos um e-mail de confirmação pra conta Google do líder — confira a caixa de entrada."
         />
       )}
       <form
@@ -2316,8 +2327,10 @@ function ValidationToast({
 
   return (
     <div
+      // role="alert" já implica aria-live="assertive" — declarar
+      // aria-live="polite" junto criava intenção conflitante pro leitor de
+      // tela. Mantém só o role: erro de validação deve ser anunciado pronto.
       role="alert"
-      aria-live="polite"
       className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[min(28rem,calc(100vw-2rem))] animate-validation-toast-in"
     >
       <div className="rounded-xl border border-red-400/40 bg-red-950/95 backdrop-blur-sm text-white px-4 py-3 shadow-2xl shadow-red-950/30 flex items-start gap-3">
