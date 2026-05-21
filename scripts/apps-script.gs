@@ -551,6 +551,89 @@ function setupConfigSheet() {
 }
 
 // ============================================================================
+// MONITOR DE COTA DE E-MAIL — mostra na aba Configurações quantos e-mails
+// ainda dá pra enviar hoje (MailApp.getRemainingDailyQuota).
+// ----------------------------------------------------------------------------
+// Conta Gmail comum tem cota de 100 destinatários/dia; cada inscrição dispara
+// 1 e-mail de confirmação pro líder. Esse painel deixa a organização de olho
+// em dias de pico. O número se atualiza sozinho de hora em hora (gatilho
+// time-based) e pode ser forçado pelo menu "Hackathon do Sol".
+// ============================================================================
+const COTA_LABEL_ROW = 6; // Configurações!A6/B6 — "E-mails restantes hoje"
+const COTA_TIME_ROW = 7;  // Configurações!A7/B7 — "Atualizado em"
+
+// Rode 1x pra adicionar o painel de cota na aba Configurações e instalar o
+// gatilho horário. Idempotente — pode rodar de novo sem efeito colateral.
+function instalarMonitorCotaEmail() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(CONFIG.CONFIG_SHEET_NAME);
+  if (!sheet) {
+    const aviso = "Aba \"" + CONFIG.CONFIG_SHEET_NAME +
+      "\" não encontrada — rode setup() antes.";
+    try { SpreadsheetApp.getUi().alert(aviso); } catch (e) { console.log(aviso); }
+    return;
+  }
+
+  // Rótulos na coluna A — mesmo estilo roxo das linhas 1-2.
+  sheet.getRange("A" + COTA_LABEL_ROW).setValue("E-mails restantes hoje");
+  sheet.getRange("A" + COTA_TIME_ROW).setValue("Atualizado em");
+  sheet.getRange("A" + COTA_LABEL_ROW + ":A" + COTA_TIME_ROW)
+    .setFontWeight("bold").setBackground("#4c1d95").setFontColor("#ffffff")
+    .setVerticalAlignment("middle");
+
+  sheet.getRange("A" + (COTA_TIME_ROW + 1)).setValue(
+    "ℹ Cota do Gmail comum: 100 e-mails/dia, zera ~24h após o 1º envio. " +
+    "Atualiza sozinho a cada hora — ou use o menu \"Hackathon do Sol\"."
+  ).setFontColor("#666666").setFontStyle("italic");
+
+  // Gatilho horário — instala uma vez só, sem duplicar.
+  const jaTem = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === "atualizarCotaEmail";
+  });
+  if (!jaTem) {
+    ScriptApp.newTrigger("atualizarCotaEmail").timeBased().everyHours(1).create();
+  }
+
+  atualizarCotaEmail(); // popula o painel agora
+
+  const msg =
+    "✓ Monitor de cota de e-mail pronto.\n\n" +
+    "Veja na aba \"" + CONFIG.CONFIG_SHEET_NAME + "\" (linha " + COTA_LABEL_ROW +
+    ") quantos e-mails ainda dá pra enviar hoje. Atualiza sozinho de hora em " +
+    "hora; recarregue a planilha pra o menu \"Hackathon do Sol\" aparecer.";
+  try { SpreadsheetApp.getUi().alert(msg); } catch (e) { console.log(msg); }
+}
+
+// Lê a cota restante do Gmail e escreve na aba Configurações. Chamada pelo
+// gatilho horário, pelo menu e pelo instalador.
+function atualizarCotaEmail() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName(CONFIG.CONFIG_SHEET_NAME);
+  if (!sheet) return;
+
+  const restantes = MailApp.getRemainingDailyQuota();
+  const quando = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm");
+
+  // Verde tranquilo / laranja atenção / vermelho perto do limite.
+  const cor = restantes >= 30 ? "#15803d" : restantes >= 10 ? "#b45309" : "#b91c1c";
+  sheet.getRange("B" + COTA_LABEL_ROW)
+    .setValue(restantes)
+    .setFontWeight("bold").setFontSize(14).setFontColor(cor)
+    .setHorizontalAlignment("center");
+  sheet.getRange("B" + COTA_TIME_ROW).setValue(quando);
+}
+
+// Menu custom da planilha. onOpen é simple trigger: roda ao abrir e só monta
+// o menu (não precisa de autorização). O item, quando clicado, roda
+// atualizarCotaEmail com permissão total.
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu("Hackathon do Sol")
+    .addItem("Atualizar cota de e-mail", "atualizarCotaEmail")
+    .addToUi();
+}
+
+// ============================================================================
 // ABA APROVADOS — lista das equipes aprovadas, alimentada automaticamente
 // ----------------------------------------------------------------------------
 // Sempre que uma equipe vira "Aprovado" (ver processStatusEdit_), ela entra
