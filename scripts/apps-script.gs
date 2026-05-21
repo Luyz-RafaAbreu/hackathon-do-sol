@@ -652,38 +652,54 @@ function contarFilaPendentes_() {
 // chegam inscrições: appendRow só acrescenta no fim e não desloca as linhas
 // já lidas — uma linha nova entra no ciclo seguinte.
 function processarFilaEmails() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FILA_SHEET_NAME);
-  if (sheet) {
-    const lastRow = sheet.getLastRow();
-    if (lastRow >= 2) {
-      const dados = sheet.getRange(2, 1, lastRow - 1, FILA_HEADERS.length).getValues();
-      let cota = MailApp.getRemainingDailyQuota();
-      for (let i = 0; i < dados.length; i++) {
-        if (String(dados[i][0]).trim() !== "Pendente") continue;
-        if (cota < 1) break; // cota do dia acabou — resto fica pro próximo ciclo
-        const linha = i + 2;
-        try {
-          despacharEmail_(
-            String(dados[i][1]).trim(),
-            String(dados[i][2]).trim(),
-            String(dados[i][3]),
-            String(dados[i][4])
-          );
-          cota--;
-          sheet.getRange(linha, 1).setValue("Enviado");
-          sheet.getRange(linha, 8).setValue(
-            "Enviado em " +
-              Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm")
-          );
-        } catch (err) {
-          sheet.getRange(linha, 7).setValue((Number(dados[i][6]) || 0) + 1);
-          sheet.getRange(linha, 8).setValue("Falhou: " + err);
-          // segue "Pendente" — tenta de novo no próximo ciclo
+  // Lock de DOCUMENTO — separado do getScriptLock que o doPost usa, pra não
+  // travar inscrições. Garante que dois drains nunca rodem juntos: sem isso,
+  // o gatilho de 4h e um clique no menu poderiam pegar a mesma linha
+  // "Pendente" e enviar o mesmo e-mail 2x. Se não conseguir o lock, é porque
+  // já tem um drain rodando — então só sai (o outro já está fazendo o trabalho).
+  const lock = LockService.getDocumentLock();
+  if (!lock.tryLock(1000)) {
+    console.log("processarFilaEmails: outra execução em andamento — pulando.");
+    return;
+  }
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FILA_SHEET_NAME);
+    if (sheet) {
+      const lastRow = sheet.getLastRow();
+      if (lastRow >= 2) {
+        const dados = sheet.getRange(2, 1, lastRow - 1, FILA_HEADERS.length).getValues();
+        let cota = MailApp.getRemainingDailyQuota();
+        for (let i = 0; i < dados.length; i++) {
+          if (String(dados[i][0]).trim() !== "Pendente") continue;
+          if (cota < 1) break; // cota do dia acabou — resto fica pro próximo ciclo
+          const linha = i + 2;
+          try {
+            despacharEmail_(
+              String(dados[i][1]).trim(),
+              String(dados[i][2]).trim(),
+              String(dados[i][3]),
+              String(dados[i][4])
+            );
+            cota--;
+            // Marca "Enviado" logo após o envio — a partir daqui o próximo
+            // drain pula essa linha (não reenvia).
+            sheet.getRange(linha, 1).setValue("Enviado");
+            sheet.getRange(linha, 8).setValue(
+              "Enviado em " +
+                Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm")
+            );
+          } catch (err) {
+            sheet.getRange(linha, 7).setValue((Number(dados[i][6]) || 0) + 1);
+            sheet.getRange(linha, 8).setValue("Falhou: " + err);
+            // segue "Pendente" — tenta de novo no próximo ciclo
+          }
         }
       }
     }
+    atualizarCotaEmail(); // reflete o resultado no painel
+  } finally {
+    lock.releaseLock();
   }
-  atualizarCotaEmail(); // reflete o resultado no painel
 }
 
 // Rode 1x pra montar o painel na aba Configurações, criar a aba da fila e
@@ -786,6 +802,54 @@ function onOpen() {
     .addItem("Atualizar cota de e-mail", "atualizarCotaEmail")
     .addItem("Reenviar e-mails pendentes agora", "processarFilaEmails")
     .addToUi();
+}
+
+// ============================================================================
+// TESTE MANUAL DA FILA — rode no editor do Apps Script pra verificar, de
+// ponta a ponta, que a fila funciona. Enfileira um e-mail de teste pro SEU
+// próprio endereço e processa a fila. Esperado: a fila volta a 0 pendentes e
+// você recebe 1 e-mail. Não afeta inscrições reais.
+// ============================================================================
+function testarFilaEmails() {
+  const ui = (function () {
+    try { return SpreadsheetApp.getUi(); } catch (e) { return null; }
+  })();
+  const aviso = function (m) { if (ui) ui.alert(m); else console.log(m); };
+
+  const meuEmail = Session.getActiveUser().getEmail();
+  if (!meuEmail) {
+    aviso("Não consegui detectar seu e-mail. Rode esta função pelo editor, " +
+      "logado na conta dona da planilha.");
+    return;
+  }
+
+  const pendentesAntes = contarFilaPendentes_();
+  // Simula um e-mail que falhou no envio e foi parar na fila.
+  enfileirarEmail_("confirmacao", meuEmail, "EQUIPE TESTE — pode ignorar", "");
+  const aposEnfileirar = contarFilaPendentes_();
+
+  // Processa a fila — envia o que a cota permitir.
+  processarFilaEmails();
+  const pendentesDepois = contarFilaPendentes_();
+
+  const enviou = pendentesDepois < aposEnfileirar;
+  aviso(
+    "TESTE DA FILA DE E-MAILS\n\n" +
+    "1. Pendentes antes:           " + pendentesAntes + "\n" +
+    "2. Depois de enfileirar 1:    " + aposEnfileirar +
+      (aposEnfileirar === pendentesAntes + 1 ? "  (subiu 1 — enfileirar OK)" : "  (!)") + "\n" +
+    "3. Depois de processar:       " + pendentesDepois + "\n\n" +
+    (enviou
+      ? "✓ FUNCIONOU. O e-mail saiu da fila e foi enviado.\n" +
+        "Confira a caixa de entrada de " + meuEmail + " — deve chegar um\n" +
+        "e-mail de confirmação da \"EQUIPE TESTE\". Pode ignorar/apagar."
+      : "⚠ O e-mail NÃO saiu da fila. Causa provável: a cota de e-mail de hoje\n" +
+        "já zerou (veja \"E-mails restantes hoje\" na aba Configurações).\n" +
+        "Isso não é erro da fila — o e-mail segue \"Pendente\" e será enviado\n" +
+        "sozinho quando a cota renovar. Rode o teste de novo amanhã pra ver.") +
+    "\n\nObs.: o teste deixa 1 linha na aba oculta \"" + FILA_SHEET_NAME +
+    "\" — inofensiva, pode apagar se quiser."
+  );
 }
 
 // ============================================================================
