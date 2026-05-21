@@ -457,10 +457,23 @@ export default function Inscricao() {
     }, 50);
   };
 
+  // Conta erros pro toast: os 9 erros "aceite_*" de um integrante vêm de um
+  // único checkbox ("aceito todas as cláusulas"), então contam como 1 — senão
+  // o toast diria "9 campos precisam de atenção" sendo um checkbox só.
+  const contarErros = (errs: StepErrors): number => {
+    let n = 0;
+    let temAceiteIndividual = false;
+    for (const k of Object.keys(errs)) {
+      if (k.startsWith("aceite_")) temAceiteIndividual = true;
+      else n++;
+    }
+    return n + (temAceiteIndividual ? 1 : 0);
+  };
+
   const goNext = () => {
     const errs = currentStep.validate(state);
     setStepErrors(errs);
-    const errCount = Object.keys(errs).length;
+    const errCount = contarErros(errs);
     if (errCount === 0) {
       setStep((s) => Math.min(s + 1, STEPS.length - 1));
       scrollStepIntoView();
@@ -489,7 +502,7 @@ export default function Inscricao() {
       errs.robot = "Confirme que você não é um robô.";
     }
     setStepErrors(errs);
-    const errCount = Object.keys(errs).length;
+    const errCount = contarErros(errs);
     if (errCount > 0) {
       triggerValidationToast(errCount);
       return;
@@ -503,7 +516,7 @@ export default function Inscricao() {
 
     // Honeypot
     const honeypotInput = (ev.currentTarget as HTMLFormElement).elements.namedItem(
-      "website"
+      "contato_extra"
     ) as HTMLInputElement | null;
     const honeypot = honeypotInput?.value ?? "";
 
@@ -619,8 +632,12 @@ export default function Inscricao() {
           <div className="absolute inset-x-0 top-0 h-[0.125rem] bg-gradient-to-r from-sol-yellow via-sol-orange to-sol-pink" />
           <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-sol-orange/8 blur-3xl" />
         </div>
-        {/* Honeypot — escondido visualmente E pra leitor de tela. Bots
-            preenchem, humanos não chegam aqui. */}
+        {/* Honeypot — escondido visualmente E pra leitor de tela. O `name`
+            é não-semântico de propósito (não "website"/"email"/etc.): assim
+            o autofill do navegador o ignora — senão um autofill agressivo
+            preencheria o campo de um usuário REAL e a inscrição dele seria
+            descartada como bot. Bots que preenchem todos os campos ainda
+            caem na armadilha. */}
         <div
           aria-hidden="true"
           style={{
@@ -634,7 +651,7 @@ export default function Inscricao() {
         >
           <input
             type="text"
-            name="website"
+            name="contato_extra"
             tabIndex={-1}
             autoComplete="off"
             defaultValue=""

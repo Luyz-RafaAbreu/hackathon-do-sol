@@ -53,17 +53,18 @@ export const authOptions: NextAuthOptions = {
     signIn: "/?login=1",
   },
   callbacks: {
-    // Bloqueia login quando Google não confirmou o e-mail. Maioria das
-    // contas vem com email_verified: true, mas contas Workspace migradas
-    // ou pré-criadas por admin podem vir false — nesse caso o user pode
-    // não ser o dono real do email, abre brecha pra alguém se inscrever
-    // como outra pessoa.
+    // Bloqueia login quando o Google não confirmou o e-mail. Contas reais
+    // do Google sempre trazem email_verified: true; contas Workspace
+    // migradas/pré-criadas podem vir false — ou sem o campo. Nesses casos o
+    // usuário pode não ser o dono real do e-mail, o que abriria brecha pra
+    // se inscrever como outra pessoa. Fail-closed: só passa se for
+    // EXPLICITAMENTE true (campo ausente também bloqueia).
     async signIn({ profile }) {
       if (!profile) return false;
       // Profile do Google tem email_verified, mas o tipo genérico Profile
       // do NextAuth não — daí o type guard.
       const p = profile as { email_verified?: boolean };
-      if (p.email_verified === false) return false;
+      if (p.email_verified !== true) return false;
       return true;
     },
     // Anexa o ID do Google no token — útil pra usar como chave estável do

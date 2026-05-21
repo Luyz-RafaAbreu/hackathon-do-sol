@@ -1046,12 +1046,24 @@ export function validateAceitesColetivos(a: AceitesColetivosState): StepErrors {
   return e;
 }
 
+// Normaliza um nome pra comparação tolerante: NFC (unifica formas unicode
+// equivalentes), espaços internos colapsados, pontas aparadas, minúsculas.
+// Sem isso, um espaço duplo ou um acento digitado de forma canonicamente
+// diferente fazem a confirmação do líder falhar com os nomes "parecendo"
+// idênticos — e a pessoa fica presa na última etapa.
+function normalizeNomeComparacao(s: string): string {
+  return s.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 export function validateLiderConfirmacao(
   l: LiderConfirmacaoState,
   lider: IntegranteState
 ): StepErrors {
   const e: StepErrors = {};
-  if (l.nomeConfirmacao.trim().toLowerCase() !== lider.nomeCompleto.trim().toLowerCase())
+  if (
+    normalizeNomeComparacao(l.nomeConfirmacao) !==
+    normalizeNomeComparacao(lider.nomeCompleto)
+  )
     e.nomeConfirmacao = "Deve bater com o nome completo do líder.";
   if (l.cpfConfirmacao.replace(/\D/g, "") !== lider.cpf.replace(/\D/g, ""))
     e.cpfConfirmacao = "Deve bater com o CPF do líder.";

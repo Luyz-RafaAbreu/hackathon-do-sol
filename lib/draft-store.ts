@@ -37,9 +37,11 @@ export async function getDraft(email: string): Promise<unknown | null> {
   if (!redis) return null;
   try {
     return await redis.get(key(email));
-  } catch {
+  } catch (err) {
     // Se Upstash estiver fora, o client cai pro localStorage. Não derruba
-    // a UX por causa de uma feature de comodidade.
+    // a UX por causa de uma feature de comodidade — mas loga, senão uma
+    // queda do Upstash fica 100% invisível.
+    console.error("[draft-store] getDraft falhou:", err);
     return null;
   }
 }
@@ -49,8 +51,10 @@ export async function setDraft(email: string, state: unknown): Promise<void> {
   if (!redis) return;
   try {
     await redis.set(key(email), state, { ex: TTL_SECONDS });
-  } catch {
-    /* silencioso — ver acima */
+  } catch (err) {
+    // Não derruba a UX (o client tem localStorage), mas loga — uma falha
+    // silenciosa aqui faz o rascunho cross-device sumir sem deixar rastro.
+    console.error("[draft-store] setDraft falhou:", err);
   }
 }
 
@@ -59,7 +63,7 @@ export async function deleteDraft(email: string): Promise<void> {
   if (!redis) return;
   try {
     await redis.del(key(email));
-  } catch {
-    /* */
+  } catch (err) {
+    console.error("[draft-store] deleteDraft falhou:", err);
   }
 }

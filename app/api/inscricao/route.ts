@@ -8,6 +8,7 @@ import {
   validateAll,
 } from "@/lib/inscricao-schema";
 import { getInscriptionsStatus } from "@/lib/inscriptions";
+import { deleteDraft } from "@/lib/draft-store";
 
 export const runtime = "nodejs";
 // Cobre a verificação Turnstile + 1 chamada ao Apps Script (timeout de 22s).
@@ -332,6 +333,14 @@ export async function POST(req: Request) {
       }
       console.error("[inscricao] Apps Script retornou erro:", result?.error);
       return bad("Sua inscrição não pôde ser registrada. Tente novamente.", 502);
+    }
+
+    // Inscrição confirmada — apaga o rascunho do servidor (Upstash) aqui, de
+    // forma confiável. O client também faz um DELETE best-effort, mas se a
+    // rede dele falhar nesse instante o rascunho ficaria órfão e poderia
+    // reaparecer em outro dispositivo. deleteDraft nunca lança.
+    if (leaderGoogleEmail) {
+      await deleteDraft(leaderGoogleEmail);
     }
 
     return NextResponse.json({
