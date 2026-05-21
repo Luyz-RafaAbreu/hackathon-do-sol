@@ -7,6 +7,7 @@ import {
   normalizeForm,
   validateAll,
 } from "@/lib/inscricao-schema";
+import { getInscriptionsStatus } from "@/lib/inscriptions";
 
 export const runtime = "nodejs";
 // Cobre a verificação Turnstile + 1 chamada ao Apps Script (timeout de 22s).
@@ -181,6 +182,19 @@ export async function POST(req: Request) {
     );
   }
 
+  // Inscrições encerradas? Barra antes de qualquer trabalho. A página esconde
+  // o formulário, mas quem mantém a aba aberta — ou chama a API direto — não
+  // passa pela checagem do front; a borda precisa barrar também. O Apps Script
+  // ainda revalida com a fonte autoritativa (checkbox da planilha).
+  const statusInscricoes = await getInscriptionsStatus();
+  if (!statusInscricoes.open) {
+    return bad(
+      statusInscricoes.message ||
+        "As inscrições do Hackathon do Sol estão encerradas.",
+      403
+    );
+  }
+
   // Lê o body com cap de tamanho — defesa contra payload absurdo. Content-Length
   // é mentiroso na borda (cliente pode mandar qualquer coisa); medimos o texto
   // real depois de ler.
@@ -306,6 +320,14 @@ export async function POST(req: Request) {
         return bad(
           "Um dos e-mails informados já foi usado em outra inscrição. Entre em contato com a organização se não foi você.",
           409
+        );
+      }
+      if (result?.error === "inscriptions_closed") {
+        // Backstop autoritativo do Apps Script — só chega aqui se a checagem
+        // do proxy passou (janela de cache) mas a planilha já estava fechada.
+        return bad(
+          "As inscrições do Hackathon do Sol estão encerradas.",
+          403
         );
       }
       console.error("[inscricao] Apps Script retornou erro:", result?.error);

@@ -1847,6 +1847,23 @@ function doGet() {
   }
 }
 
+// Lê o flag de inscrições abertas/fechadas (checkbox B1 da aba Configurações)
+// — mesma fonte que o doGet expõe pro site. Em caso de erro de leitura,
+// devolve true (fail-open): não bloqueia inscrição legítima por um problema
+// transitório da planilha; o proxy Next e o prazo do Edital são as outras
+// camadas de defesa.
+function inscricoesAbertas_() {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet()
+      .getSheetByName(CONFIG.CONFIG_SHEET_NAME);
+    if (!sheet) return true;
+    return sheet.getRange("B1").getValue() === true;
+  } catch (err) {
+    console.error("inscricoesAbertas_ falhou:", err);
+    return true;
+  }
+}
+
 // ============================================================================
 // doPost — recebe inscrições do Next.js
 // ============================================================================
@@ -1900,6 +1917,13 @@ function doPost(e) {
     // pra manter compat com payloads antigos).
     if (data && data.action === "status") {
       return handleStatusQuery_({ googleId: data.googleId, email: data.email });
+    }
+
+    // Inscrições encerradas? Barra aqui — esta é a fonte autoritativa
+    // (checkbox B1 da aba Configurações). O proxy Next também checa, mas esta
+    // camada não dá pra burlar nem fica defasada por cache.
+    if (!inscricoesAbertas_()) {
+      return jsonResponse({ ok: false, error: "inscriptions_closed" });
     }
 
     // Validação estrutural mínima — defesa caso o Next seja burlado
