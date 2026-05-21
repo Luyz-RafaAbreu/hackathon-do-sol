@@ -272,12 +272,18 @@ export default function Inscricao() {
   // Sinaliza que o effect de restore já rodou. Necessário pra orquestrar o
   // pre-fill via Google sem race condition (o pre-fill espera o draft terminar).
   const [draftChecked, setDraftChecked] = useState(false);
+  // Indicador visual de salvamento do rascunho ("idle" até a 1ª edição).
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
+    "idle"
+  );
   const { data: session } = useSession();
   const { markInscrito } = useInscricaoStatus();
   const messageRef = useRef<HTMLDivElement | null>(null);
   // Cache de cidades do IBGE por UF — evita rede repetida quando o usuário
   // troca de UF e volta. Compartilhado entre todos os selects de cidade do form.
   const cacheCidadesRef = useRef<Record<string, string[]>>({});
+  // Pula o 1º disparo do indicador de salvamento (o mount) — ver effect abaixo.
+  const firstSaveSkip = useRef(true);
 
   // Restore draft on mount — tenta localStorage primeiro (instantâneo) e em
   // paralelo busca do servidor (Upstash). Se localStorage tava vazio E o
@@ -413,6 +419,22 @@ export default function Inscricao() {
     }, 2000);
     return () => window.clearTimeout(id);
   }, [state, draftChecked, session]);
+
+  // Feedback visual de salvamento. O salvamento em si já acontece no effect
+  // acima (localStorage é instantâneo); aqui só refletimos isso na UI:
+  // "salvando" enquanto a pessoa digita, "salvo" ~800ms após a última tecla.
+  // firstSaveSkip pula o disparo do mount (quando draftChecked vira true) pra
+  // o indicador só aparecer depois de uma edição real.
+  useEffect(() => {
+    if (!draftChecked) return;
+    if (firstSaveSkip.current) {
+      firstSaveSkip.current = false;
+      return;
+    }
+    setSaveState("saving");
+    const id = window.setTimeout(() => setSaveState("saved"), 800);
+    return () => window.clearTimeout(id);
+  }, [state, draftChecked]);
 
   // Scroll into view do header da etapa — disparado direto no click de
   // Continuar/Voltar (ver goNext/goBack abaixo). Antes era um useEffect em
@@ -873,6 +895,33 @@ export default function Inscricao() {
           </div>
         )}
       </form>
+
+      {/* Indicador de salvamento — popup pequeno e translúcido no canto
+          inferior esquerdo. "Salvando…" fica visível enquanto a pessoa
+          digita; ao virar "Progresso salvo", some sozinho com um fade lento
+          (opacidade → 0 em 2s). pointer-events-none: nunca bloqueia cliques. */}
+      <div
+        aria-hidden
+        className={`fixed bottom-4 left-4 z-30 pointer-events-none flex items-center gap-1 rounded-full border border-white/10 bg-sol-bgDeep/55 px-2.5 py-1 text-[0.625rem] font-normal normal-case tracking-normal text-white/45 backdrop-blur-sm transition-opacity ${
+          saveState === "saving"
+            ? "opacity-70 duration-300"
+            : saveState === "saved"
+            ? "opacity-0 duration-[2000ms]"
+            : "opacity-0 duration-300"
+        }`}
+      >
+        {saveState === "saving" ? (
+          "Salvando…"
+        ) : (
+          <>
+            <Check
+              className="w-2.5 h-2.5 text-sol-orange/70"
+              strokeWidth={2.5}
+            />
+            Progresso salvo
+          </>
+        )}
+      </div>
     </section>
   );
 }

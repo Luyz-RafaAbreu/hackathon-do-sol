@@ -70,6 +70,16 @@ export default function InscricaoIntro({
           </div>
         ))}
       </div>
+
+      {/* Expectativa antes do formulário longo: avisa que é inscrição por
+          equipe — bom juntar os dados dos 4 antes de começar. O auto-save
+          já é comunicado no modal de login e no indicador do wizard. */}
+      {inscriptionsOpen && (
+        <p className="mt-4 max-w-xl mx-auto text-xs md:text-sm text-white/55 leading-relaxed">
+          Inscrição por equipe de 4 integrantes — vale juntar os dados de
+          todos antes de começar.
+        </p>
+      )}
     </section>
   );
 }
