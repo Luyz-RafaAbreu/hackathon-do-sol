@@ -2091,7 +2091,10 @@ function InstituicaoField({
             <li
               key={`${s.sigla || ""}-${s.nome}-${s.municipio}-${i}`}
               role="option"
-              aria-selected={value === makeDisplay(s)}
+              // Compara também o município: instituições com vários campi
+              // têm a mesma sigla/nome, então só makeDisplay marcaria todos
+              // os campi como selecionados ao reabrir o dropdown.
+              aria-selected={value === makeDisplay(s) && municipio === s.municipio}
               onMouseDown={(e) => {
                 // mousedown (não click) pra disparar antes do blur do input.
                 e.preventDefault();
@@ -2116,7 +2119,7 @@ function InstituicaoField({
       )}
       {uf && municipio && (
         <p className="mt-1 text-xs text-white/55 normal-case tracking-normal font-normal">
-          Sede: {municipio}/{uf}
+          Unidade: {municipio}/{uf}
         </p>
       )}
     </div>
