@@ -218,8 +218,9 @@ export default function Header({
         }`}
         aria-hidden={!open}
       >
-        {/* fundo semi-transparente com blur — combina com a estética do site */}
-        <div className="absolute inset-0 bg-sol-bgDeep/75 backdrop-blur-2xl" />
+        {/* fundo quase opaco com blur — mantém o toque de vidro sem deixar o
+            Hero (logo, cards, contador) vazar atrás e atrapalhar a leitura. */}
+        <div className="absolute inset-0 bg-sol-bgDeep/95 backdrop-blur-2xl" />
         {/* gradientes decorativos pra textura */}
         <div className="absolute inset-0 bg-gradient-to-b from-sol-purple/15 via-transparent to-sol-pink/5" />
         <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[80%] h-40 bg-sol-orange/10 blur-3xl pointer-events-none" />
