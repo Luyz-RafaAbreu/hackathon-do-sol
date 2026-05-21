@@ -46,6 +46,7 @@ import {
   formatCPF,
   formatCEP,
   formatPhoneBR,
+  sanitizeDraft,
   validateAceitesColetivos,
   validateEquipe,
   validateIntegrante,
@@ -292,9 +293,16 @@ export default function Inscricao() {
 
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as InscricaoFormState;
-        if (parsed && parsed.equipe && Array.isArray(parsed.integrantes)) {
-          setState(parsed);
+        const parsed: unknown = JSON.parse(raw);
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          "equipe" in parsed &&
+          "integrantes" in parsed
+        ) {
+          // sanitizeDraft devolve sempre um estado íntegro — um rascunho
+          // truncado/corrompido vira defaults em vez de quebrar o wizard.
+          setState(sanitizeDraft(parsed));
           setDraftRestored(true);
           localHadDraft = true;
           window.setTimeout(() => setDraftRestored(false), 6000);
@@ -324,11 +332,13 @@ export default function Inscricao() {
         if (cancelled) return;
         if (
           data.draft &&
+          typeof data.draft === "object" &&
           !localHadDraft &&
-          data.draft.equipe &&
-          Array.isArray(data.draft.integrantes)
+          "equipe" in data.draft &&
+          "integrantes" in data.draft
         ) {
-          setState(data.draft);
+          // Mesmo do localStorage: sanitiza antes de aplicar ao estado.
+          setState(sanitizeDraft(data.draft));
           setDraftRestored(true);
           window.setTimeout(() => setDraftRestored(false), 6000);
         }

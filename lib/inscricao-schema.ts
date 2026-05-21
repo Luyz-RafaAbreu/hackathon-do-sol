@@ -660,6 +660,122 @@ export const INITIAL_FORM_STATE: InscricaoFormState = {
 };
 
 // =============================================================================
+// SANITIZAÇÃO DE RASCUNHO
+// -----------------------------------------------------------------------------
+// Um rascunho restaurado (do localStorage ou do servidor) é dado NÃO confiável:
+// pode estar truncado, vir de uma versão antiga ou ter sido adulterado.
+// `sanitizeDraft` faz um merge sobre o estado inicial — cada campo válido do
+// rascunho é aproveitado; o que estiver faltando ou com tipo errado cai no
+// padrão. Sempre devolve um InscricaoFormState íntegro (4 integrantes, todos
+// os objetos no lugar), então o wizard nunca quebra com tela branca e o
+// usuário não perde o que já tinha digitado de válido.
+// =============================================================================
+
+function pickString(
+  src: Record<string, unknown>,
+  key: string,
+  fallback: string
+): string {
+  return typeof src[key] === "string" ? (src[key] as string) : fallback;
+}
+
+// Merge de um mapa de aceites (Record<string, boolean>) sobre o padrão:
+// só copia chaves conhecidas cujo valor seja booleano.
+function mergeAceites(
+  def: Record<string, boolean>,
+  raw: unknown
+): Record<string, boolean> {
+  const out: Record<string, boolean> = { ...def };
+  if (raw && typeof raw === "object") {
+    const r = raw as Record<string, unknown>;
+    for (const key of Object.keys(def)) {
+      if (typeof r[key] === "boolean") out[key] = r[key] as boolean;
+    }
+  }
+  return out;
+}
+
+function sanitizeIntegrante(raw: unknown): IntegranteState {
+  const base = createInitialIntegrante();
+  if (!raw || typeof raw !== "object") return base;
+  const r = raw as Record<string, unknown>;
+  const out: Record<string, unknown> = { ...base };
+  // Todos os campos do integrante são string, exceto `areasConhecimento`
+  // (array) e `aceites` (objeto) — tratados à parte.
+  for (const key of Object.keys(base)) {
+    if (key === "aceites" || key === "areasConhecimento") continue;
+    if (typeof r[key] === "string") out[key] = r[key];
+  }
+  out.areasConhecimento = Array.isArray(r.areasConhecimento)
+    ? (r.areasConhecimento as unknown[]).filter((x) => typeof x === "string")
+    : base.areasConhecimento;
+  out.aceites = mergeAceites(base.aceites, r.aceites);
+  return out as IntegranteState;
+}
+
+export function sanitizeDraft(raw: unknown): InscricaoFormState {
+  const r: Record<string, unknown> =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+
+  const re: Record<string, unknown> =
+    r.equipe && typeof r.equipe === "object"
+      ? (r.equipe as Record<string, unknown>)
+      : {};
+  const li = re.liderIndex;
+  const equipe: EquipeState = {
+    nome: pickString(re, "nome", ""),
+    slogan: pickString(re, "slogan", ""),
+    cidade: pickString(re, "cidade", ""),
+    estado: pickString(re, "estado", ""),
+    emailOficial: pickString(re, "emailOficial", ""),
+    telefone: pickString(re, "telefone", ""),
+    trilha: pickString(re, "trilha", ""),
+    liderIndex: li === 1 ? 1 : li === 2 ? 2 : li === 3 ? 3 : 0,
+  };
+
+  const rawInts = Array.isArray(r.integrantes) ? r.integrantes : [];
+  const integrantes: [
+    IntegranteState,
+    IntegranteState,
+    IntegranteState,
+    IntegranteState
+  ] = [
+    sanitizeIntegrante(rawInts[0]),
+    sanitizeIntegrante(rawInts[1]),
+    sanitizeIntegrante(rawInts[2]),
+    sanitizeIntegrante(rawInts[3]),
+  ];
+
+  const rp: Record<string, unknown> =
+    r.proposta && typeof r.proposta === "object"
+      ? (r.proposta as Record<string, unknown>)
+      : {};
+  const proposta: PropostaState = {
+    ideiaDiferencial: pickString(rp, "ideiaDiferencial", ""),
+    problemaPublico: pickString(rp, "problemaPublico", ""),
+    aderencia: pickString(rp, "aderencia", ""),
+    tecnologias: pickString(rp, "tecnologias", ""),
+  };
+
+  const aceitesColetivos = mergeAceites(
+    INITIAL_ACEITES_COLETIVOS,
+    r.aceitesColetivos
+  );
+
+  const rl: Record<string, unknown> =
+    r.liderConfirmacao && typeof r.liderConfirmacao === "object"
+      ? (r.liderConfirmacao as Record<string, unknown>)
+      : {};
+  const liderConfirmacao: LiderConfirmacaoState = {
+    nomeConfirmacao: pickString(rl, "nomeConfirmacao", ""),
+    cpfConfirmacao: pickString(rl, "cpfConfirmacao", ""),
+    aceiteFinal: typeof rl.aceiteFinal === "boolean" ? rl.aceiteFinal : false,
+  };
+
+  return { equipe, integrantes, proposta, aceitesColetivos, liderConfirmacao };
+}
+
+// =============================================================================
 // LIMITES DE TAMANHO POR CAMPO
 // -----------------------------------------------------------------------------
 // Usado em `maxLength` nos inputs E em validação server-side. Mantém o payload
