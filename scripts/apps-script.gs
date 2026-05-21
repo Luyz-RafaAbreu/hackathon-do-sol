@@ -757,15 +757,19 @@ function atualizarCotaEmail() {
   const quando = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm");
 
   // E-mails restantes — verde/laranja/vermelho conforme a folga.
+  // setNumberFormat("0") força exibição como número inteiro — sem isso a
+  // célula pode herdar formato de data e mostrar "30/12/1899" no lugar do 0.
   const corCota = restantes >= 30 ? "#15803d" : restantes >= 10 ? "#b45309" : "#b91c1c";
   sheet.getRange("B" + COTA_LABEL_ROW)
     .setValue(restantes)
+    .setNumberFormat("0")
     .setFontWeight("bold").setFontSize(14).setFontColor(corCota)
     .setHorizontalAlignment("center");
 
   // Na fila — 0 é verde (nada pendente); >0 laranja (tem reenvio em espera).
   sheet.getRange("B" + COTA_FILA_ROW)
     .setValue(naFila)
+    .setNumberFormat("0")
     .setFontWeight("bold").setFontSize(14)
     .setFontColor(naFila === 0 ? "#15803d" : "#b45309")
     .setHorizontalAlignment("center");
