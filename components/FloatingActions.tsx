@@ -5,6 +5,8 @@ import MagneticButton from "./MagneticButton";
 
 export default function FloatingActions() {
   const [showTop, setShowTop] = useState(false);
+  const [atFooter, setAtFooter] = useState(false);
+  const [isNarrow, setIsNarrow] = useState(false);
 
   useEffect(() => {
     let ticking = false;
@@ -22,8 +24,37 @@ export default function FloatingActions() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Observa o rodapé: quando ele entra na tela, `atFooter` vira true.
+  useEffect(() => {
+    const footer = document.querySelector("footer");
+    if (!footer) return;
+    const io = new IntersectionObserver(([entry]) =>
+      setAtFooter(entry.isIntersecting)
+    );
+    io.observe(footer);
+    return () => io.disconnect();
+  }, []);
+
+  // Largura de mobile (< md = 768px). No desktop sobra largura e os botões
+  // não encostam no texto do rodapé, então lá eles ficam sempre visíveis.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsNarrow(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  // Só some quando é mobile E o rodapé está visível — ali os botões ficariam
+  // sobre o texto do rodapé.
+  const hidden = atFooter && isNarrow;
+
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <div
+      className={`fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 transition-all duration-300 ${
+        hidden ? "opacity-0 pointer-events-none" : ""
+      }`}
+    >
       {/* Back to top */}
       <MagneticButton
         strength={10}
