@@ -551,19 +551,143 @@ function setupConfigSheet() {
 }
 
 // ============================================================================
-// MONITOR DE COTA DE E-MAIL — mostra na aba Configurações quantos e-mails
-// ainda dá pra enviar hoje (MailApp.getRemainingDailyQuota).
+// MONITOR DE COTA DE E-MAIL + FILA DE REENVIO
 // ----------------------------------------------------------------------------
-// Conta Gmail comum tem cota de 100 destinatários/dia; cada inscrição dispara
-// 1 e-mail de confirmação pro líder. Esse painel deixa a organização de olho
-// em dias de pico. O número se atualiza sozinho de hora em hora (gatilho
-// time-based) e pode ser forçado pelo menu "Hackathon do Sol".
+// Conta Gmail comum tem cota de 100 e-mails/dia. Cada inscrição dispara 1
+// e-mail de confirmação; aprovação/reprovação disparam mais 1 cada. Duas
+// peças trabalham juntas:
+//   • Painel na aba Configurações — quantos e-mails restam hoje e quantos
+//     estão na fila de reenvio. Atualiza sozinho de hora em hora.
+//   • Fila de reenvio (aba oculta "Fila de e-mails") — se a cota estourar,
+//     o e-mail entra na fila em vez de se perder, e um gatilho a cada 4h
+//     reenvia tudo assim que a cota liberar. Nenhum e-mail é perdido.
+// Rode instalarMonitorCotaEmail() 1x pra montar tudo.
 // ============================================================================
 const COTA_LABEL_ROW = 6; // Configurações!A6/B6 — "E-mails restantes hoje"
-const COTA_TIME_ROW = 7;  // Configurações!A7/B7 — "Atualizado em"
+const COTA_FILA_ROW = 7;  // Configurações!A7/B7 — "Na fila p/ reenvio"
+const COTA_TIME_ROW = 8;  // Configurações!A8/B8 — "Atualizado em"
 
-// Rode 1x pra adicionar o painel de cota na aba Configurações e instalar o
-// gatilho horário. Idempotente — pode rodar de novo sem efeito colateral.
+const FILA_SHEET_NAME = "Fila de e-mails";
+const FILA_HEADERS = [
+  "Status", "Tipo", "Destinatário", "Equipe", "Líder",
+  "Enfileirado em", "Tentativas", "Resultado",
+];
+
+// Pega (ou cria) a aba oculta da fila de reenvio.
+function getOrCreateFilaSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(FILA_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(FILA_SHEET_NAME);
+    sheet.getRange(1, 1, 1, FILA_HEADERS.length).setValues([FILA_HEADERS]);
+    sheet.getRange(1, 1, 1, FILA_HEADERS.length)
+      .setFontWeight("bold").setBackground("#7c2d12").setFontColor("#ffffff");
+    sheet.setFrozenRows(1);
+    sheet.hideSheet();
+  }
+  return sheet;
+}
+
+// Dispara o e-mail do tipo certo. Lança exceção se o envio falhar (cota/erro).
+function despacharEmail_(tipo, email, equipeNome, liderNome) {
+  if (tipo === "confirmacao") {
+    sendConfirmationEmail_([email], equipeNome);
+  } else if (tipo === "aprovacao") {
+    sendApprovalEmail_([email], equipeNome, liderNome);
+  } else if (tipo === "reprovacao") {
+    sendRejectionEmail_([email], equipeNome, liderNome);
+  } else {
+    throw new Error("Tipo de e-mail desconhecido: " + tipo);
+  }
+}
+
+// Acrescenta um e-mail à fila de reenvio.
+function enfileirarEmail_(tipo, email, equipeNome, liderNome, erro) {
+  getOrCreateFilaSheet_().appendRow([
+    "Pendente",
+    tipo,
+    email,
+    equipeNome || "",
+    liderNome || "",
+    Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm"),
+    1,
+    "Falhou no 1º envio: " + (erro || ""),
+  ]);
+}
+
+// Envia um e-mail; se falhar (cota estourada ou erro transitório), guarda na
+// fila pra reenvio automático. NUNCA lança — garante que o fluxo que chamou
+// (inscrição, mudança de status) não quebre e que o e-mail não se perca.
+function enviarComFila_(tipo, email, equipeNome, liderNome) {
+  if (!email) return;
+  try {
+    despacharEmail_(tipo, email, equipeNome, liderNome);
+  } catch (errEnvio) {
+    console.error("Envio de e-mail falhou (" + tipo + "), enfileirando:", errEnvio);
+    try {
+      enfileirarEmail_(tipo, email, equipeNome, liderNome, String(errEnvio));
+    } catch (errFila) {
+      console.error("CRÍTICO: falha ao enfileirar e-mail:", errFila);
+    }
+  }
+}
+
+// Conta quantos e-mails estão "Pendente" na fila.
+function contarFilaPendentes_() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FILA_SHEET_NAME);
+  if (!sheet) return 0;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  const status = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  let n = 0;
+  for (let i = 0; i < status.length; i++) {
+    if (String(status[i][0]).trim() === "Pendente") n++;
+  }
+  return n;
+}
+
+// Esvazia a fila — reenvia os e-mails pendentes até a cota do dia acabar.
+// Roda por gatilho (a cada 4h) e pelo menu. Os que não couberem na cota de
+// hoje continuam "Pendente" e saem no próximo ciclo. É seguro rodar enquanto
+// chegam inscrições: appendRow só acrescenta no fim e não desloca as linhas
+// já lidas — uma linha nova entra no ciclo seguinte.
+function processarFilaEmails() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(FILA_SHEET_NAME);
+  if (sheet) {
+    const lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      const dados = sheet.getRange(2, 1, lastRow - 1, FILA_HEADERS.length).getValues();
+      let cota = MailApp.getRemainingDailyQuota();
+      for (let i = 0; i < dados.length; i++) {
+        if (String(dados[i][0]).trim() !== "Pendente") continue;
+        if (cota < 1) break; // cota do dia acabou — resto fica pro próximo ciclo
+        const linha = i + 2;
+        try {
+          despacharEmail_(
+            String(dados[i][1]).trim(),
+            String(dados[i][2]).trim(),
+            String(dados[i][3]),
+            String(dados[i][4])
+          );
+          cota--;
+          sheet.getRange(linha, 1).setValue("Enviado");
+          sheet.getRange(linha, 8).setValue(
+            "Enviado em " +
+              Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm")
+          );
+        } catch (err) {
+          sheet.getRange(linha, 7).setValue((Number(dados[i][6]) || 0) + 1);
+          sheet.getRange(linha, 8).setValue("Falhou: " + err);
+          // segue "Pendente" — tenta de novo no próximo ciclo
+        }
+      }
+    }
+  }
+  atualizarCotaEmail(); // reflete o resultado no painel
+}
+
+// Rode 1x pra montar o painel na aba Configurações, criar a aba da fila e
+// instalar os gatilhos. Idempotente — pode rodar de novo sem efeito colateral.
 function instalarMonitorCotaEmail() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(CONFIG.CONFIG_SHEET_NAME);
@@ -576,60 +700,87 @@ function instalarMonitorCotaEmail() {
 
   // Rótulos na coluna A — mesmo estilo roxo das linhas 1-2.
   sheet.getRange("A" + COTA_LABEL_ROW).setValue("E-mails restantes hoje");
+  sheet.getRange("A" + COTA_FILA_ROW).setValue("Na fila p/ reenvio");
   sheet.getRange("A" + COTA_TIME_ROW).setValue("Atualizado em");
   sheet.getRange("A" + COTA_LABEL_ROW + ":A" + COTA_TIME_ROW)
     .setFontWeight("bold").setBackground("#4c1d95").setFontColor("#ffffff")
     .setVerticalAlignment("middle");
 
-  sheet.getRange("A" + (COTA_TIME_ROW + 1)).setValue(
-    "ℹ Cota do Gmail comum: 100 e-mails/dia, zera ~24h após o 1º envio. " +
-    "Atualiza sozinho a cada hora — ou use o menu \"Hackathon do Sol\"."
-  ).setFontColor("#666666").setFontStyle("italic");
+  // Nota explicativa (mesclada A:B pra o texto caber e quebrar bonito).
+  const notaRow = COTA_TIME_ROW + 1;
+  sheet.getRange("A" + notaRow + ":B" + notaRow).merge();
+  sheet.getRange("A" + notaRow).setValue(
+    "ℹ Cota do Gmail comum: 100 e-mails/dia, renova ~24h após o 1º e-mail do " +
+    "dia (não é meia-noite fixa). Se a cota estourar, a inscrição é salva " +
+    "normalmente e o e-mail entra na fila — reenviado automaticamente assim " +
+    "que a cota liberar. Nenhum e-mail é perdido."
+  ).setFontColor("#666666").setFontStyle("italic")
+    .setWrap(true).setVerticalAlignment("top");
+  sheet.setRowHeight(notaRow, 80);
 
-  // Gatilho horário — instala uma vez só, sem duplicar.
-  const jaTem = ScriptApp.getProjectTriggers().some(function (t) {
-    return t.getHandlerFunction() === "atualizarCotaEmail";
-  });
-  if (!jaTem) {
+  getOrCreateFilaSheet_(); // cria a aba oculta da fila
+
+  // Gatilhos (1x cada, sem duplicar): painel de hora em hora, fila a cada 4h.
+  const triggers = ScriptApp.getProjectTriggers();
+  const temTrigger = function (nome) {
+    return triggers.some(function (t) { return t.getHandlerFunction() === nome; });
+  };
+  if (!temTrigger("atualizarCotaEmail")) {
     ScriptApp.newTrigger("atualizarCotaEmail").timeBased().everyHours(1).create();
+  }
+  if (!temTrigger("processarFilaEmails")) {
+    ScriptApp.newTrigger("processarFilaEmails").timeBased().everyHours(4).create();
   }
 
   atualizarCotaEmail(); // popula o painel agora
 
   const msg =
-    "✓ Monitor de cota de e-mail pronto.\n\n" +
-    "Veja na aba \"" + CONFIG.CONFIG_SHEET_NAME + "\" (linha " + COTA_LABEL_ROW +
-    ") quantos e-mails ainda dá pra enviar hoje. Atualiza sozinho de hora em " +
-    "hora; recarregue a planilha pra o menu \"Hackathon do Sol\" aparecer.";
+    "✓ Monitor de cota + fila de reenvio prontos.\n\n" +
+    "Na aba \"" + CONFIG.CONFIG_SHEET_NAME + "\" você vê quantos e-mails restam " +
+    "hoje e quantos estão na fila de reenvio.\n\n" +
+    "Se a cota de 100/dia estourar, os e-mails entram na fila (aba oculta " +
+    "\"" + FILA_SHEET_NAME + "\") e são reenviados sozinhos — nenhum se perde.\n\n" +
+    "Recarregue a planilha pra o menu \"Hackathon do Sol\" aparecer.";
   try { SpreadsheetApp.getUi().alert(msg); } catch (e) { console.log(msg); }
 }
 
-// Lê a cota restante do Gmail e escreve na aba Configurações. Chamada pelo
-// gatilho horário, pelo menu e pelo instalador.
+// Atualiza o painel da aba Configurações: e-mails restantes hoje + quantos
+// estão na fila + horário. Chamada pelo gatilho horário, pelo menu, pelo
+// instalador e ao fim de processarFilaEmails.
 function atualizarCotaEmail() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet()
     .getSheetByName(CONFIG.CONFIG_SHEET_NAME);
   if (!sheet) return;
 
   const restantes = MailApp.getRemainingDailyQuota();
+  const naFila = contarFilaPendentes_();
   const quando = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm");
 
-  // Verde tranquilo / laranja atenção / vermelho perto do limite.
-  const cor = restantes >= 30 ? "#15803d" : restantes >= 10 ? "#b45309" : "#b91c1c";
+  // E-mails restantes — verde/laranja/vermelho conforme a folga.
+  const corCota = restantes >= 30 ? "#15803d" : restantes >= 10 ? "#b45309" : "#b91c1c";
   sheet.getRange("B" + COTA_LABEL_ROW)
     .setValue(restantes)
-    .setFontWeight("bold").setFontSize(14).setFontColor(cor)
+    .setFontWeight("bold").setFontSize(14).setFontColor(corCota)
     .setHorizontalAlignment("center");
+
+  // Na fila — 0 é verde (nada pendente); >0 laranja (tem reenvio em espera).
+  sheet.getRange("B" + COTA_FILA_ROW)
+    .setValue(naFila)
+    .setFontWeight("bold").setFontSize(14)
+    .setFontColor(naFila === 0 ? "#15803d" : "#b45309")
+    .setHorizontalAlignment("center");
+
   sheet.getRange("B" + COTA_TIME_ROW).setValue(quando);
 }
 
 // Menu custom da planilha. onOpen é simple trigger: roda ao abrir e só monta
-// o menu (não precisa de autorização). O item, quando clicado, roda
-// atualizarCotaEmail com permissão total.
+// o menu (não precisa de autorização). Os itens, quando clicados, rodam com
+// permissão total.
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Hackathon do Sol")
     .addItem("Atualizar cota de e-mail", "atualizarCotaEmail")
+    .addItem("Reenviar e-mails pendentes agora", "processarFilaEmails")
     .addToUi();
 }
 
@@ -1836,13 +1987,16 @@ function doPost(e) {
     // Confirma por e-mail SÓ pro líder, no e-mail da conta Google que ele
     // usou pra logar no site. Decisão deliberada: emails do form ficam só
     // pra registro; comunicação oficial vai 1:1 pro líder.
+    // enviarComFila_: se a cota de e-mail estourar, entra na fila de reenvio
+    // automático em vez de se perder. O try/catch é só defesa extra — um
+    // e-mail jamais pode derrubar uma inscrição que já foi gravada.
     try {
       const leaderEmail = String(data.leaderGoogleEmail || "").trim();
       if (leaderEmail) {
-        sendConfirmationEmail_([leaderEmail], data.equipe.nome);
+        enviarComFila_("confirmacao", leaderEmail, data.equipe.nome, "");
       }
     } catch (errMail) {
-      console.error("Falha ao enviar e-mail de confirmação:", errMail);
+      console.error("Falha inesperada no e-mail de confirmação:", errMail);
     }
 
     return jsonResponse({ ok: true });
@@ -2214,8 +2368,13 @@ function processStatusEdit_(inscricoesRow, oldValueRaw, source, triagemRow) {
     if (lastType === newStatus) return;
   }
 
-  if (newStatus === "Aprovado") sendApprovalEmail_(emails, equipeNome, liderNome);
-  else sendRejectionEmail_(emails, equipeNome, liderNome);
+  // enviarComFila_: se a cota de e-mail estourar, o e-mail de aprovação/
+  // reprovação entra na fila de reenvio automático em vez de se perder.
+  if (newStatus === "Aprovado") {
+    enviarComFila_("aprovacao", emails[0], equipeNome, liderNome);
+  } else {
+    enviarComFila_("reprovacao", emails[0], equipeNome, liderNome);
+  }
 
   const tipo = newStatus === "Aprovado" ? "Aprovação" : "Reprovação";
   inscricoes.getRange(inscricoesRow, EMAIL_SENT_COL).setValue(
