@@ -46,7 +46,7 @@ A inscrição é **por equipe de 4 integrantes** (item 4.5 do Edital), não indi
 - Mudanças em `apps-script.gs` se propagam via `npm run apps-script:deploy` (push + redeploy mantendo a URL do web app). Nunca usar "Nova implantação" pela UI — isso muda a URL e quebra o `.env.local`.
 
 ### Sem upload de arquivos
-A inscrição V2 (por equipe) substituiu uploads por **links** (LinkedIn obrigatório + portfólio opcional por integrante). O LinkedIn é usado pra análise no processo seletivo (item 3.3.1.a do Edital). Sem uploads, o teto de 4.5 MB do Vercel Hobby deixa de ser preocupação — payload típico fica em ~30 KB.
+A inscrição V2 (por equipe) substituiu uploads por **links** (LinkedIn e portfólio **opcionais** por integrante). O LinkedIn, quando informado, serve pra análise no processo seletivo (item 3.3.1.a do Edital), mas a equipe decidiu mantê-lo opcional pra reduzir fricção no formulário — `validateIntegrante()` em `lib/inscricao-schema.ts` só valida o formato se algo for digitado. Sem uploads, o teto de 4.5 MB do Vercel Hobby deixa de ser preocupação — payload típico fica em ~30 KB.
 
 ### Rate limiting é por instância
 `rateLimitStore` é um `Map` em memória. Em serverless (Vercel) cada instância tem o próprio store, então o limite real é maior que `RATE_LIMIT_MAX = 5/h`. Suficiente pro caso de uso, mas não confunda com proteção global. Pra defesa séria, migrar pra Upstash/Vercel KV.
