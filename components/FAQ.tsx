@@ -44,7 +44,7 @@ const faqs = [
   },
   {
     q: "Qual é a premiação?",
-    a: "Premiação total de R$ 21 mil em prêmios, distribuída entre as equipes campeãs do evento. As equipes vencedoras também recebem um programa de mentoria gratuito de 2 meses após o evento. O detalhamento completo da premiação está no Edital.",
+    a: "Premiação total de R$ 21 mil em prêmios. Cada uma das 3 trilhas tem uma equipe campeã, que recebe R$ 3 mil em prêmios; a grande vencedora do evento leva, além disso, mais R$ 12 mil em prêmios — totalizando R$ 15 mil. As equipes vencedoras também recebem um programa de mentoria gratuito de 2 meses após o evento. O detalhamento completo está no Edital.",
   },
   {
     q: "O evento será gravado?",

@@ -45,7 +45,7 @@ const items: {
   {
     Icon: Trophy,
     title: "Premiação",
-    text: "R$ 21 mil em prêmios, distribuídos entre as equipes campeãs do evento. As vencedoras recebem mentoria gratuita de 2 meses pós-evento.",
+    text: "R$ 21 mil em prêmios: R$ 3 mil em prêmios para a campeã de cada trilha e mais R$ 12 mil em prêmios para a grande vencedora. As vencedoras recebem mentoria gratuita de 2 meses pós-evento.",
     cor: "from-sol-teal to-sol-yellow",
   },
   {

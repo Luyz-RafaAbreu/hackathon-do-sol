@@ -25,7 +25,9 @@ export default function Sobre() {
             <strong className="text-white">equipes campeãs</strong>{" "}
             dividem{" "}
             <strong className="text-sol-orange">R$ 21 mil em prêmios</strong>{" "}
-            e participam de um programa de mentoria pós-evento de dois meses.
+            — R$ 3 mil em prêmios para a campeã de cada trilha e mais R$ 12
+            mil em prêmios para a grande vencedora — e participam de um
+            programa de mentoria pós-evento de dois meses.
           </p>
         </Reveal>
 
