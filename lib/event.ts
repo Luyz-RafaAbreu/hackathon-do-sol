@@ -18,7 +18,7 @@
 
 const startDate = new Date("2026-06-26T09:00:00-03:00");
 const endDate = new Date("2026-06-28T20:00:00-03:00");
-// Item 3.3 do Edital — 05/06/2026 às 23:59 BRT é o último momento aceito.
+// Item 5.3 do Edital — 05/06/2026 às 23:59 BRT é o último momento aceito.
 const inscriptionsCloseDate = new Date("2026-06-05T23:59:59-03:00");
 
 const MONTHS_PT = [
@@ -96,7 +96,7 @@ export const EVENT = {
   PRIZE: "R$ 21 mil", // premiação total do evento (Seção 4 do Edital)
   SLOTS: 160,
 
-  // Janela de inscrições (item 2.3 do Edital — 20/05 a 05/06/2026)
+  // Janela de inscrições (item 5.3 do Edital — 20/05 a 05/06/2026)
   INSCRIPTIONS_OPEN: "20 de maio de 2026",
   INSCRIPTIONS_CLOSE: "05 de junho de 2026",
   // Mesmo valor de INSCRIPTIONS_CLOSE, mas como Date — pra comparações

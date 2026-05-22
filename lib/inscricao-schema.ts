@@ -1,6 +1,6 @@
 // Schema canônico da inscrição do Hackathon do Sol 2026.
 //
-// Esta inscrição é POR EQUIPE de 4 integrantes (item 4.5 do Edital). O schema
+// Esta inscrição é POR EQUIPE de 4 integrantes (item 6.5 do Edital). O schema
 // define os tipos, valores iniciais, opções de selects, limites de tamanho e
 // validadores puros — compartilhados entre client (components/Inscricao.tsx)
 // e server (app/api/inscricao/route.ts).
@@ -8,7 +8,7 @@
 // Aceites (cláusulas individuais e coletivas) seguem o que está descrito no
 // arquivo `Formulario_GoogleForms_Hackathon_do_Sol.gs` (fornecido pelo
 // chefe), que por sua vez referencia diretamente os itens do Edital
-// (3.1, 4.9, 4.12, 4.13.3, 4.15, 11.6, 11.7, 11.9, 12.2, 13.13, etc).
+// (5.1, 6.9, 6.12, 6.13.3, 6.15, 10.3, 11.2, 12.13, 13.6, 13.9, etc).
 //
 // O Apps Script vive no Google e não consegue importar daqui — ele mantém
 // constantes equivalentes. Se mudar algum item aqui, atualizar lá também.
@@ -367,7 +367,7 @@ export const ACEITES_INDIVIDUAIS: ReadonlyArray<Aceite> = [
     key: "maioridade",
     titulo: "Declaração de maioridade",
     texto:
-      "Declaro, sob as penas da lei, ter idade igual ou superior a 18 (dezoito) anos completos até 24 de junho de 2026 (data do credenciamento), conforme exigência do item 3.1 do Edital, e comprometo-me a apresentar documento original de identificação no credenciamento.",
+      "Declaro, sob as penas da lei, ter idade igual ou superior a 18 (dezoito) anos completos até 24 de junho de 2026 (data do credenciamento), conforme exigência do item 5.1 do Edital, e comprometo-me a apresentar documento original de identificação no credenciamento.",
   },
   {
     key: "edital",
@@ -377,37 +377,37 @@ export const ACEITES_INDIVIDUAIS: ReadonlyArray<Aceite> = [
   },
   {
     key: "lgpd",
-    titulo: "Autorização LGPD — Seção 12 do Edital",
+    titulo: "Autorização LGPD — Seção 11 do Edital",
     texto:
-      "Autorizo expressamente, nos termos da Lei nº 13.709/2018 (LGPD), o tratamento dos meus dados pessoais fornecidos neste formulário (nome, CPF, e-mail, telefone, endereço, dados profissionais, portfólio e demais informações) pela Convívia LTDA, na qualidade de controladora, para as finalidades previstas no item 12.2 do Edital. Reconheço os direitos previstos no art. 18 da LGPD.",
+      "Autorizo expressamente, nos termos da Lei nº 13.709/2018 (LGPD), o tratamento dos meus dados pessoais fornecidos neste formulário (nome, CPF, e-mail, telefone, endereço, dados profissionais, portfólio e demais informações) pela Convívia LTDA, na qualidade de controladora, para as finalidades previstas no item 11.2 do Edital. Reconheço os direitos previstos no art. 18 da LGPD.",
   },
   {
     key: "imagem",
-    titulo: "Autorização de uso de imagem, voz e participação audiovisual — Seção 13 do Edital",
+    titulo: "Autorização de uso de imagem, voz e participação audiovisual — Seção 12 do Edital",
     texto:
       "Autorizo, de forma livre, expressa, gratuita, definitiva e por prazo indeterminado, o uso da minha imagem, voz, nome, depoimentos, entrevistas, falas, reações, participação e demais elementos de identificação pessoal no documentário oficial do Hackathon do Sol, no reality show/documentário \"Inovação em Ação\", em vídeos curtos, Reels, Shorts, Stories, publicações em tempo real e em todo material de divulgação, cobertura, promoção, redes sociais, streaming, televisão e demais meios físicos ou digitais relacionados ao evento, seus realizadores, parceiros, apoiadores e patrocinadores.",
   },
   {
     key: "acomodacao",
-    titulo: "Concordância com as regras de acomodação — Item 4.13.3 do Edital",
+    titulo: "Concordância com as regras de acomodação — Item 6.13.3 do Edital",
     texto:
-      "Concordo expressamente com as regras de distribuição e ocupação dos quartos previstas no item 4.13.3 do Edital, autorizando: (i) o compartilhamento do quarto com participantes de outras equipes, conforme as regras de recombinação para equipes mistas; (ii) o compartilhamento de cama de casal com outro(a) participante do mesmo gênero, considerando que os quartos comportam 04 (quatro) pessoas em 02 (duas) camas de casal; (iii) que a alocação final dos quartos será definida pela COMISSÃO ORGANIZADORA, de forma soberana.",
+      "Concordo expressamente com as regras de distribuição e ocupação dos quartos previstas no item 6.13.3 do Edital, autorizando: (i) o compartilhamento do quarto com participantes de outras equipes, conforme as regras de recombinação para equipes mistas; (ii) o compartilhamento de cama de casal com outro(a) participante do mesmo gênero, considerando que os quartos comportam 04 (quatro) pessoas em 02 (duas) camas de casal; (iii) que a alocação final dos quartos será definida pela COMISSÃO ORGANIZADORA, de forma soberana.",
   },
   {
     key: "presenca",
-    titulo: "Presença obrigatória e permanência no evento — Itens 4.9, 2.3.4 e 13.13 do Edital",
+    titulo: "Presença obrigatória e permanência no evento — Itens 6.9, 2.3.4 e 12.13 do Edital",
     texto:
       "Comprometo-me a participar de TODAS as atividades obrigatórias do Hackathon do Sol nos dias 26, 27 e 28 de junho de 2026, incluindo programação oficial, palestras, mentorias, dinâmicas, gincanas, jogos, gravações, entrevistas e cerimônia de encerramento. Estou ciente de que ausências injustificadas, saída sem autorização ou recusa em participar das atividades obrigatórias poderão ensejar advertência, perda de pontuação, desclassificação ou eliminação.",
   },
   {
     key: "hotel",
-    titulo: "Conformidade com normas do Hotel Praiamar Arena — Item 4.15 do Edital",
+    titulo: "Conformidade com normas do Hotel Praiamar Arena — Item 6.15 do Edital",
     texto:
       "Comprometo-me a cumprir integralmente as normas internas do Hotel Praiamar Arena, incluindo horários de silêncio, regras de uso das áreas comuns, tratamento respeitoso aos funcionários e demais hóspedes, e preservação do mobiliário e instalações. Assumo responsabilidade exclusiva por eventuais danos materiais causados às instalações ou bens do hotel.",
   },
   {
     key: "bens",
-    titulo: "Responsabilidade por bens pessoais — Item 4.12 do Edital",
+    titulo: "Responsabilidade por bens pessoais — Item 6.12 do Edital",
     texto:
       "Reconheço que sou o(a) único(a) responsável pela guarda e cuidado com meus pertences pessoais e equipamentos (notebook, tablet, celular, documentos, bagagens etc.) durante todo o evento, isentando a COMISSÃO ORGANIZADORA, a Convívia LTDA e o Hotel Praiamar Arena de qualquer responsabilidade por perdas, furtos, roubos, extravios ou danos.",
   },
@@ -424,7 +424,7 @@ export const ACEITES_COLETIVOS: ReadonlyArray<Aceite> = [
     key: "originalidade",
     titulo: "Originalidade do projeto e respeito a direitos de terceiros",
     texto:
-      "Declaramos que a solução a ser desenvolvida durante o Hackathon do Sol será original, criada exclusivamente por esta equipe durante o evento, e não envolverá violação a direitos autorais, propriedade intelectual, dados pessoais ou quaisquer outros direitos de terceiros. Responsabilizamo-nos integralmente por eventuais danos a terceiros decorrentes do nosso projeto, conforme itens 11.6, 11.7 e 11.9 do Edital.",
+      "Declaramos que a solução a ser desenvolvida durante o Hackathon do Sol será original, criada exclusivamente por esta equipe durante o evento, e não envolverá violação a direitos autorais, propriedade intelectual, dados pessoais ou quaisquer outros direitos de terceiros. Responsabilizamo-nos integralmente por eventuais danos a terceiros decorrentes do nosso projeto, conforme os itens 10.3, 13.6 e 13.9 do Edital.",
   },
   {
     key: "maioridade_equipe",
@@ -434,13 +434,13 @@ export const ACEITES_COLETIVOS: ReadonlyArray<Aceite> = [
   },
   {
     key: "transporte",
-    titulo: "Despesas de transporte — Item 4.13.1 do Edital",
+    titulo: "Despesas de transporte — Item 6.13.1 do Edital",
     texto:
       "Reconhecemos que as despesas com transporte de ida e volta ao local do evento são de responsabilidade exclusiva da equipe.",
   },
   {
     key: "decisoes",
-    titulo: "Decisões soberanas e irrecorríveis — Itens 8.2.6 e 11.10 do Edital",
+    titulo: "Decisões soberanas e irrecorríveis — Itens 8.2.6 e 13.10 do Edital",
     texto:
       "Reconhecemos como soberanas e irrecorríveis as decisões da Banca Julgadora e da COMISSÃO ORGANIZADORA, não cabendo qualquer contestação dos resultados.",
   },
@@ -460,7 +460,7 @@ export const ACEITES_COLETIVOS: ReadonlyArray<Aceite> = [
     key: "credenciamento",
     titulo: "Credenciamento presencial em 24/06/2026",
     texto:
-      "Estamos cientes de que cada integrante deverá comparecer pessoalmente ao Hotel Praiamar Arena no dia 24 de junho de 2026, das 10h às 14h, munido dos documentos obrigatórios (item 3.3.4 do Edital).",
+      "Estamos cientes de que cada integrante deverá comparecer pessoalmente ao Hotel Praiamar Arena no dia 24 de junho de 2026, das 10h às 14h, munido dos documentos obrigatórios (item 5.3.4 do Edital).",
   },
 ];
 

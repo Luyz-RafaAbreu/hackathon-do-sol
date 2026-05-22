@@ -7,7 +7,7 @@
  *    1. Recebe inscrições de EQUIPES (4 integrantes) via POST do site Next.
  *    2. Salva cada equipe como UMA linha na aba "Inscricoes" (183 colunas:
  *       6 meta + 8 equipe + 4 proposta + 1 aceites coletivos + 41 × 4 integrantes).
- *    3. Dedup por CPF (item 3.2 do Edital) e por e-mail (oficial + 4 pessoais).
+ *    3. Dedup por CPF (item 5.2 do Edital) e por e-mail (oficial + 4 pessoais).
  *    4. Envia e-mail de confirmação imediato pro líder (conta Google do submit).
  *    5. Quando o admin muda o Status da equipe na planilha pra Aprovado ou
  *       Reprovado, envia e-mail correspondente pro líder.
@@ -238,7 +238,7 @@ const TRIAGEM_HEADER_ROWS = 1;
 const TRIAGEM_STATUS_COL = 1;  // coluna A do card
 const TRIAGEM_CARD_COLS = 9;   // colunas visíveis (A..I)
 const TRIAGEM_HIDDEN_COL = 10; // coluna J (oculta) — referência pra linha na Inscricoes
-// Data do credenciamento (item 2.1 do Edital) usada como referência pra
+// Data do credenciamento (item 5.3.3 do Edital) usada como referência pra
 // calcular idade — bate com o critério legal de "≥ 18 até 24/06/2026".
 const CRED_DATE = new Date(2026, 5, 24); // mês 5 = junho (0-indexed)
 
@@ -1093,7 +1093,7 @@ function buildCardAt_(sheet, startRow, data, inscricoesRow) {
   const stamp = Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm");
 
   // Helper: monta a linha de cada integrante com info chave pra triagem
-  // (Edital 3.3.1.a + perfil + contato). Campos completos ficam na Detalhes.
+  // (Edital 5.3.1.a + perfil + contato). Campos completos ficam na Detalhes.
   const integranteRow = function (i) {
     const it = (data.integrantes && data.integrantes[i]) || {};
     const isLider = (i === liderIdx);
@@ -1979,7 +1979,7 @@ function doPost(e) {
       return jsonResponse({ ok: false, error: "internal_error" });
     }
 
-    // ---------- DEDUP por CPF (item 3.2 do Edital) ----------
+    // ---------- DEDUP por CPF (item 5.2 do Edital) ----------
     // Coleta CPFs dos novos integrantes, normalizados pra dígitos.
     const novosCPFs = data.integrantes.map(function (i) {
       return String(i.cpf || "").replace(/\D/g, "");
@@ -2559,7 +2559,7 @@ function buildApprovalHTML_(equipeNome, liderNome) {
     [
       "A inscrição da equipe <strong>" + team + "</strong> foi aprovada. Agora vocês fazem parte de uma comunidade que acredita que código, design e colaboração podem transformar a realidade.",
       "<strong>Próximos passos:</strong> em breve, um novo e-mail com cronograma completo, instruções de check-in e dinâmica do evento. " + firstLider + ", como líder, você é o ponto focal de comunicação com a organização.",
-      "<strong>Lembretes importantes:</strong> credenciamento presencial em 24/06/2026 das 10h às 14h no Hotel Praiamar Arena (item 3.3.3 do Edital). Confirmação de presença até 16/06/2026 pelo e-mail oficial.",
+      "<strong>Lembretes importantes:</strong> credenciamento presencial em 24/06/2026 das 10h às 14h no Hotel Praiamar Arena (item 5.3.3 do Edital). Confirmação de presença até 16/06/2026 pelo e-mail oficial.",
     ],
     "Detalhes do evento",
     CONFIG.EVENT_DATE + " · " + CONFIG.EVENT_LOCATION + " · " + CONFIG.EVENT_PRIZE,

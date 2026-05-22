@@ -4,14 +4,7 @@ import { Plus } from "lucide-react";
 import Reveal from "./Reveal";
 
 // Respostas baseadas no Edital oficial do Hackathon do Sol 2026 — referência
-// completa em [/termos-e-privacidade] e no documento publicado pela
-// organização. Itens do Edital cobertos aqui (pra revisão interna):
-//   3.1, 3.2, 3.4 (quem pode), 4.5/4.6 (equipes), 2.1/2.2 (data/local),
-//   3.3 (período inscrições), 4.2/4.3 (confirmação/credenciamento),
-//   3.3.4 (docs credenciamento), 4.13 (hospedagem), 4.13.3 (acomodação),
-//   6.2 (alimentação/estrutura), 7.2/7.6 (premiação/mentoria),
-//   8.2.1/8.2.3/8.2.5 (requisitos solução, pitch, critérios),
-//   13 (uso de imagem/reality show).
+// completa em [/termos-e-privacidade] e no Edital publicado pela organização.
 const faqs = [
   {
     q: "Quem pode participar?",

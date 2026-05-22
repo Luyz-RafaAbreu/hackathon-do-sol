@@ -10,7 +10,7 @@ import {
 import Reveal from "./Reveal";
 import TiltCard from "./TiltCard";
 
-// Cards refletem o que está no Edital (itens 2, 4.5, 4.13, 6.2, 7.2). Textos
+// Cards refletem o que está no Edital oficial do Hackathon do Sol 2026. Textos
 // curtos — quem quiser detalhe pleno vai pra Termos e Privacidade ou FAQ.
 const items: {
   Icon: LucideIcon;

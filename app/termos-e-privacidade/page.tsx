@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 // Conteúdo desta página é uma síntese das Seções 10 (código de conduta +
-// propriedade intelectual), 12 (LGPD) e 13 (imagem/reality show) do Edital
+// propriedade intelectual), 11 (LGPD) e 12 (imagem/reality show) do Edital
 // oficial do Hackathon do Sol 2026. Em caso de divergência entre o texto
 // abaixo e o Edital, prevalece sempre o Edital.
 export default async function TermosEPrivacidadePage() {
@@ -46,7 +46,7 @@ export default async function TermosEPrivacidadePage() {
             <p className="text-white/65 text-sm md:text-base leading-relaxed">
               Esta página resume os termos de uso, a política de privacidade
               (LGPD) e a autorização de uso de imagem do {EVENT.NAME}{" "}
-              {EVENT.YEAR}, conforme as Seções 10, 12 e 13 do Edital oficial.
+              {EVENT.YEAR}, conforme as Seções 10, 11 e 12 do Edital oficial.
               Em caso de divergência, prevalece o texto do Edital.
             </p>
           </div>
