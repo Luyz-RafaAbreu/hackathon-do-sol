@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "apps-script:push": "clasp -P scripts push --force",
     "apps-script:deploy": "clasp -P scripts push --force && clasp -P scripts redeploy AKfycbwxXrlyb7uP2O0Uk07Apg1YR_bk3b8FaelnLKZevQ-1LdcoPQV-HeI9RE7UliTN2FRR --description \"deploy\"",
     "apps-script:logs": "clasp -P scripts logs",
@@ -35,6 +37,7 @@
     "postcss": "8.4.38",
     "sharp": "^0.34.5",
     "tailwindcss": "3.4.4",
-    "typescript": "5.4.5"
+    "typescript": "5.4.5",
+    "vitest": "^4.1.7"
   }
 }
