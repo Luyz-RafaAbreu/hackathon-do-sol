@@ -22,11 +22,10 @@ export default function Sobre() {
           <p className="text-white/75 leading-relaxed text-[0.9375rem] md:text-base">
             Mais que uma competição, é um ponto de encontro para quem constrói
             a próxima geração de produtos digitais no Nordeste. As{" "}
-            <strong className="text-white">três melhores equipes</strong>{" "}
+            <strong className="text-white">equipes campeãs</strong>{" "}
             dividem{" "}
-            <strong className="text-sol-orange">R$ 10 mil em premiação</strong>{" "}
-            (R$ 5 mil, R$ 3 mil e R$ 2 mil) e participam de um programa de
-            mentoria pós-evento de dois meses.
+            <strong className="text-sol-orange">R$ 21 mil em prêmios</strong>{" "}
+            e participam de um programa de mentoria pós-evento de dois meses.
           </p>
         </Reveal>
 
@@ -50,7 +49,7 @@ export default function Sobre() {
 
 // Valor numérico separado de prefix/suffix — permite o counter animar só o
 // número. Texto final renderizado é idêntico ao original ("3 dias", "160",
-// "100%", "R$ 10 mil").
+// "100%", "R$ 21 mil").
 const stats: {
   value: number;
   prefix?: string;
@@ -61,5 +60,5 @@ const stats: {
   { value: 3, suffix: " dias", label: "de imersão", cor: "from-sol-yellow to-sol-orange" },
   { value: 160, label: "vagas", cor: "from-sol-orange to-sol-pink" },
   { value: 100, suffix: "%", label: "inscrição gratuita", cor: "from-sol-pink to-sol-purpleLight" },
-  { value: 10, prefix: "R$ ", suffix: " mil", label: "em premiação", cor: "from-sol-purpleLight to-sol-teal" },
+  { value: 21, prefix: "R$ ", suffix: " mil", label: "em prêmios", cor: "from-sol-purpleLight to-sol-teal" },
 ];

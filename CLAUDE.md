@@ -54,7 +54,7 @@ A inscrição V2 (por equipe) substituiu uploads por **links** (LinkedIn e portf
 ### Single source of truth do evento
 [lib/event.ts](lib/event.ts) — datas, local, prêmio, vagas. Importado por Hero, Countdown, layout (metadata + JSON-LD), OG image, Footer.
 
-**Não cobertos pela constante** (textos narrativos embutidos): `Sobre.tsx`, `FAQ.tsx`, `Cronograma.tsx`, `Informacoes.tsx`, `NotFoundHero.tsx`, frase "160 vagas" em `Inscricao.tsx`, description em `app/not-found.tsx`, e o `CONFIG` do `apps-script.gs` (que vive separado no Google). Ao mudar data/local/prêmio, fazer busca por "26 a 28", "Praiamar", "10 mil", "160 vagas" pra cobrir o resto.
+**Não cobertos pela constante** (textos narrativos embutidos): `Sobre.tsx`, `FAQ.tsx`, `Cronograma.tsx`, `Informacoes.tsx`, `NotFoundHero.tsx`, frase "160 vagas" em `Inscricao.tsx`, description em `app/not-found.tsx`, e o `CONFIG` do `apps-script.gs` (que vive separado no Google). Ao mudar data/local/prêmio, fazer busca por "26 a 28", "Praiamar", "21 mil", "160 vagas" pra cobrir o resto.
 
 ### Imagens OG/Twitter dinâmicas
 `app/opengraph-image.tsx` e `app/twitter-image.tsx` rodam no edge runtime e geram PNG via `next/og` com countdown ao vivo (faltam X dias / acontecendo agora / edição passada). `revalidate = 3600` dá folga pro cache das redes sociais.

@@ -14,21 +14,21 @@
 // constantes equivalentes. Se mudar algum item aqui, atualizar lá também.
 
 export const TRILHAS = [
-  "Trilha 1 — Turismo Inteligente e Experiências do Sol",
-  "Trilha 2 — Tecnologia para o Bem e Impacto Social",
-  "Trilha 3 — Varejo Inteligente, Alimento Seguro e Conexão Humana",
+  "Trilha 1 — Turismo",
+  "Trilha 2 — Beneficência",
+  "Trilha 3 — Varejo",
 ] as const;
 
-// Descrições conforme Formulário de Inscrição (Seção 2), pra ajudar a equipe
-// a escolher a trilha. As descrições completas com exemplos estão nos itens
-// 5.3.3.1, 5.3.3.2 e 5.3.3.3 do Edital — aqui só o resumo.
+// Descrições conforme o item 3.3.3 do Edital, pra ajudar a equipe a escolher
+// a trilha. O recorte específico e o desafio concreto de cada trilha só são
+// revelados na abertura do evento (item 3.3.4) — aqui fica o resumo da macro-área.
 export const TRILHAS_DESCRICAO: Record<string, string> = {
-  "Trilha 1 — Turismo Inteligente e Experiências do Sol":
-    "Para equipes que desejam criar soluções de turismo inteligente: monitorar a experiência do turista no RN em tempo real, com avaliações via QR Code, agregação de reviews (TripAdvisor, Google, Booking) e planos de ação para destinos e negócios.",
-  "Trilha 2 — Tecnologia para o Bem e Impacto Social":
-    "Para equipes que desejam criar soluções para beneficência, voluntariado, doações, transparência, instituições sociais, campanhas solidárias, impacto comunitário e redes de colaboração.",
-  "Trilha 3 — Varejo Inteligente, Alimento Seguro e Conexão Humana":
-    "Para equipes que desejam criar soluções para o varejo alimentar: segurança e rastreabilidade do alimento, experiência humana e sensorial da compra, e eficiência operacional de supermercados, mercadinhos e pequenos varejistas.",
+  "Trilha 1 — Turismo":
+    "Soluções tecnológicas voltadas ao setor de turismo, experiências do visitante, destinos e atrativos.",
+  "Trilha 2 — Beneficência":
+    "Soluções tecnológicas voltadas a causas sociais, voluntariado, doações, impacto comunitário e fortalecimento de organizações sociais.",
+  "Trilha 3 — Varejo":
+    "Soluções tecnológicas voltadas ao varejo alimentar, supermercados, mercadinhos e experiência de consumo.",
 };
 
 export const AREAS_CONHECIMENTO = [

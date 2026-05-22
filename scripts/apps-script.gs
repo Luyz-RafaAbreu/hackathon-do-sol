@@ -56,7 +56,7 @@ const CONFIG = {
   EVENT_NAME: "Hackathon do Sol",
   EVENT_DATE: "26 a 28 de junho de 2026",
   EVENT_LOCATION: "Praiamar Arena, Natal/RN",
-  EVENT_PRIZE: "R$ 10 mil em premiação",
+  EVENT_PRIZE: "R$ 21 mil em prêmios",
   EVENT_INSTAGRAM: "@hackathondosol",
   SITE_URL: "https://hackathondosol.com.br",
   EMAIL_FROM_NAME: "Hackathon do Sol",

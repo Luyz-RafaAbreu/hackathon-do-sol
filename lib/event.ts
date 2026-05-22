@@ -14,7 +14,7 @@
 //   - app/not-found.tsx (description)
 //   - scripts/apps-script.gs (CONFIG roda no Google, fonte separada)
 // Ao mexer nas constantes abaixo, dê uma busca por "26 a 28", "Praiamar",
-// "10 mil", "160 vagas" pra cobrir esses textos manualmente.
+// "21 mil", "160 vagas" pra cobrir esses textos manualmente.
 
 const startDate = new Date("2026-06-26T09:00:00-03:00");
 const endDate = new Date("2026-06-28T20:00:00-03:00");
@@ -93,10 +93,7 @@ export const EVENT = {
   MONTH_UPPER: monthName.toUpperCase(), // "JUNHO"
 
   // Números
-  PRIZE: "R$ 10 mil",
-  PRIZE_FIRST: "R$ 5.000",  // item 7.2.1 do Edital
-  PRIZE_SECOND: "R$ 3.000", // item 7.2.2
-  PRIZE_THIRD: "R$ 2.000",  // item 7.2.3
+  PRIZE: "R$ 21 mil", // premiação total do evento (Seção 4 do Edital)
   SLOTS: 160,
 
   // Janela de inscrições (item 2.3 do Edital — 20/05 a 05/06/2026)

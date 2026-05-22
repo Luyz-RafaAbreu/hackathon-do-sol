@@ -51,7 +51,7 @@ const faqs = [
   },
   {
     q: "Qual é a premiação?",
-    a: "Premiação total de R$ 10 mil dividida entre as 3 melhores equipes — R$ 5 mil para o 1º, R$ 3 mil para o 2º e R$ 2 mil para o 3º — com valores divididos igualmente entre os 4 integrantes da equipe vencedora, pagos em até 30 dias após o evento. Além disso, as 3 equipes vencedoras recebem mentoria gratuita por 2 meses pós-evento.",
+    a: "Premiação total de R$ 21 mil em prêmios, distribuída entre as equipes campeãs do evento. As equipes vencedoras também recebem um programa de mentoria gratuito de 2 meses após o evento. O detalhamento completo da premiação está no Edital.",
   },
   {
     q: "O evento será gravado?",
@@ -59,7 +59,7 @@ const faqs = [
   },
   {
     q: "Como são as trilhas temáticas?",
-    a: "Três trilhas oficiais: (1) Turismo Inteligente e Experiências do Sol, (2) Tecnologia para o Bem e Impacto Social, (3) Varejo Inteligente, Alimento Seguro e Conexão Humana. A equipe indica a trilha de preferência na inscrição; a organização pode validar ou ajustar a distribuição entre as trilhas conforme equilíbrio, perfil técnico e aderência.",
+    a: "Três trilhas oficiais: (1) Turismo, (2) Beneficência e (3) Varejo. A equipe indica a trilha de preferência na inscrição; a organização pode validar ou ajustar a distribuição entre as trilhas conforme equilíbrio, perfil técnico e aderência.",
   },
 ];
 

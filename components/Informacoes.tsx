@@ -45,7 +45,7 @@ const items: {
   {
     Icon: Trophy,
     title: "Premiação",
-    text: "R$ 10 mil divididos entre as 3 melhores equipes (R$ 5 mil + R$ 3 mil + R$ 2 mil), pagos em até 30 dias. Vencedoras recebem mentoria gratuita de 2 meses pós-evento.",
+    text: "R$ 21 mil em prêmios, distribuídos entre as equipes campeãs do evento. As vencedoras recebem mentoria gratuita de 2 meses pós-evento.",
     cor: "from-sol-teal to-sol-yellow",
   },
   {
