@@ -5,8 +5,8 @@
  * ----------------------------------------------------------------------------
  *  O que este script faz:
  *    1. Recebe inscrições de EQUIPES (4 integrantes) via POST do site Next.
- *    2. Salva cada equipe como UMA linha na aba "Inscricoes" (143 colunas:
- *       4 meta + 8 equipe + 6 proposta + 1 aceites coletivos + 31 × 4 integrantes).
+ *    2. Salva cada equipe como UMA linha na aba "Inscricoes" (183 colunas:
+ *       6 meta + 8 equipe + 4 proposta + 1 aceites coletivos + 41 × 4 integrantes).
  *    3. Dedup por CPF (item 3.2 do Edital) e por e-mail (oficial + 4 pessoais).
  *    4. Envia e-mail de confirmação imediato pro líder (conta Google do submit).
  *    5. Quando o admin muda o Status da equipe na planilha pra Aprovado ou
@@ -971,7 +971,7 @@ function setupTriagemSheet_() {
   // dica de uso aqui.
   sheet.getRange(1, 1, 1, TRIAGEM_CARD_COLS).merge();
   sheet.getRange("A1").setValue(
-    "Triagem de inscrições  ·  Mude o Status (coluna A) para Aprovado ou Reprovado e o e-mail é enviado automaticamente aos 4 integrantes."
+    "Triagem de inscrições  ·  Mude o Status (coluna A) para Aprovado ou Reprovado e o e-mail é enviado automaticamente ao líder da equipe."
   );
   sheet.getRange(1, 1, 1, TRIAGEM_CARD_COLS)
     .setBackground("#fafaf9")
@@ -2138,7 +2138,7 @@ function buildRow_(data) {
   });
   row.push(colTrue.join(", "));
 
-  // Integrantes (30 colunas × 4)
+  // Integrantes (41 colunas × 4)
   for (let i = 0; i < 4; i++) {
     const it = data.integrantes[i];
     row.push(String(it.nomeCompleto || ""));
