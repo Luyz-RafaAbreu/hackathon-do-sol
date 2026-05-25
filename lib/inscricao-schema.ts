@@ -379,7 +379,7 @@ export const ACEITES_INDIVIDUAIS: ReadonlyArray<Aceite> = [
     key: "lgpd",
     titulo: "Autorização LGPD — Seção 11 do Edital",
     texto:
-      "Autorizo expressamente, nos termos da Lei nº 13.709/2018 (LGPD), o tratamento dos meus dados pessoais fornecidos neste formulário (nome, CPF, e-mail, telefone, endereço, dados profissionais, portfólio e demais informações) pela Convívia LTDA, na qualidade de controladora, para as finalidades previstas no item 11.2 do Edital. Reconheço os direitos previstos no art. 18 da LGPD.",
+      "Autorizo expressamente, nos termos da Lei nº 13.709/2018 (LGPD), o tratamento dos meus dados pessoais fornecidos neste formulário (nome, CPF, e-mail, telefone, endereço, dados profissionais, portfólio e demais informações) pela KOMUNE LTDA, na qualidade de controladora, para as finalidades previstas no item 11.2 do Edital. Reconheço os direitos previstos no art. 18 da LGPD.",
   },
   {
     key: "imagem",
@@ -409,7 +409,7 @@ export const ACEITES_INDIVIDUAIS: ReadonlyArray<Aceite> = [
     key: "bens",
     titulo: "Responsabilidade por bens pessoais — Item 6.12 do Edital",
     texto:
-      "Reconheço que sou o(a) único(a) responsável pela guarda e cuidado com meus pertences pessoais e equipamentos (notebook, tablet, celular, documentos, bagagens etc.) durante todo o evento, isentando a COMISSÃO ORGANIZADORA, a Convívia LTDA e o Hotel Praiamar Arena de qualquer responsabilidade por perdas, furtos, roubos, extravios ou danos.",
+      "Reconheço que sou o(a) único(a) responsável pela guarda e cuidado com meus pertences pessoais e equipamentos (notebook, tablet, celular, documentos, bagagens etc.) durante todo o evento, isentando a COMISSÃO ORGANIZADORA, a KOMUNE LTDA e o Hotel Praiamar Arena de qualquer responsabilidade por perdas, furtos, roubos, extravios ou danos.",
   },
   {
     key: "veracidade",

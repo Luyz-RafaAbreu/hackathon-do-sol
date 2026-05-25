@@ -71,8 +71,8 @@ export default async function TermosEPrivacidadePage() {
             <Bloco titulo="2. Quem realiza o evento">
               <p>
                 O {EVENT.NAME} é um concurso cultural promovido pela{" "}
-                <strong className="text-white">Convívia LTDA</strong>, com sede
-                em São Caetano do Sul/SP. Em conformidade com o art. 3º da Lei
+                <strong className="text-white">KOMUNE LTDA</strong>, com sede
+                em Natal/RN. Em conformidade com o art. 3º da Lei
                 nº 5.768/71, o concurso tem finalidade exclusivamente cultural,
                 sem caráter comercial e não vinculado à aquisição de produtos
                 ou serviços.
@@ -142,7 +142,7 @@ export default async function TermosEPrivacidadePage() {
 
             <Bloco titulo="5. Privacidade e proteção de dados (LGPD)">
               <p>
-                A Convívia LTDA, como controladora, atua em conformidade com a
+                A KOMUNE LTDA, como controladora, atua em conformidade com a
                 Lei nº 13.709/2018 (LGPD), assumindo o compromisso de proteger
                 os dados pessoais fornecidos no ato da inscrição.
               </p>
@@ -180,7 +180,7 @@ export default async function TermosEPrivacidadePage() {
                 qualquer momento, você pode exercer os direitos previstos no
                 art. 18 da LGPD — acesso, correção, anonimização, eliminação,
                 portabilidade, entre outros — solicitando por escrito à
-                Convívia LTDA pelos canais oficiais do evento.
+                KOMUNE LTDA pelos canais oficiais do evento.
               </p>
             </Bloco>
 
