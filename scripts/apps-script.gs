@@ -1919,10 +1919,19 @@ function doPost(e) {
       return handleStatusQuery_({ googleId: data.googleId, email: data.email });
     }
 
+    // Info do líder pra logar nas decisões abaixo. Try/catch silencioso em
+    // logDebug_ garante que log nunca derruba inscrição.
+    const _leaderInfo = {
+      email: (data && data.leaderGoogleEmail) || "",
+      googleId: (data && data.leaderGoogleId) || "",
+      equipeNome: (data && data.equipe && data.equipe.nome) || "",
+    };
+
     // Inscrições encerradas? Barra aqui — esta é a fonte autoritativa
     // (checkbox B1 da aba Configurações). O proxy Next também checa, mas esta
     // camada não dá pra burlar nem fica defasada por cache.
     if (!inscricoesAbertas_()) {
+      logDebug_({ action: "rejeitado_inscricoes_fechadas", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome });
       return jsonResponse({ ok: false, error: "inscriptions_closed" });
     }
 
@@ -1930,34 +1939,49 @@ function doPost(e) {
     if (!data || !data.equipe || !Array.isArray(data.integrantes) ||
         data.integrantes.length !== 4 || !data.proposta ||
         !data.aceitesColetivos || !data.liderConfirmacao) {
+      logDebug_({ action: "rejeitado_estrutura_invalida", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome });
       return jsonResponse({ ok: false, error: "Bad request" });
     }
 
     // Length checks
     const overflowEq = checkEquipeLengths_(data.equipe);
-    if (overflowEq) return jsonResponse({ ok: false, error: overflowEq });
+    if (overflowEq) {
+      logDebug_({ action: "rejeitado_overflow", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome, detail: overflowEq });
+      return jsonResponse({ ok: false, error: overflowEq });
+    }
     for (let i = 0; i < 4; i++) {
       const overflowInt = checkIntegranteLengths_(data.integrantes[i], i + 1);
-      if (overflowInt) return jsonResponse({ ok: false, error: overflowInt });
+      if (overflowInt) {
+        logDebug_({ action: "rejeitado_overflow", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome, detail: overflowInt });
+        return jsonResponse({ ok: false, error: overflowInt });
+      }
     }
     const overflowProp = checkPropostaLengths_(data.proposta);
-    if (overflowProp) return jsonResponse({ ok: false, error: overflowProp });
+    if (overflowProp) {
+      logDebug_({ action: "rejeitado_overflow", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome, detail: overflowProp });
+      return jsonResponse({ ok: false, error: overflowProp });
+    }
 
     // Aceites obrigatórios — todos os 9 individuais por integrante + 7 coletivos + 1 do líder
     for (let i = 0; i < 4; i++) {
       const a = data.integrantes[i].aceites || {};
       for (let k = 0; k < ACEITES_INDIVIDUAIS_KEYS.length; k++) {
         if (a[ACEITES_INDIVIDUAIS_KEYS[k]] !== true) {
-          return jsonResponse({ ok: false, error: "Aceite individual faltando: integrante " + (i+1) + " / " + ACEITES_INDIVIDUAIS_KEYS[k] });
+          const reason = "Aceite individual faltando: integrante " + (i+1) + " / " + ACEITES_INDIVIDUAIS_KEYS[k];
+          logDebug_({ action: "rejeitado_aceite_faltando", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome, detail: reason });
+          return jsonResponse({ ok: false, error: reason });
         }
       }
     }
     for (let k = 0; k < ACEITES_COLETIVOS_KEYS.length; k++) {
       if (data.aceitesColetivos[ACEITES_COLETIVOS_KEYS[k]] !== true) {
-        return jsonResponse({ ok: false, error: "Aceite coletivo faltando: " + ACEITES_COLETIVOS_KEYS[k] });
+        const reason = "Aceite coletivo faltando: " + ACEITES_COLETIVOS_KEYS[k];
+        logDebug_({ action: "rejeitado_aceite_faltando", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome, detail: reason });
+        return jsonResponse({ ok: false, error: reason });
       }
     }
     if (data.liderConfirmacao.aceiteFinal !== true) {
+      logDebug_({ action: "rejeitado_aceite_faltando", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome, detail: "Aceite final do líder faltando" });
       return jsonResponse({ ok: false, error: "Aceite final do líder faltando" });
     }
 
@@ -2012,24 +2036,28 @@ function doPost(e) {
         if (leaderGoogleId && googleIdColIdx >= 0) {
           const existingGid = String(allData[r][googleIdColIdx] || "").replace(/^'/, "").trim();
           if (existingGid && existingGid === leaderGoogleId) {
+            logDebug_({ action: "idempotencia_googleid", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome });
             return jsonResponse({ ok: true });
           }
         }
         if (leaderGoogleEmail && googleEmailColIdx >= 0) {
           const existingGem = String(allData[r][googleEmailColIdx] || "").replace(/^'/, "").trim().toLowerCase();
           if (existingGem && existingGem === leaderGoogleEmail) {
+            logDebug_({ action: "idempotencia_email", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome });
             return jsonResponse({ ok: true });
           }
         }
         for (let c = 0; c < cpfColIdxs.length; c++) {
           const existing = String(allData[r][cpfColIdxs[c]] || "").replace(/\D/g, "").replace(/^'/, "");
           if (existing && novosCPFs.indexOf(existing) >= 0) {
+            logDebug_({ action: "rejeitado_duplicate_cpf", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome });
             return jsonResponse({ ok: false, error: "duplicate_cpf" });
           }
         }
         for (let c = 0; c < emailColIdxs.length; c++) {
           const existing = String(allData[r][emailColIdxs[c]] || "").trim().toLowerCase().replace(/^'/, "");
           if (existing && novosEmails.indexOf(existing) >= 0) {
+            logDebug_({ action: "rejeitado_duplicate_email", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome });
             return jsonResponse({ ok: false, error: "duplicate_email" });
           }
         }
@@ -2091,6 +2119,7 @@ function doPost(e) {
       console.error("Falha inesperada no e-mail de confirmação:", errMail);
     }
 
+    logDebug_({ action: "inscricao_gravada", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome, detail: "linha " + inscricoesRow });
     return jsonResponse({ ok: true });
   } catch (err) {
     console.error("doPost falhou:", err && err.stack ? err.stack : err);
@@ -2673,4 +2702,285 @@ function constantTimeEqual_(a, b) {
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+// ============================================================================
+// DIAGNÓSTICO / DEBUG — aditivos, nunca derrubam o fluxo principal
+// ============================================================================
+// Duas peças complementares:
+//   1) logDebug_({...})  — chamado pelo doPost a cada decisão (idempotência,
+//      duplicate_cpf, gravação, etc). Grava na aba "Debug Log" com TRY/CATCH
+//      silencioso: se Logging falhar, doPost segue normal.
+//   2) atualizarEmAndamento() — função invocável (e via trigger time-based) que
+//      lê drafts do Upstash e popula a aba "Em andamento" com etapa atual de
+//      cada equipe que começou mas ainda não finalizou.
+//
+// Setup necessário (uma vez):
+//   • Script Properties: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
+//     (mesmos valores do .env.local do projeto Next)
+//   • Rodar manualmente `_instalarTriggerEmAndamento` uma vez pra autorizar
+//     permissões + criar trigger de 30min
+// ============================================================================
+
+const DEBUG_LOG_SHEET_NAME = "Debug Log";
+const EM_ANDAMENTO_SHEET_NAME = "Em andamento";
+
+// Limite de linhas mantidas na aba Debug Log. Quando cresce além disso, joga
+// fora as mais antigas no próximo log. Evita planilha gigante com o tempo.
+const DEBUG_LOG_MAX_ROWS = 2000;
+
+function logDebug_(info) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(DEBUG_LOG_SHEET_NAME);
+    if (!sheet) {
+      sheet = ss.insertSheet(DEBUG_LOG_SHEET_NAME);
+      sheet.appendRow([
+        "Timestamp",
+        "Ação",
+        "E-mail líder",
+        "Google ID líder",
+        "Equipe",
+        "Detalhe",
+      ]);
+      sheet.setFrozenRows(1);
+      sheet
+        .getRange(1, 1, 1, 6)
+        .setFontWeight("bold")
+        .setBackground("#1c1135")
+        .setFontColor("#ffffff");
+      sheet.setColumnWidth(1, 160);
+      sheet.setColumnWidth(2, 220);
+      sheet.setColumnWidth(3, 260);
+      sheet.setColumnWidth(4, 220);
+      sheet.setColumnWidth(5, 180);
+      sheet.setColumnWidth(6, 320);
+    }
+
+    // Trim de antiguidade quando passa do teto. Mantém apenas as últimas
+    // DEBUG_LOG_MAX_ROWS — apaga da linha 2 pra cima até bater o teto.
+    const cur = sheet.getLastRow();
+    if (cur > DEBUG_LOG_MAX_ROWS + 1) {
+      const toDelete = cur - DEBUG_LOG_MAX_ROWS - 1;
+      sheet.deleteRows(2, toDelete);
+    }
+
+    sheet.appendRow([
+      new Date(),
+      String(info.action || ""),
+      String(info.email || ""),
+      String(info.googleId || ""),
+      String(info.equipeNome || ""),
+      String(info.detail || ""),
+    ]);
+  } catch (err) {
+    // Sem console.error pra não poluir Stackdriver — o ponto de logDebug_ é
+    // best-effort. Falha aqui não pode afetar a inscrição.
+  }
+}
+
+// ============================================================================
+// atualizarEmAndamento() — sincroniza drafts do Upstash com a aba homônima
+// ============================================================================
+// Lê todas as chaves `draft:*` do Upstash, classifica cada uma pela etapa
+// mais avançada preenchida, e repopula a aba "Em andamento". O conteúdo é
+// somente leitura no Sheets — não dispara nenhuma submissão nem altera dados
+// pessoais; é puramente visualização.
+//
+// Pode ser chamada manualmente (botão "Executar" no editor do Apps Script)
+// OU via trigger time-based instalado por `_instalarTriggerEmAndamento`.
+// ============================================================================
+function atualizarEmAndamento() {
+  const props = PropertiesService.getScriptProperties();
+  const upstashUrl = props.getProperty("UPSTASH_REDIS_REST_URL");
+  const upstashToken = props.getProperty("UPSTASH_REDIS_REST_TOKEN");
+  if (!upstashUrl || !upstashToken) {
+    console.error(
+      "atualizarEmAndamento: configure UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN nas Script Properties"
+    );
+    return;
+  }
+
+  const opts = {
+    method: "get",
+    headers: { Authorization: "Bearer " + upstashToken },
+    muteHttpExceptions: true,
+  };
+
+  // Lista todas as chaves draft:*
+  let keys;
+  try {
+    const resKeys = UrlFetchApp.fetch(upstashUrl + "/keys/draft:*", opts);
+    if (resKeys.getResponseCode() !== 200) {
+      console.error(
+        "atualizarEmAndamento: falha ao listar chaves:",
+        resKeys.getContentText()
+      );
+      return;
+    }
+    keys = JSON.parse(resKeys.getContentText()).result || [];
+  } catch (err) {
+    console.error("atualizarEmAndamento: erro de rede ao listar chaves:", err);
+    return;
+  }
+
+  const rows = [];
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const email = key.replace(/^draft:/, "");
+
+    let d;
+    try {
+      const resGet = UrlFetchApp.fetch(
+        upstashUrl + "/get/" + encodeURIComponent(key),
+        opts
+      );
+      if (resGet.getResponseCode() !== 200) continue;
+      const raw = JSON.parse(resGet.getContentText()).result;
+      if (!raw) continue;
+      d = typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch (err) {
+      continue;
+    }
+
+    const equipeNome = (d.equipe && d.equipe.nome) || "";
+    const trilha = (d.equipe && d.equipe.trilha) || "";
+    const telefone = (d.equipe && d.equipe.telefone) || "";
+    const cidade = (d.equipe && d.equipe.cidade) || "";
+    const estado = (d.equipe && d.equipe.estado) || "";
+    const ints = (d.integrantes || []).filter(function (i) {
+      return i && i.nomeCompleto && i.cpf;
+    }).length;
+
+    const propostaOk =
+      d.proposta &&
+      (d.proposta.nome || d.proposta.problema || d.proposta.solucao);
+    const aceitesColetivosCount = d.aceitesColetivos
+      ? Object.keys(d.aceitesColetivos).filter(function (k) {
+          return d.aceitesColetivos[k] === true;
+        }).length
+      : 0;
+    const liderConfirmou =
+      d.liderConfirmacao && d.liderConfirmacao.aceiteFinal === true;
+
+    let etapa;
+    if (!equipeNome) etapa = "1. Logou (vazio)";
+    else if (!cidade && !telefone) etapa = "2. Nomeou equipe";
+    else if (!trilha) etapa = "3. Equipe completa (sem trilha)";
+    else if (ints === 0) etapa = "4. Escolheu trilha";
+    else if (ints < 4) etapa = "5. Preenchendo integrantes (" + ints + "/4)";
+    else if (!propostaOk) etapa = "6. 4 integrantes (falta proposta)";
+    else if (aceitesColetivosCount < 5) etapa = "7. Proposta preenchida";
+    else if (!liderConfirmou) etapa = "8. Aceites coletivos marcados";
+    else etapa = "9. Pronto pra enviar";
+
+    rows.push([
+      email,
+      equipeNome,
+      etapa,
+      ints + " / 4",
+      trilha,
+      cidade ? cidade + (estado ? "/" + estado : "") : "",
+      telefone,
+    ]);
+  }
+
+  // Ordena: mais avançados primeiro
+  rows.sort(function (a, b) {
+    return String(b[2]).localeCompare(String(a[2]));
+  });
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(EM_ANDAMENTO_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(EM_ANDAMENTO_SHEET_NAME);
+    // Posiciona logo após a aba Triagem (se existir)
+    try {
+      const triagem = ss.getSheetByName("Triagem");
+      if (triagem) {
+        sheet.activate();
+        ss.moveActiveSheet(triagem.getIndex() + 1);
+      }
+    } catch (errMove) {
+      // sem grilo se mover falhar
+    }
+  }
+
+  // Limpa só ESTA aba. Outras abas continuam intactas.
+  sheet.clear();
+
+  const HEADERS = [
+    "E-mail (login Google)",
+    "Equipe",
+    "Última etapa atingida",
+    "Integrantes",
+    "Trilha",
+    "Cidade",
+    "Telefone",
+  ];
+  sheet.appendRow(HEADERS);
+  sheet.setFrozenRows(1);
+  sheet
+    .getRange(1, 1, 1, HEADERS.length)
+    .setFontWeight("bold")
+    .setBackground("#1c1135")
+    .setFontColor("#ffffff");
+
+  if (rows.length > 0) {
+    sheet
+      .getRange(2, 1, rows.length, HEADERS.length)
+      .setValues(rows);
+  }
+
+  // Larguras razoáveis
+  sheet.setColumnWidth(1, 260);
+  sheet.setColumnWidth(2, 180);
+  sheet.setColumnWidth(3, 240);
+  sheet.setColumnWidth(4, 90);
+  sheet.setColumnWidth(5, 200);
+  sheet.setColumnWidth(6, 160);
+  sheet.setColumnWidth(7, 140);
+
+  // Rodapé com timestamp da última atualização — usuário sempre sabe quando
+  // a aba foi populada da última vez.
+  const tsRow = Math.max(rows.length, 0) + 3;
+  sheet.getRange(tsRow, 1).setValue("Última atualização:");
+  sheet
+    .getRange(tsRow, 2)
+    .setValue(Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm"));
+  sheet
+    .getRange(tsRow, 1, 1, 2)
+    .setFontStyle("italic")
+    .setFontColor("#888888");
+}
+
+// ============================================================================
+// _instalarTriggerEmAndamento — rodar UMA vez pra ativar atualização periódica
+// ============================================================================
+// Cria trigger time-based que executa atualizarEmAndamento a cada 30 minutos.
+// Idempotente: remove triggers antigos pra esta função antes de criar o novo.
+//
+// Precisa ser rodada manualmente (Apps Script editor → "Executar") porque o
+// primeiro acesso pede autorização do usuário.
+// ============================================================================
+function _instalarTriggerEmAndamento() {
+  const triggers = ScriptApp.getProjectTriggers();
+  for (let i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === "atualizarEmAndamento") {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+  ScriptApp.newTrigger("atualizarEmAndamento")
+    .timeBased()
+    .everyMinutes(30)
+    .create();
+  try {
+    SpreadsheetApp.getActiveSpreadsheet().toast(
+      "Trigger instalado: 'Em andamento' atualiza a cada 30 min",
+      "Configuração",
+      5
+    );
+  } catch (e) {
+    // sem UI ativa (rodando via API) — toast falha silenciosamente
+  }
 }
