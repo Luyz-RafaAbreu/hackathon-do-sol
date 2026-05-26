@@ -1868,14 +1868,19 @@ function inscricoesAbertas_() {
 // doPost — recebe inscrições do Next.js
 // ============================================================================
 function doPost(e) {
+  // Declarado fora do try interno pra estar disponível no catch geral.
+  // Permanece undefined se a exception ocorrer antes do parse do payload.
+  let _leaderInfo;
   try {
     const secret = getWebhookSecret_();
     if (!secret) {
       console.error("WEBHOOK_SECRET não configurado nas Script Properties");
+      logDebug_({ action: "unauth_secret_missing", detail: "WEBHOOK_SECRET ausente nas Script Properties" });
       return jsonResponse({ ok: false, error: "Unauthorized" });
     }
 
     if (!e || !e.postData || !e.postData.contents) {
+      logDebug_({ action: "unauth_empty_body", detail: "request chegou sem body" });
       return jsonResponse({ ok: false, error: "Empty body" });
     }
 
@@ -1883,17 +1888,20 @@ function doPost(e) {
     try { envelope = JSON.parse(e.postData.contents); }
     catch (err) {
       console.error("Envelope JSON inválido:", err && err.message ? err.message : err);
+      logDebug_({ action: "unauth_envelope_invalid_json", detail: String(err && err.message ? err.message : err).slice(0, 200) });
       return jsonResponse({ ok: false, error: "Unauthorized" });
     }
     if (!envelope || envelope.v !== 2 ||
         typeof envelope.ts !== "number" ||
         typeof envelope.payload !== "string" ||
         typeof envelope.signature !== "string") {
+      logDebug_({ action: "unauth_envelope_malformed", detail: "v != 2 ou ts/payload/signature faltando" });
       return jsonResponse({ ok: false, error: "Unauthorized" });
     }
 
     const skewMs = Math.abs(Date.now() - envelope.ts);
     if (!isFinite(skewMs) || skewMs > 5 * 60 * 1000) {
+      logDebug_({ action: "unauth_timestamp_skew", detail: "skew = " + skewMs + "ms (limite 300000)" });
       return jsonResponse({ ok: false, error: "Unauthorized" });
     }
 
@@ -1901,6 +1909,7 @@ function doPost(e) {
       String(envelope.ts) + "." + envelope.payload, secret
     );
     if (!constantTimeEqual_(expected, envelope.signature)) {
+      logDebug_({ action: "unauth_hmac_mismatch", detail: "signature do envelope não bate com a calculada" });
       return jsonResponse({ ok: false, error: "Unauthorized" });
     }
 
@@ -1908,6 +1917,7 @@ function doPost(e) {
     try { data = JSON.parse(envelope.payload); }
     catch (err) {
       console.error("Payload JSON inválido:", err && err.message ? err.message : err);
+      logDebug_({ action: "rejeitado_payload_invalid_json", detail: String(err && err.message ? err.message : err).slice(0, 200) });
       return jsonResponse({ ok: false, error: "Bad request" });
     }
 
@@ -1920,8 +1930,9 @@ function doPost(e) {
     }
 
     // Info do líder pra logar nas decisões abaixo. Try/catch silencioso em
-    // logDebug_ garante que log nunca derruba inscrição.
-    const _leaderInfo = {
+    // logDebug_ garante que log nunca derruba inscrição. Variável declarada
+    // no topo da função pra estar visível no catch geral também.
+    _leaderInfo = {
       email: (data && data.leaderGoogleEmail) || "",
       googleId: (data && data.leaderGoogleId) || "",
       equipeNome: (data && data.equipe && data.equipe.nome) || "",
@@ -1988,6 +1999,7 @@ function doPost(e) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.SHEET_NAME);
     if (!sheet) {
       console.error("Sheet '" + CONFIG.SHEET_NAME + "' não encontrada. Rode setup().");
+      logDebug_({ action: "internal_error_sheet_not_found", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome, detail: "aba '" + CONFIG.SHEET_NAME + "' ausente" });
       return jsonResponse({ ok: false, error: "internal_error" });
     }
 
@@ -2000,6 +2012,7 @@ function doPost(e) {
       lock.waitLock(25000);
     } catch (errLock) {
       console.error("doPost: não conseguiu o lock:", errLock);
+      logDebug_({ action: "internal_error_lock_fail", email: _leaderInfo.email, googleId: _leaderInfo.googleId, equipeNome: _leaderInfo.equipeNome, detail: String(errLock && errLock.message ? errLock.message : errLock).slice(0, 200) });
       return jsonResponse({ ok: false, error: "internal_error" });
     }
 
@@ -2123,6 +2136,16 @@ function doPost(e) {
     return jsonResponse({ ok: true });
   } catch (err) {
     console.error("doPost falhou:", err && err.stack ? err.stack : err);
+    // _leaderInfo pode estar undefined se a exception ocorreu antes do parse
+    // do payload — coalesce pra objeto vazio pra não derrubar o log.
+    const li = _leaderInfo || {};
+    logDebug_({
+      action: "internal_error_unhandled_exception",
+      email: li.email,
+      googleId: li.googleId,
+      equipeNome: li.equipeNome,
+      detail: String(err && err.message ? err.message : err).slice(0, 250),
+    });
     return jsonResponse({ ok: false, error: "internal_error" });
   }
 }
