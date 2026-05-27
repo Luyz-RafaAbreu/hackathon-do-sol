@@ -2918,12 +2918,11 @@ function atualizarEmAndamento() {
     const submittedAt = d._submittedAt || "";
     const jaConcluida = !!emailsConcluidos[emailLower];
 
-    // Se o draft tem submittedAt E o e-mail está em Inscricoes → tudo
-    // consistente, a linha "concluída" já cobre. Skip pra evitar duplicar.
-    if (submittedAt && jaConcluida) continue;
-    // Se NÃO tem submittedAt mas o e-mail está em Inscricoes → idempotência
-    // (mesma conta tentou de novo após sucesso). Também pula — concluída
-    // prevalece.
+    // Se o e-mail está em Inscricoes (com ou sem _submittedAt no draft),
+    // pula — a linha "concluída" já cobre. Casos cobertos:
+    //   • inscrição com sucesso recente → draft tem _submittedAt + linha
+    //   • idempotência subsequente (mesma conta tentou de novo) → draft
+    //     pode estar antigo (sem _submittedAt) mas linha já existe.
     if (jaConcluida) continue;
 
     const equipeNome = (d.equipe && d.equipe.nome) || "";
@@ -2935,9 +2934,15 @@ function atualizarEmAndamento() {
       return i && i.nomeCompleto && i.cpf;
     }).length;
 
+    // Schema canônico (lib/inscricao-schema.ts): proposta tem
+    // ideiaDiferencial, problemaPublico, aderencia, tecnologias.
+    // Considera "preenchida" se pelo menos um dos 3 principais tem texto
+    // (tecnologias é mais opcional na percepção do usuário).
     const propostaOk =
       d.proposta &&
-      (d.proposta.nome || d.proposta.problema || d.proposta.solucao);
+      (d.proposta.ideiaDiferencial ||
+        d.proposta.problemaPublico ||
+        d.proposta.aderencia);
     const aceitesColetivosCount = d.aceitesColetivos
       ? Object.keys(d.aceitesColetivos).filter(function (k) {
           return d.aceitesColetivos[k] === true;
