@@ -8,7 +8,7 @@ import {
   validateAll,
 } from "@/lib/inscricao-schema";
 import { getInscriptionsStatus } from "@/lib/inscriptions";
-import { deleteDraft } from "@/lib/draft-store";
+import { markDraftSubmitted } from "@/lib/draft-store";
 
 export const runtime = "nodejs";
 // Cobre a verificação Turnstile + 1 chamada ao Apps Script (timeout de 22s).
@@ -335,12 +335,14 @@ export async function POST(req: Request) {
       return bad("Sua inscrição não pôde ser registrada. Tente novamente.", 502);
     }
 
-    // Inscrição confirmada — apaga o rascunho do servidor (Upstash) aqui, de
-    // forma confiável. O client também faz um DELETE best-effort, mas se a
-    // rede dele falhar nesse instante o rascunho ficaria órfão e poderia
-    // reaparecer em outro dispositivo. deleteDraft nunca lança.
+    // Inscrição confirmada — marca o rascunho como "submetido" em vez de
+    // apagar. Preserva os dados pra auditoria: se a inscrição não aparecer
+    // na planilha (race condition, bug futuro, etc.), o draft continua
+    // disponível pra recuperação manual. GET /api/draft trata drafts
+    // marcados como inexistentes pro client, então não há regressão de UX.
+    // markDraftSubmitted nunca lança.
     if (leaderGoogleEmail) {
-      await deleteDraft(leaderGoogleEmail);
+      await markDraftSubmitted(leaderGoogleEmail);
     }
 
     return NextResponse.json({

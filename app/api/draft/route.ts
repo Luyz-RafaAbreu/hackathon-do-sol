@@ -79,6 +79,17 @@ export async function GET() {
     return NextResponse.json({ ok: true, draft: null });
   }
   const draft = await getDraft(session.user.email);
+  // Drafts marcados como submetidos ficam preservados no Upstash pra
+  // auditoria (ver markDraftSubmitted em lib/draft-store.ts), mas pro
+  // client eles devem aparecer como inexistentes — senão o form
+  // reabriria todo preenchido após inscrição confirmada.
+  if (
+    draft &&
+    typeof draft === "object" &&
+    (draft as Record<string, unknown>)._submittedAt
+  ) {
+    return NextResponse.json({ ok: true, draft: null });
+  }
   return NextResponse.json({ ok: true, draft });
 }
 

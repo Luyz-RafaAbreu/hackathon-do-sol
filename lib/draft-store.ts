@@ -67,3 +67,31 @@ export async function deleteDraft(email: string): Promise<void> {
     console.error("[draft-store] deleteDraft falhou:", err);
   }
 }
+
+// Marca o rascunho como "submetido" em vez de apagar — preserva os dados
+// pra auditoria/recuperação caso a inscrição não tenha aparecido na planilha.
+// O campo `_submittedAt` (ISO 8601) é o marker; GET /api/draft trata
+// rascunhos marcados como inexistentes pro client (não restaura) mas eles
+// continuam disponíveis pra `atualizarEmAndamento` no Apps Script.
+//
+// TTL é renovado pros 30 dias padrão a partir da marcação — janela mais
+// que suficiente pra investigar qualquer falha pós-envio dentro do período
+// de inscrições.
+export async function markDraftSubmitted(email: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  try {
+    const existing = (await redis.get(key(email))) as
+      | Record<string, unknown>
+      | string
+      | null;
+    if (!existing) return; // sem draft, nada a marcar
+    const parsed =
+      typeof existing === "string" ? JSON.parse(existing) : existing;
+    if (!parsed || typeof parsed !== "object") return;
+    const marked = { ...parsed, _submittedAt: new Date().toISOString() };
+    await redis.set(key(email), marked, { ex: TTL_SECONDS });
+  } catch (err) {
+    console.error("[draft-store] markDraftSubmitted falhou:", err);
+  }
+}

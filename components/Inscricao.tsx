@@ -558,17 +558,17 @@ export default function Inscricao() {
         // Marca o usuário como inscrito na hora — sem isto, o gating de "já
         // inscrito" (Hero / Header / InscricaoGate) só pegaria num reload.
         markInscrito();
-        // Limpa o rascunho — submissão bem-sucedida, não tem motivo pra manter
+        // Limpa o rascunho LOCAL — submissão bem-sucedida, não tem motivo
+        // pra manter o estado preenchido na próxima abertura. NÃO chamamos
+        // DELETE /api/draft: o servidor agora MARCA o rascunho como
+        // submetido em vez de apagar (preserva pra auditoria). GET /api/draft
+        // trata o draft marcado como inexistente, então o form continua
+        // vindo em branco numa próxima sessão.
         try {
           localStorage.removeItem(DRAFT_KEY);
         } catch {
           /* */
         }
-        fetch("/api/draft", { method: "DELETE", credentials: "include" }).catch(
-          () => {
-            /* */
-          }
-        );
       } else {
         setSubmitStatus("error");
         setSubmitMessage(

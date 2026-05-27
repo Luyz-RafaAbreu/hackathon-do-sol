@@ -2824,6 +2824,53 @@ function atualizarEmAndamento() {
     return;
   }
 
+  // ---------- 1) INSCRIÇÕES JÁ FINALIZADAS (aba Inscricoes) ----------
+  // Lê primeiro pra ter o set de e-mails concluídos. Cada linha vira uma
+  // entrada no array `rows` com status "✅ Concluída — <data>". Também
+  // alimenta `emailsConcluidos` (lowercase) pra deduplicar contra drafts
+  // depois.
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const inscricoesSheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+  const emailsConcluidos = {}; // map: emailLower → dataInscricao
+  const rowsConcluidas = [];
+  if (inscricoesSheet && inscricoesSheet.getLastRow() >= 2) {
+    const lastRow = inscricoesSheet.getLastRow();
+    const allData = inscricoesSheet
+      .getRange(2, 1, lastRow - 1, COLUMNS.length)
+      .getValues();
+    const statusIdx = COLUMNS.indexOf("Status");
+    const dataIdx = COLUMNS.indexOf("Data inscrição");
+    const googleEmailIdx = COLUMNS.indexOf("E-mail Google líder");
+    const equipeNomeIdx = COLUMNS.indexOf("Equipe — Nome");
+    const trilhaIdx = COLUMNS.indexOf("Trilha temática");
+    const cidadeIdx = COLUMNS.indexOf("Equipe — Cidade");
+    const estadoIdx = COLUMNS.indexOf("Equipe — Estado");
+    const telefoneIdx = COLUMNS.indexOf("Equipe — Telefone");
+    for (let r = 0; r < allData.length; r++) {
+      const row = allData[r];
+      const email = String(row[googleEmailIdx] || "")
+        .replace(/^'/, "")
+        .trim();
+      const emailLower = email.toLowerCase();
+      if (!emailLower) continue;
+      const status = String(row[statusIdx] || "Pendente").trim();
+      const data = String(row[dataIdx] || "").trim();
+      emailsConcluidos[emailLower] = data;
+      const cidade = String(row[cidadeIdx] || "").trim();
+      const estado = String(row[estadoIdx] || "").trim();
+      rowsConcluidas.push([
+        email,
+        String(row[equipeNomeIdx] || ""),
+        "✅ Concluída — " + status + (data ? " · " + data : ""),
+        "4 / 4",
+        String(row[trilhaIdx] || ""),
+        cidade ? cidade + (estado ? "/" + estado : "") : "",
+        String(row[telefoneIdx] || ""),
+      ]);
+    }
+  }
+
+  // ---------- 2) DRAFTS NO UPSTASH ----------
   const opts = {
     method: "get",
     headers: { Authorization: "Bearer " + upstashToken },
@@ -2847,10 +2894,12 @@ function atualizarEmAndamento() {
     return;
   }
 
-  const rows = [];
+  const rowsEmAndamento = [];
+  const rowsAlarme = []; // enviou mas sumiu — pos: separado pra destaque
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
     const email = key.replace(/^draft:/, "");
+    const emailLower = email.toLowerCase();
 
     let d;
     try {
@@ -2865,6 +2914,17 @@ function atualizarEmAndamento() {
     } catch (err) {
       continue;
     }
+
+    const submittedAt = d._submittedAt || "";
+    const jaConcluida = !!emailsConcluidos[emailLower];
+
+    // Se o draft tem submittedAt E o e-mail está em Inscricoes → tudo
+    // consistente, a linha "concluída" já cobre. Skip pra evitar duplicar.
+    if (submittedAt && jaConcluida) continue;
+    // Se NÃO tem submittedAt mas o e-mail está em Inscricoes → idempotência
+    // (mesma conta tentou de novo após sucesso). Também pula — concluída
+    // prevalece.
+    if (jaConcluida) continue;
 
     const equipeNome = (d.equipe && d.equipe.nome) || "";
     const trilha = (d.equipe && d.equipe.trilha) || "";
@@ -2887,7 +2947,13 @@ function atualizarEmAndamento() {
       d.liderConfirmacao && d.liderConfirmacao.aceiteFinal === true;
 
     let etapa;
-    if (!equipeNome) etapa = "1. Logou (vazio)";
+    // submittedAt SEM linha em Inscricoes = ALARME — pessoa enviou, backend
+    // confirmou (markDraftSubmitted só roda em result.ok), mas a planilha
+    // não tem a inscrição. Caso edge sério: race condition, bug futuro,
+    // ou linha apagada manualmente.
+    if (submittedAt) {
+      etapa = "⚠️ ENVIOU MAS SUMIU — " + submittedAt.slice(0, 19);
+    } else if (!equipeNome) etapa = "1. Logou (vazio)";
     else if (!cidade && !telefone) etapa = "2. Nomeou equipe";
     else if (!trilha) etapa = "3. Equipe completa (sem trilha)";
     else if (ints === 0) etapa = "4. Escolheu trilha";
@@ -2897,7 +2963,7 @@ function atualizarEmAndamento() {
     else if (!liderConfirmou) etapa = "8. Aceites coletivos marcados";
     else etapa = "9. Pronto pra enviar";
 
-    rows.push([
+    const linha = [
       email,
       equipeNome,
       etapa,
@@ -2905,15 +2971,23 @@ function atualizarEmAndamento() {
       trilha,
       cidade ? cidade + (estado ? "/" + estado : "") : "",
       telefone,
-    ]);
+    ];
+    if (submittedAt) rowsAlarme.push(linha);
+    else rowsEmAndamento.push(linha);
   }
 
-  // Ordena: mais avançados primeiro
-  rows.sort(function (a, b) {
+  // Ordena cada bucket separadamente
+  rowsConcluidas.sort(function (a, b) {
+    return String(b[2]).localeCompare(String(a[2]));
+  });
+  rowsEmAndamento.sort(function (a, b) {
     return String(b[2]).localeCompare(String(a[2]));
   });
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  // Ordem final: alarmes no topo (pra chamar atenção) → concluídas →
+  // em andamento. Cada equipe aparece exatamente uma vez.
+  const rows = rowsAlarme.concat(rowsConcluidas).concat(rowsEmAndamento);
+
   let sheet = ss.getSheetByName(EM_ANDAMENTO_SHEET_NAME);
   if (!sheet) {
     sheet = ss.insertSheet(EM_ANDAMENTO_SHEET_NAME);
