@@ -3086,3 +3086,32 @@ function _instalarTriggerEmAndamento() {
     // sem UI ativa (rodando via API) — toast falha silenciosamente
   }
 }
+
+// ============================================================================
+// limparDebugLog — apaga todas as linhas da aba Debug Log (preserva header)
+// ============================================================================
+// Útil pra limpar registros de teste ou pra resetar o histórico. Idempotente:
+// se a aba não existir, retorna silenciosamente. Se já estiver vazia (só
+// header), idem. NÃO toca em nenhuma outra aba.
+// ============================================================================
+function limparDebugLog() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(DEBUG_LOG_SHEET_NAME);
+    if (!sheet) return;
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return; // só header (ou vazia) — nada a fazer
+    sheet.deleteRows(2, lastRow - 1);
+    try {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        "Debug Log limpo: " + (lastRow - 1) + " linha(s) apagada(s)",
+        "Configuração",
+        5
+      );
+    } catch (e) {
+      // sem UI (chamada via API) — toast falha silenciosamente
+    }
+  } catch (err) {
+    console.error("limparDebugLog falhou:", err);
+  }
+}
