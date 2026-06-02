@@ -387,7 +387,7 @@ function setup() {
 
   setupConfigSheet();
   setupAprovadosSheet_(); // cria aba Aprovados (idempotente)
-  setupIndividualSheet_(); // cria aba "Inscricoes Individuais" (idempotente)
+  setupIndividualSheet(); // cria aba "Inscricoes Individuais" (idempotente)
   regenerarTriagem();   // cria aba Triagem + cards
   regenerarDetalhes();  // cria aba Detalhes + blocos
   tidyUpSheets_();      // esconde Inscricoes + reordena
@@ -3228,13 +3228,13 @@ const FIELD_MAX_INDIVIDUAL = {
 };
 
 // ============================================================================
-// setupIndividualSheet_ — cria a aba "Inscricoes Individuais" se não existir
+// setupIndividualSheet — cria a aba "Inscricoes Individuais" se não existir
 // ----------------------------------------------------------------------------
 // IDEMPOTENTE: se a aba já existe, não toca em nada (preserva dados). Isso
 // permite rodar setup() em uma planilha de produção sem destruir registros.
 // Pra recriar do zero (ex.: trocou colunas), apague a aba antes manualmente.
 // ============================================================================
-function setupIndividualSheet_() {
+function setupIndividualSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(INDIVIDUAL_SHEET_NAME);
   if (sheet) {
@@ -3347,7 +3347,7 @@ function handleIndividual_(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const indSheet = ss.getSheetByName(INDIVIDUAL_SHEET_NAME);
   if (!indSheet) {
-    console.error("Sheet '" + INDIVIDUAL_SHEET_NAME + "' não encontrada. Rode setup() ou setupIndividualSheet_().");
+    console.error("Sheet '" + INDIVIDUAL_SHEET_NAME + "' não encontrada. Rode setup() ou setupIndividualSheet().");
     logDebug_({ action: "internal_error_sheet_not_found_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome, detail: "aba '" + INDIVIDUAL_SHEET_NAME + "' ausente" });
     return jsonResponse({ ok: false, error: "internal_error" });
   }
