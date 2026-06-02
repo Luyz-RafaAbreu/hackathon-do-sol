@@ -419,10 +419,31 @@ export default function InscricaoIndividualWizard({ onBack, previewMode = false 
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       setValidationToast({ count: Object.keys(errs).length, key: Date.now() });
-      window.setTimeout(() => {
-        const el = document.querySelector("[data-field-error]");
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 100);
+
+      // Decide pra qual etapa redirecionar o user. Se o erro está num
+      // campo do step 0 (integrante.*) ou step 1 (trilha/aceite), o
+      // user precisa estar visualmente nessa etapa pra ver o highlight
+      // vermelho — senão fica em cima do step 2 com toast "1 campo
+      // precisa de atenção" sem entender o que fazer. Esse é o cenário
+      // que travou usuários reais (ex: experiência < 20 chars).
+      const keys = Object.keys(errs);
+      let targetStep = step;
+      if (keys.some((k) => k.startsWith("integrante."))) {
+        targetStep = 0;
+      } else if (errs.trilhaPreferida || errs.aceiteFormacaoEquipe) {
+        targetStep = 1;
+      }
+      if (targetStep !== step) setStep(targetStep);
+
+      // Scroll pro 1º erro destacado — espera um pouco a etapa montar
+      // se houve mudança de step.
+      window.setTimeout(
+        () => {
+          const el = document.querySelector("[data-field-error]");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+        },
+        targetStep !== step ? 200 : 100
+      );
       return;
     }
 
@@ -1435,7 +1456,7 @@ function StepDadosPessoais({
       </div>
       <Field
         label="Experiência relevante"
-        help="Conte rapidamente onde você se destaca"
+        help="Mínimo 20 caracteres. Conte projetos, tecnologias, onde já trabalhou."
         error={err("experienciaRelevante")}
         input={
           <textarea
@@ -1578,7 +1599,10 @@ function StepTrilha({
         Escolha a trilha que mais combina com o que você quer construir. A
         organização pode realocar entre trilhas para equilibrar as 3.
       </p>
-      <div className="space-y-3">
+      <div
+        className="space-y-3"
+        data-field-error={errors.trilhaPreferida ? "true" : undefined}
+      >
         {TRILHAS.map((t) => {
           const checked = trilhaPreferida === t;
           return (
@@ -1626,7 +1650,7 @@ function StepTrilha({
       <SectionTitle>Aceite específico — formação de equipe</SectionTitle>
       {/* Mesmo padrão visual do AceiteCheckbox do fluxo de equipe: laranja
           do site (sol-orange) + ícone V dentro do quadradinho quando marcado. */}
-      <div>
+      <div data-field-error={errors.aceiteFormacaoEquipe ? "true" : undefined}>
         <label
           className={`flex items-start gap-3 rounded-xl border px-4 py-3 cursor-pointer group select-none transition ${
             aceiteFormacao
