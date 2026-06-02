@@ -40,6 +40,7 @@ import {
   formatCPF,
   formatPhoneBR,
   validateIndividual,
+  validateIntegrante,
 } from "@/lib/inscricao-schema";
 import InstituicaoAutocomplete from "./inscricao-fields/InstituicaoAutocomplete";
 import CidadeIbgeSelect from "./inscricao-fields/CidadeIbgeSelect";
@@ -339,44 +340,25 @@ export default function InscricaoIndividualWizard({ onBack, previewMode = false 
   // Validação por etapa — versão simplificada, sem dependências externas.
   const validateStep = (s: number): Record<string, string> => {
     const e: Record<string, string> = {};
-    const i = state.integrante;
     if (s === 0) {
-      // Dados pessoais — só os campos críticos no stub
-      if (!i.nomeCompleto.trim()) e["integrante.nomeCompleto"] = "Obrigatório";
-      if (!i.cpf.trim()) e["integrante.cpf"] = "Obrigatório";
-      if (!i.rg.trim()) e["integrante.rg"] = "Obrigatório";
-      if (!i.dataNascimento) e["integrante.dataNascimento"] = "Obrigatório";
-      if (!i.nacionalidade) e["integrante.nacionalidade"] = "Obrigatório";
-      if (!i.naturalidade.trim()) e["integrante.naturalidade"] = "Obrigatório";
-      if (!i.cidade.trim()) e["integrante.cidade"] = "Obrigatório";
-      if (!i.estado.trim()) e["integrante.estado"] = "Obrigatório";
-      if (!i.cep.trim()) e["integrante.cep"] = "Obrigatório";
-      if (!i.logradouro.trim()) e["integrante.logradouro"] = "Obrigatório";
-      if (!i.numero.trim()) e["integrante.numero"] = "Obrigatório";
-      if (!i.bairro.trim()) e["integrante.bairro"] = "Obrigatório";
-      if (!i.emailPessoal.trim()) e["integrante.emailPessoal"] = "Obrigatório";
-      if (!i.telefoneCelular.trim())
-        e["integrante.telefoneCelular"] = "Obrigatório";
-      if (!i.contatoEmergenciaNome.trim())
-        e["integrante.contatoEmergenciaNome"] = "Obrigatório";
-      if (!i.contatoEmergenciaTelefone.trim())
-        e["integrante.contatoEmergenciaTelefone"] = "Obrigatório";
-      if (!i.contatoEmergenciaParentesco)
-        e["integrante.contatoEmergenciaParentesco"] = "Obrigatório";
-      if (!i.genero) e["integrante.genero"] = "Obrigatório";
-      if (i.areasConhecimento.length === 0)
-        e["integrante.areasConhecimento"] = "Marque pelo menos uma área";
-      if (!i.ocupacaoAtual.trim()) e["integrante.ocupacaoAtual"] = "Obrigatório";
-      if (!i.tempoExperiencia)
-        e["integrante.tempoExperiencia"] = "Obrigatório";
-      if (!i.nivelFormacao) e["integrante.nivelFormacao"] = "Obrigatório";
-      if (!i.experienciaRelevante.trim())
-        e["integrante.experienciaRelevante"] = "Obrigatório";
-      if (!i.comoSoube) e["integrante.comoSoube"] = "Obrigatório";
-      // Aceites individuais — todos os 9 marcados
-      for (const a of ACEITES_INDIVIDUAIS) {
-        if (i.aceites[a.key] !== true)
-          e[`aceite.${a.key}`] = "Você precisa aceitar este termo";
+      // Delega pra `validateIntegrante` do schema — fonte canônica. Antes
+      // havia checks paralelos mais leves só de "tem valor", que deixavam
+      // passar formatos inválidos (CPF mal-calculado, email sem @,
+      // experiência < 20 chars, restrições alimentares em branco). Quando
+      // o usuário chegava no envio, `validateIndividual` (que usa esta
+      // mesma função) rejeitava — mas com a pessoa visualmente em outra
+      // etapa, vendo só "1 campo precisa de atenção". Bug reportado por
+      // user que travou no envio mesmo "preenchendo tudo".
+      //
+      // O array `[i.cpf]` + índice 0 é só pra satisfazer a assinatura
+      // (no individual não há dedup entre 4 CPFs).
+      const integranteErrors = validateIntegrante(
+        state.integrante,
+        [state.integrante.cpf],
+        0
+      );
+      for (const k of Object.keys(integranteErrors)) {
+        e[`integrante.${k}`] = integranteErrors[k]!;
       }
     } else if (s === 1) {
       if (!state.trilhaPreferida)
@@ -1565,7 +1547,7 @@ function StepDadosPessoais({
           ACEITES_INDIVIDUAIS.forEach((a) => onToggleAceite(a.key, v));
         }}
         hasError={ACEITES_INDIVIDUAIS.some(
-          (a) => !!errors[`aceite.${a.key}`]
+          (a) => !!errors[`integrante.aceite_${a.key}`]
         )}
       />
     </div>
