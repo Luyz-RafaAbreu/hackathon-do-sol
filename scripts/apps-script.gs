@@ -2373,7 +2373,8 @@ function handleStatusQuery_(payloadInput) {
     }
     if (!googleId && !email) return jsonResponse({ ok: true, status: null });
 
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.SHEET_NAME);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEET_NAME);
     if (!sheet) return jsonResponse({ ok: true, status: null });
 
     const lastRow = sheet.getLastRow();
