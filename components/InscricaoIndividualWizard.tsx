@@ -217,8 +217,17 @@ export default function InscricaoIndividualWizard({ onBack, previewMode = false 
   // havido edição.
   const firstSaveSkip = useRef(true);
 
-  // Restore draft on mount
+  // `draftChecked` segura o autosave até o restore terminar — evita
+  // sobrescrever o draft remoto com o estado inicial vazio antes da
+  // chamada GET retornar (mesmo padrão do fluxo de equipe).
+  const [draftChecked, setDraftChecked] = useState(false);
+
+  // Restore on mount: localStorage primeiro (síncrono, F5-safe); se não
+  // tinha local, tenta servidor (cobre "comecei no celular, abri no
+  // notebook"). Em modo preview NUNCA bate no servidor — preview é
+  // dev-only sem auth.
   useEffect(() => {
+    let localHadDraft = false;
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) {
@@ -226,17 +235,59 @@ export default function InscricaoIndividualWizard({ onBack, previewMode = false 
         if (parsed && typeof parsed === "object") {
           setState(parsed);
           setDraftRestored(true);
+          localHadDraft = true;
           window.setTimeout(() => setDraftRestored(false), 5000);
         }
       }
     } catch {
       /* */
     }
-  }, []);
 
-  // Persist on change — também dispara o indicador visual de salvamento
-  // ("Salvando…" → "Salvo ✓" → some). Pula a 1ª iteração (mount) pra não
-  // mostrar nada antes da pessoa editar.
+    if (previewMode) {
+      setDraftChecked(true);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/draft?kind=individual", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (cancelled || !res.ok) return;
+        const data = (await res.json()) as {
+          ok: boolean;
+          draft?: InscricaoIndividualState | null;
+        };
+        if (cancelled) return;
+        if (
+          data.draft &&
+          typeof data.draft === "object" &&
+          !localHadDraft &&
+          "integrante" in data.draft &&
+          "trilhaPreferida" in data.draft
+        ) {
+          setState(data.draft);
+          setDraftRestored(true);
+          window.setTimeout(() => setDraftRestored(false), 5000);
+        }
+      } catch {
+        /* servidor indisponível — segue com localStorage */
+      } finally {
+        if (!cancelled) setDraftChecked(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previewMode]);
+
+  // Persist on change: localStorage instantâneo + POST debounced (2s) pro
+  // servidor. Indicador visual ("Salvando…" → "Salvo ✓"). Pula a 1ª
+  // iteração (mount) pra não mostrar antes da pessoa editar. POST só
+  // dispara com sessão E quando o restore acabou.
   useEffect(() => {
     if (firstSaveSkip.current) {
       firstSaveSkip.current = false;
@@ -249,9 +300,30 @@ export default function InscricaoIndividualWizard({ onBack, previewMode = false 
       /* */
     }
     // Pequeno delay pra mostrar o "Salvando…" antes do "Salvo".
-    const id = window.setTimeout(() => setSaveState("saved"), 350);
-    return () => window.clearTimeout(id);
-  }, [state]);
+    const idSaved = window.setTimeout(() => setSaveState("saved"), 350);
+
+    // Backup remoto (cross-device). Pula no preview e quando restore
+    // ainda não acabou.
+    let idPost: number | undefined;
+    if (!previewMode && draftChecked && session?.user?.email) {
+      idPost = window.setTimeout(() => {
+        fetch("/api/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ state, kind: "individual" }),
+          credentials: "include",
+          keepalive: true,
+        }).catch(() => {
+          /* network blip — próxima edição tenta de novo */
+        });
+      }, 2000);
+    }
+
+    return () => {
+      window.clearTimeout(idSaved);
+      if (idPost !== undefined) window.clearTimeout(idPost);
+    };
+  }, [state, draftChecked, previewMode, session]);
 
   const updateIntegrante = (patch: Partial<IntegranteState>) =>
     setState((s) => ({ ...s, integrante: { ...s.integrante, ...patch } }));

@@ -1,9 +1,13 @@
 // ============================================================================
 // app/api/draft/route.ts — endpoints de rascunho do formulário
 // ----------------------------------------------------------------------------
-// GET    /api/draft  → { ok, draft }  — retorna o rascunho salvo (ou null)
-// POST   /api/draft  → { ok }         — persiste { state } no servidor
-// DELETE /api/draft  → { ok }         — limpa o rascunho (após envio bem-sucedido)
+// GET    /api/draft[?kind=individual]  → { ok, draft }
+// POST   /api/draft  com body { state, kind? }  → { ok }
+// DELETE /api/draft[?kind=individual]  → { ok }
+//
+// `kind` é opcional. Default = "equipe" (compat com clientes existentes
+// que não enviam o param). Quando "individual", lê/grava na chave
+// `draft:individual:<email>` em vez de `draft:<email>`.
 //
 // Autenticação obrigatória — usa a sessão do NextAuth pra identificar o
 // dono do rascunho. Sem login, retorna 401.
@@ -26,7 +30,12 @@ import {
   getDraft,
   isDraftStoreConfigured,
   setDraft,
+  type DraftKind,
 } from "@/lib/draft-store";
+
+function parseKind(raw: string | null | undefined): DraftKind {
+  return raw === "individual" ? "individual" : "equipe";
+}
 
 const MAX_PAYLOAD_BYTES = 200_000;
 
@@ -57,11 +66,21 @@ function checkRateLimit(key: string): { ok: boolean; resetAt: number } {
 }
 
 // Validação estrutural mínima — drafts podem ser parciais (user só
-// preencheu nome da equipe), mas precisam ter as 5 chaves esperadas com
-// shape correto. Bloqueia payloads totalmente arbitrários.
-function isValidDraftShape(state: unknown): boolean {
+// preencheu nome da equipe / nome próprio), mas precisam ter o shape
+// básico do modo. Bloqueia payloads totalmente arbitrários.
+function isValidDraftShape(state: unknown, kind: DraftKind): boolean {
   if (!state || typeof state !== "object") return false;
   const s = state as Record<string, unknown>;
+  if (kind === "individual") {
+    // Estrutura do modo individual: { integrante, trilhaPreferida,
+    // aceiteFormacaoEquipe }. Só checamos as chaves obrigatórias —
+    // valores podem estar vazios (rascunho).
+    if (!s.integrante || typeof s.integrante !== "object") return false;
+    if (typeof s.trilhaPreferida !== "string") return false;
+    if (typeof s.aceiteFormacaoEquipe !== "boolean") return false;
+    return true;
+  }
+  // Equipe (formato atual)
   if (!s.equipe || typeof s.equipe !== "object") return false;
   if (!Array.isArray(s.integrantes) || s.integrantes.length !== 4) return false;
   if (!s.proposta || typeof s.proposta !== "object") return false;
@@ -70,7 +89,7 @@ function isValidDraftShape(state: unknown): boolean {
   return true;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -78,7 +97,8 @@ export async function GET() {
   if (!isDraftStoreConfigured()) {
     return NextResponse.json({ ok: true, draft: null });
   }
-  const draft = await getDraft(session.user.email);
+  const kind = parseKind(req.nextUrl.searchParams.get("kind"));
+  const draft = await getDraft(session.user.email, kind);
   // Drafts marcados como submetidos ficam preservados no Upstash pra
   // auditoria (ver markDraftSubmitted em lib/draft-store.ts), mas pro
   // client eles devem aparecer como inexistentes — senão o form
@@ -127,21 +147,22 @@ export async function POST(req: NextRequest) {
       { status: 413 }
     );
   }
-  let body: { state?: unknown };
+  let body: { state?: unknown; kind?: unknown };
   try {
     body = JSON.parse(raw);
   } catch {
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 });
   }
-  if (!isValidDraftShape(body.state)) {
+  const kind = parseKind(typeof body.kind === "string" ? body.kind : null);
+  if (!isValidDraftShape(body.state, kind)) {
     return NextResponse.json({ ok: false, error: "invalid state" }, { status: 400 });
   }
 
-  await setDraft(session.user.email, body.state);
+  await setDraft(session.user.email, body.state, kind);
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -149,6 +170,7 @@ export async function DELETE() {
   if (!isDraftStoreConfigured()) {
     return NextResponse.json({ ok: true });
   }
-  await deleteDraft(session.user.email);
+  const kind = parseKind(req.nextUrl.searchParams.get("kind"));
+  await deleteDraft(session.user.email, kind);
   return NextResponse.json({ ok: true });
 }

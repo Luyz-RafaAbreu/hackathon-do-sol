@@ -8,6 +8,7 @@ import {
   validateIndividual,
 } from "@/lib/inscricao-schema";
 import { getInscriptionsStatus } from "@/lib/inscriptions";
+import { markDraftSubmitted } from "@/lib/draft-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
@@ -298,6 +299,13 @@ export async function POST(req: Request) {
       }
       console.error("[inscricao-individual] Apps Script retornou erro:", result?.error);
       return bad("Sua inscrição não pôde ser registrada. Tente novamente.", 502);
+    }
+
+    // Marca o rascunho como "submetido" (preserva pra auditoria; GET
+    // /api/draft trata como inexistente). Mesma lógica do fluxo de
+    // equipe — apenas a chave do Redis muda (draft:individual:<email>).
+    if (leaderGoogleEmail) {
+      await markDraftSubmitted(leaderGoogleEmail, "individual");
     }
 
     return NextResponse.json({

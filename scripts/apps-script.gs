@@ -2891,7 +2891,7 @@ function atualizarEmAndamento() {
     return;
   }
 
-  // ---------- 1) INSCRIÇÕES JÁ FINALIZADAS (aba Inscricoes) ----------
+  // ---------- 1) INSCRIÇÕES JÁ FINALIZADAS (abas Inscricoes + Inscricoes Individuais) ----------
   // Lê primeiro pra ter o set de e-mails concluídos. Cada linha vira uma
   // entrada no array `rows` com status "✅ Concluída — <data>". Também
   // alimenta `emailsConcluidos` (lowercase) pra deduplicar contra drafts
@@ -2937,6 +2937,44 @@ function atualizarEmAndamento() {
     }
   }
 
+  // Inscrições individuais já concluídas (aba "Inscricoes Individuais").
+  // Mesma lógica: alimenta `emailsConcluidos` (chave: emailLower + "::ind"
+  // pra não colidir com equipe) e gera linhas "✅ Concluída".
+  const indSheet = ss.getSheetByName(INDIVIDUAL_SHEET_NAME);
+  if (indSheet && indSheet.getLastRow() >= 2) {
+    const indCols = INDIVIDUAL_COLUMNS;
+    const indLast = indSheet.getLastRow();
+    const indData = indSheet.getRange(2, 1, indLast - 1, indCols.length).getValues();
+    const idxStatus = 0;
+    const idxData = 1;
+    const idxGoogleEmail = indCols.indexOf("E-mail Google");
+    const idxTrilha = indCols.indexOf("Trilha preferida");
+    const idxNome = indCols.indexOf("Nome completo");
+    const idxCidade = indCols.indexOf("Cidade");
+    const idxEstado = indCols.indexOf("Estado");
+    const idxTel = indCols.indexOf("Telefone");
+    for (let r = 0; r < indData.length; r++) {
+      const row = indData[r];
+      const email = String(row[idxGoogleEmail] || "").replace(/^'/, "").trim();
+      const emailLower = email.toLowerCase();
+      if (!emailLower) continue;
+      const status = String(row[idxStatus] || "Pendente").trim();
+      const data = String(row[idxData] || "").trim();
+      emailsConcluidos[emailLower + "::ind"] = data;
+      const cidade = String(row[idxCidade] || "").trim();
+      const estado = String(row[idxEstado] || "").trim();
+      rowsConcluidas.push([
+        email,
+        "[IND] " + String(row[idxNome] || ""),
+        "✅ Concluída — " + status + (data ? " · " + data : ""),
+        "—",
+        String(row[idxTrilha] || ""),
+        cidade ? cidade + (estado ? "/" + estado : "") : "",
+        String(row[idxTel] || ""),
+      ]);
+    }
+  }
+
   // ---------- 2) DRAFTS NO UPSTASH ----------
   const opts = {
     method: "get",
@@ -2965,8 +3003,15 @@ function atualizarEmAndamento() {
   const rowsAlarme = []; // enviou mas sumiu — pos: separado pra destaque
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
-    const email = key.replace(/^draft:/, "");
+    // Discriminator de modalidade pela chave:
+    //   `draft:individual:<email>` → modo individual (lib/draft-store.ts)
+    //   `draft:<email>`            → modo equipe (legacy)
+    const isIndividual = key.indexOf("draft:individual:") === 0;
+    const email = isIndividual
+      ? key.replace(/^draft:individual:/, "")
+      : key.replace(/^draft:/, "");
     const emailLower = email.toLowerCase();
+    const concluidaKey = isIndividual ? emailLower + "::ind" : emailLower;
 
     let d;
     try {
@@ -2983,67 +3028,103 @@ function atualizarEmAndamento() {
     }
 
     const submittedAt = d._submittedAt || "";
-    const jaConcluida = !!emailsConcluidos[emailLower];
+    const jaConcluida = !!emailsConcluidos[concluidaKey];
 
-    // Se o e-mail está em Inscricoes (com ou sem _submittedAt no draft),
-    // pula — a linha "concluída" já cobre. Casos cobertos:
+    // Se o e-mail está na aba correspondente (com ou sem _submittedAt no
+    // draft), pula — a linha "concluída" já cobre. Casos cobertos:
     //   • inscrição com sucesso recente → draft tem _submittedAt + linha
     //   • idempotência subsequente (mesma conta tentou de novo) → draft
     //     pode estar antigo (sem _submittedAt) mas linha já existe.
     if (jaConcluida) continue;
 
-    const equipeNome = (d.equipe && d.equipe.nome) || "";
-    const trilha = (d.equipe && d.equipe.trilha) || "";
-    const telefone = (d.equipe && d.equipe.telefone) || "";
-    const cidade = (d.equipe && d.equipe.cidade) || "";
-    const estado = (d.equipe && d.equipe.estado) || "";
-    const ints = (d.integrantes || []).filter(function (i) {
-      return i && i.nomeCompleto && i.cpf;
-    }).length;
-
-    // Schema canônico (lib/inscricao-schema.ts): proposta tem
-    // ideiaDiferencial, problemaPublico, aderencia, tecnologias.
-    // Considera "preenchida" se pelo menos um dos 3 principais tem texto
-    // (tecnologias é mais opcional na percepção do usuário).
-    const propostaOk =
-      d.proposta &&
-      (d.proposta.ideiaDiferencial ||
-        d.proposta.problemaPublico ||
-        d.proposta.aderencia);
-    const aceitesColetivosCount = d.aceitesColetivos
-      ? Object.keys(d.aceitesColetivos).filter(function (k) {
-          return d.aceitesColetivos[k] === true;
-        }).length
-      : 0;
-    const liderConfirmou =
-      d.liderConfirmacao && d.liderConfirmacao.aceiteFinal === true;
-
+    let linha;
     let etapa;
-    // submittedAt SEM linha em Inscricoes = ALARME — pessoa enviou, backend
-    // confirmou (markDraftSubmitted só roda em result.ok), mas a planilha
-    // não tem a inscrição. Caso edge sério: race condition, bug futuro,
-    // ou linha apagada manualmente.
-    if (submittedAt) {
-      etapa = "⚠️ ENVIOU MAS SUMIU — " + submittedAt.slice(0, 19);
-    } else if (!equipeNome) etapa = "1. Logou (vazio)";
-    else if (!cidade && !telefone) etapa = "2. Nomeou equipe";
-    else if (!trilha) etapa = "3. Equipe completa (sem trilha)";
-    else if (ints === 0) etapa = "4. Escolheu trilha";
-    else if (ints < 4) etapa = "5. Preenchendo integrantes (" + ints + "/4)";
-    else if (!propostaOk) etapa = "6. 4 integrantes (falta proposta)";
-    else if (aceitesColetivosCount < 5) etapa = "7. Proposta preenchida";
-    else if (!liderConfirmou) etapa = "8. Aceites coletivos marcados";
-    else etapa = "9. Pronto pra enviar";
+    if (isIndividual) {
+      // Modo individual: estrutura é { integrante, trilhaPreferida,
+      // aceiteFormacaoEquipe } (ver lib/inscricao-schema.ts →
+      // InscricaoIndividualState).
+      const ig = d.integrante || {};
+      const nome = String(ig.nomeCompleto || "");
+      const cpf = String(ig.cpf || "");
+      const areas = (ig.areasConhecimento || []).length;
+      const aceites = ig.aceites || {};
+      // 9 aceites individuais (ver ACEITES_INDIVIDUAIS_KEYS no topo).
+      const aceitesIndividuaisOk = ACEITES_INDIVIDUAIS_KEYS.every(function (k) {
+        return aceites[k] === true;
+      });
+      const trilhaPref = String(d.trilhaPreferida || "");
+      const aceiteEq = d.aceiteFormacaoEquipe === true;
+      const cidade = String(ig.cidade || "");
+      const estado = String(ig.estado || "");
+      const telefone = String(ig.telefoneCelular || "");
 
-    const linha = [
-      email,
-      equipeNome,
-      etapa,
-      ints + " / 4",
-      trilha,
-      cidade ? cidade + (estado ? "/" + estado : "") : "",
-      telefone,
-    ];
+      if (submittedAt) {
+        etapa = "⚠️ ENVIOU MAS SUMIU — " + submittedAt.slice(0, 19);
+      } else if (!nome && !cpf) etapa = "1. Logou (vazio)";
+      else if (!cpf || areas === 0 || !aceitesIndividuaisOk) etapa = "2. Preenchendo dados";
+      else if (!trilhaPref) etapa = "3. Dados completos (sem trilha)";
+      else if (!aceiteEq) etapa = "4. Trilha (falta aceite)";
+      else etapa = "5. Pronto pra enviar";
+
+      linha = [
+        email,
+        "[IND] " + nome,
+        etapa,
+        "—",
+        trilhaPref,
+        cidade ? cidade + (estado ? "/" + estado : "") : "",
+        telefone,
+      ];
+    } else {
+      // Modo equipe (legacy) — lógica original.
+      const equipeNome = (d.equipe && d.equipe.nome) || "";
+      const trilha = (d.equipe && d.equipe.trilha) || "";
+      const telefone = (d.equipe && d.equipe.telefone) || "";
+      const cidade = (d.equipe && d.equipe.cidade) || "";
+      const estado = (d.equipe && d.equipe.estado) || "";
+      const ints = (d.integrantes || []).filter(function (i) {
+        return i && i.nomeCompleto && i.cpf;
+      }).length;
+
+      // Schema canônico (lib/inscricao-schema.ts): proposta tem
+      // ideiaDiferencial, problemaPublico, aderencia, tecnologias.
+      // Considera "preenchida" se pelo menos um dos 3 principais tem texto.
+      const propostaOk =
+        d.proposta &&
+        (d.proposta.ideiaDiferencial ||
+          d.proposta.problemaPublico ||
+          d.proposta.aderencia);
+      const aceitesColetivosCount = d.aceitesColetivos
+        ? Object.keys(d.aceitesColetivos).filter(function (k) {
+            return d.aceitesColetivos[k] === true;
+          }).length
+        : 0;
+      const liderConfirmou =
+        d.liderConfirmacao && d.liderConfirmacao.aceiteFinal === true;
+
+      if (submittedAt) {
+        etapa = "⚠️ ENVIOU MAS SUMIU — " + submittedAt.slice(0, 19);
+      } else if (!equipeNome) etapa = "1. Logou (vazio)";
+      else if (!cidade && !telefone) etapa = "2. Nomeou equipe";
+      else if (!trilha) etapa = "3. Equipe completa (sem trilha)";
+      else if (ints === 0) etapa = "4. Escolheu trilha";
+      else if (ints < 4) etapa = "5. Preenchendo integrantes (" + ints + "/4)";
+      else if (!propostaOk) etapa = "6. 4 integrantes (falta proposta)";
+      else if (aceitesColetivosCount < 5) etapa = "7. Proposta preenchida";
+      else if (!liderConfirmou) etapa = "8. Aceites coletivos marcados";
+      else etapa = "9. Pronto pra enviar";
+
+      linha = [
+        email,
+        equipeNome,
+        etapa,
+        ints + " / 4",
+        trilha,
+        cidade ? cidade + (estado ? "/" + estado : "") : "",
+        telefone,
+      ];
+    }
+
     if (submittedAt) rowsAlarme.push(linha);
     else rowsEmAndamento.push(linha);
   }
