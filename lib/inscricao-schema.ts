@@ -1101,6 +1101,51 @@ export function validateAll(state: InscricaoFormState): {
 }
 
 // Normaliza payload pré-envio (trim, formata telefones/CPFs, lowercase email).
+// Normaliza um integrante (trim, formato CPF/CEP/telefone, lowercase email).
+// Extraído pra ser reutilizado entre normalizeForm (equipe) e
+// normalizeIndividual (modo individual).
+function normalizeIntegrante(i: IntegranteState): IntegranteState {
+  return {
+    ...i,
+    nomeCompleto: i.nomeCompleto.trim(),
+    nomeSocial: i.nomeSocial.trim(),
+    cpf: formatCPF(i.cpf),
+    rg: i.rg.trim(),
+    nacionalidade: i.nacionalidade.trim(),
+    naturalidade: i.naturalidade.trim(),
+    cidade: i.cidade.trim(),
+    estado: i.estado.trim().toUpperCase(),
+    cep: formatCEP(i.cep),
+    logradouro: i.logradouro.trim(),
+    numero: i.numero.trim(),
+    complemento: i.complemento.trim(),
+    bairro: i.bairro.trim(),
+    emailPessoal: i.emailPessoal.trim().toLowerCase(),
+    telefoneCelular: formatPhoneBR(i.telefoneCelular),
+    contatoEmergenciaNome: i.contatoEmergenciaNome.trim(),
+    contatoEmergenciaTelefone: formatPhoneBR(i.contatoEmergenciaTelefone),
+    contatoEmergenciaParentesco: i.contatoEmergenciaParentesco.trim(),
+    ocupacaoAtual: i.ocupacaoAtual.trim(),
+    tempoExperiencia: i.tempoExperiencia.trim(),
+    nivelFormacao: i.nivelFormacao.trim(),
+    cursoFormacao: i.cursoFormacao.trim(),
+    anoFormacao: i.anoFormacao.trim(),
+    instituicao: i.instituicao.trim(),
+    instituicaoUF: i.instituicaoUF.trim().toUpperCase(),
+    instituicaoMunicipio: i.instituicaoMunicipio.trim(),
+    projetoAcademico: i.projetoAcademico.trim(),
+    linkedin: i.linkedin.trim(),
+    portfolio: i.portfolio.trim(),
+    outrasRedes: i.outrasRedes.trim(),
+    experienciaRelevante: i.experienciaRelevante.trim(),
+    restricoesAlimentares: i.restricoesAlimentares.trim(),
+    alergias: i.alergias.trim(),
+    medicamentos: i.medicamentos.trim(),
+    acessibilidade: i.acessibilidade.trim(),
+    outrasObservacoes: i.outrasObservacoes.trim(),
+  };
+}
+
 export function normalizeForm(state: InscricaoFormState): InscricaoFormState {
   return {
     equipe: {
@@ -1112,45 +1157,7 @@ export function normalizeForm(state: InscricaoFormState): InscricaoFormState {
       emailOficial: state.equipe.emailOficial.trim().toLowerCase(),
       telefone: formatPhoneBR(state.equipe.telefone),
     },
-    integrantes: state.integrantes.map((i) => ({
-      ...i,
-      nomeCompleto: i.nomeCompleto.trim(),
-      nomeSocial: i.nomeSocial.trim(),
-      cpf: formatCPF(i.cpf),
-      rg: i.rg.trim(),
-      nacionalidade: i.nacionalidade.trim(),
-      naturalidade: i.naturalidade.trim(),
-      cidade: i.cidade.trim(),
-      estado: i.estado.trim().toUpperCase(),
-      cep: formatCEP(i.cep),
-      logradouro: i.logradouro.trim(),
-      numero: i.numero.trim(),
-      complemento: i.complemento.trim(),
-      bairro: i.bairro.trim(),
-      emailPessoal: i.emailPessoal.trim().toLowerCase(),
-      telefoneCelular: formatPhoneBR(i.telefoneCelular),
-      contatoEmergenciaNome: i.contatoEmergenciaNome.trim(),
-      contatoEmergenciaTelefone: formatPhoneBR(i.contatoEmergenciaTelefone),
-      contatoEmergenciaParentesco: i.contatoEmergenciaParentesco.trim(),
-      ocupacaoAtual: i.ocupacaoAtual.trim(),
-      tempoExperiencia: i.tempoExperiencia.trim(),
-      nivelFormacao: i.nivelFormacao.trim(),
-      cursoFormacao: i.cursoFormacao.trim(),
-      anoFormacao: i.anoFormacao.trim(),
-      instituicao: i.instituicao.trim(),
-      instituicaoUF: i.instituicaoUF.trim().toUpperCase(),
-      instituicaoMunicipio: i.instituicaoMunicipio.trim(),
-      projetoAcademico: i.projetoAcademico.trim(),
-      linkedin: i.linkedin.trim(),
-      portfolio: i.portfolio.trim(),
-      outrasRedes: i.outrasRedes.trim(),
-      experienciaRelevante: i.experienciaRelevante.trim(),
-      restricoesAlimentares: i.restricoesAlimentares.trim(),
-      alergias: i.alergias.trim(),
-      medicamentos: i.medicamentos.trim(),
-      acessibilidade: i.acessibilidade.trim(),
-      outrasObservacoes: i.outrasObservacoes.trim(),
-    })) as InscricaoFormState["integrantes"],
+    integrantes: state.integrantes.map(normalizeIntegrante) as InscricaoFormState["integrantes"],
     proposta: {
       ideiaDiferencial: state.proposta.ideiaDiferencial.trim(),
       problemaPublico: state.proposta.problemaPublico.trim(),
@@ -1159,5 +1166,99 @@ export function normalizeForm(state: InscricaoFormState): InscricaoFormState {
     },
     aceitesColetivos: state.aceitesColetivos,
     liderConfirmacao: state.liderConfirmacao,
+  };
+}
+
+// =============================================================================
+// MODO INDIVIDUAL ("vou sozinho — organização forma a equipe")
+// =============================================================================
+// Adicionado em [DATA] como modalidade complementar à inscrição por equipe.
+// A pessoa preenche apenas seus próprios dados; a organização monta as equipes
+// com base em trilha + perfil + critérios definidos no aditivo do Edital.
+//
+// Mantém os MESMOS dados do IntegranteState (mesmas validações, mesmos limites,
+// mesmos aceites individuais) pra:
+//   1) reaproveitar 100% dos componentes do form atual (Field, autocomplete IES,
+//      ViaCEP, lista de cursos, etc).
+//   2) garantir que dedup por CPF/email funcione entre os 2 fluxos.
+//   3) zero divergência de schema entre integrante de equipe e individual.
+//
+// Diferenças em relação à equipe:
+//   • Sem `equipe`, `proposta`, `liderConfirmacao` (nada de coletivo).
+//   • Adiciona `trilhaPreferida` (a pessoa indica preferência; organização
+//     pode realocar baseado no aditivo).
+//   • Adiciona um aceite final específico: a pessoa autoriza a organização
+//     a formá-la em equipe com critérios divulgados no aditivo do Edital.
+// =============================================================================
+
+export type InscricaoIndividualState = {
+  integrante: IntegranteState;
+  trilhaPreferida: string;
+  aceiteFormacaoEquipe: boolean; // aceite específico do modo individual
+};
+
+// Aceite específico do modo individual. Texto independente do aditivo do
+// Edital — quando o aditivo for publicado, vale revisar pra alinhar com a
+// cláusula formal que regular a formação de equipes pela organização.
+export const ACEITE_INDIVIDUAL_FORMACAO_EQUIPE = {
+  key: "individual_formacao_equipe",
+  titulo: "Autorização de formação de equipe pela organização",
+  texto:
+    "Concordo expressamente que, ao me inscrever individualmente no Hackathon do Sol 2026, autorizo a COMISSÃO ORGANIZADORA a me incluir em uma equipe formada por ela no momento do credenciamento presencial (24/06/2026, das 10h às 14h, Hotel Praiamar Arena, Natal/RN). Reconheço que: (i) a equipe será composta pela organização juntando os inscritos individuais presentes no credenciamento; (ii) a alocação final é soberana da organização; (iii) posso ser realocado(a) para trilha diferente da indicada como preferência caso a distribuição entre as 3 trilhas exija ajuste; (iv) compartilharei equipe com 3 (três) pessoas até então desconhecidas, e me comprometo a colaborar de forma respeitosa durante todo o evento.",
+};
+
+// Factory pra estado inicial — mesmo motivo do createInitialIntegrante:
+// retorna instância fresca em cada chamada (sem referências compartilhadas).
+export function createInitialIndividual(): InscricaoIndividualState {
+  return {
+    integrante: createInitialIntegrante(),
+    trilhaPreferida: "",
+    aceiteFormacaoEquipe: false,
+  };
+}
+
+// Reaproveita os validadores existentes do integrante + checa a parte
+// específica do individual (trilha + aceite extra).
+export function validateIndividual(state: InscricaoIndividualState): {
+  ok: boolean;
+  errors: Record<string, string>;
+} {
+  const errors: Record<string, string> = {};
+
+  // Mesmos checks de integrante (idade ≥ 18 até 24/06/2026, CPF, e-mail, etc).
+  // Como é inscrição individual, só tem 1 CPF — não há dedup entre 4 como
+  // na equipe. Passamos `[state.integrante.cpf]` + índice 0 pra satisfazer
+  // a assinatura sem alterar o resto do validador.
+  const integranteErrors = validateIntegrante(
+    state.integrante,
+    [state.integrante.cpf],
+    0
+  );
+  for (const k of Object.keys(integranteErrors)) {
+    errors[`integrante.${k}`] = integranteErrors[k]!;
+  }
+
+  if (!state.trilhaPreferida.trim()) {
+    errors.trilhaPreferida = "Selecione uma trilha de preferência.";
+  } else if (!TRILHAS.some((t) => t === state.trilhaPreferida)) {
+    errors.trilhaPreferida = "Trilha inválida.";
+  }
+
+  if (state.aceiteFormacaoEquipe !== true) {
+    errors.aceiteFormacaoEquipe =
+      "Você precisa autorizar a organização a formar sua equipe.";
+  }
+
+  return { ok: Object.keys(errors).length === 0, errors };
+}
+
+// Normaliza pra envio — mesmos trims dos integrantes da equipe.
+export function normalizeIndividual(
+  state: InscricaoIndividualState
+): InscricaoIndividualState {
+  return {
+    integrante: normalizeIntegrante(state.integrante),
+    trilhaPreferida: state.trilhaPreferida.trim(),
+    aceiteFormacaoEquipe: state.aceiteFormacaoEquipe,
   };
 }

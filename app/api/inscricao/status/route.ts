@@ -1,7 +1,12 @@
 // ============================================================================
 // app/api/inscricao/status/route.ts — consulta status da inscrição
 // ----------------------------------------------------------------------------
-// GET /api/inscricao/status → { ok: true, status: "Pendente"|"Aprovado"|"Reprovado"|null }
+// GET /api/inscricao/status → { ok: true, status: "Pendente"|"Aprovado"|"Reprovado"|null, kind: "equipe"|"individual"|null }
+//
+// `kind` informa em qual modalidade a inscrição foi feita (ou null quando
+// não há inscrição). Usado pelo Gate pra mostrar texto adaptativo no
+// JaInscritoModal (equipe fala "sua equipe / líder"; individual fala
+// "sua inscrição / sua conta Google").
 //
 // Requer sessão (NextAuth). Usa googleId+e-mail da sessão pra perguntar ao
 // Apps Script qual o status da inscrição. Sem inscrição → status: null.
@@ -36,7 +41,10 @@ const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
 const rateLimitStore = new Map<string, number[]>();
 
 const CACHE_TTL_MS = 20_000;
-const statusCache = new Map<string, { status: string | null; expiresAt: number }>();
+const statusCache = new Map<
+  string,
+  { status: string | null; kind: "equipe" | "individual" | null; expiresAt: number }
+>();
 
 function checkRateLimit(key: string): { ok: boolean; resetAt: number } {
   const now = Date.now();
@@ -79,7 +87,7 @@ export async function GET() {
 
   const cached = statusCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
-    return NextResponse.json({ ok: true, status: cached.status });
+    return NextResponse.json({ ok: true, status: cached.status, kind: cached.kind });
   }
 
   const rl = checkRateLimit(cacheKey);
@@ -116,20 +124,21 @@ export async function GET() {
       return NextResponse.json({ ok: false, error: "upstream" }, { status: 502 });
     }
     const data = (await res.json().catch(() => null)) as
-      | { ok: boolean; status?: string | null }
+      | { ok: boolean; status?: string | null; kind?: "equipe" | "individual" | null }
       | null;
     if (!data?.ok) {
       return NextResponse.json({ ok: false, error: "upstream" }, { status: 502 });
     }
     const status = data.status ?? null;
+    const kind = data.kind ?? null;
     // Só cacheia status POSITIVO. `null` ("sem inscrição") fica de fora: é
     // exatamente o estado que vira obsoleto no instante em que a pessoa
     // envia — cacheá-lo abriria a janela de "F5 logo após enviar mostra o
     // formulário de novo". Quem não tem inscrição sempre consulta fresco.
     if (status !== null) {
-      statusCache.set(cacheKey, { status, expiresAt: Date.now() + CACHE_TTL_MS });
+      statusCache.set(cacheKey, { status, kind, expiresAt: Date.now() + CACHE_TTL_MS });
     }
-    return NextResponse.json({ ok: true, status });
+    return NextResponse.json({ ok: true, status, kind });
   } catch {
     return NextResponse.json({ ok: false, error: "network" }, { status: 502 });
   }

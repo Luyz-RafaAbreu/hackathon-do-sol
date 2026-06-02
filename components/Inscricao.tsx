@@ -557,7 +557,7 @@ export default function Inscricao() {
         setSubmitStatus("success");
         // Marca o usuário como inscrito na hora — sem isto, o gating de "já
         // inscrito" (Hero / Header / InscricaoGate) só pegaria num reload.
-        markInscrito();
+        markInscrito("equipe");
         // Limpa o rascunho LOCAL — submissão bem-sucedida, não tem motivo
         // pra manter o estado preenchido na próxima abertura. NÃO chamamos
         // DELETE /api/draft: o servidor agora MARCA o rascunho como

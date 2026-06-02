@@ -387,6 +387,7 @@ function setup() {
 
   setupConfigSheet();
   setupAprovadosSheet_(); // cria aba Aprovados (idempotente)
+  setupIndividualSheet_(); // cria aba "Inscricoes Individuais" (idempotente)
   regenerarTriagem();   // cria aba Triagem + cards
   regenerarDetalhes();  // cria aba Detalhes + blocos
   tidyUpSheets_();      // esconde Inscricoes + reordena
@@ -589,6 +590,10 @@ function getOrCreateFilaSheet_() {
 }
 
 // Dispara o e-mail do tipo certo. Lança exceção se o envio falhar (cota/erro).
+//
+// Para os tipos "*_individual", `equipeNome` carrega o NOME da pessoa (a
+// fila de e-mails reaproveita as mesmas colunas — não há equipe no modo
+// individual, então usamos o slot pra nome).
 function despacharEmail_(tipo, email, equipeNome, liderNome) {
   if (tipo === "confirmacao") {
     sendConfirmationEmail_([email], equipeNome);
@@ -596,6 +601,12 @@ function despacharEmail_(tipo, email, equipeNome, liderNome) {
     sendApprovalEmail_([email], equipeNome, liderNome);
   } else if (tipo === "reprovacao") {
     sendRejectionEmail_([email], equipeNome, liderNome);
+  } else if (tipo === "confirmacao_individual") {
+    sendIndividualConfirmationEmail_(email, equipeNome);
+  } else if (tipo === "aprovacao_individual") {
+    sendIndividualApprovalEmail_(email, equipeNome);
+  } else if (tipo === "reprovacao_individual") {
+    sendIndividualRejectionEmail_(email, equipeNome);
   } else {
     throw new Error("Tipo de e-mail desconhecido: " + tipo);
   }
@@ -1929,6 +1940,14 @@ function doPost(e) {
       return handleStatusQuery_({ googleId: data.googleId, email: data.email });
     }
 
+    // Modo INDIVIDUAL — payload com `kind: "individual"` veio da rota
+    // /api/inscricao-individual. Roteia pro handler dedicado, que grava
+    // na aba "Inscricoes Individuais" e roda dedup cruzado contra a aba
+    // de equipes.
+    if (data && data.kind === "individual") {
+      return handleIndividual_(data);
+    }
+
     // Info do líder pra logar nas decisões abaixo. Try/catch silencioso em
     // logDebug_ garante que log nunca derruba inscrição. Variável declarada
     // no topo da função pra estar visível no catch geral também.
@@ -2379,7 +2398,7 @@ function handleStatusQuery_(payloadInput) {
           .trim().replace(/^'/, "");
         if (existing && existing === googleId) {
           const status = String(allData[r][statusColIdx] || "").trim() || "Pendente";
-          return jsonResponse({ ok: true, status: status });
+          return jsonResponse({ ok: true, status: status, kind: "equipe" });
         }
       }
     }
@@ -2392,11 +2411,51 @@ function handleStatusQuery_(payloadInput) {
             .trim().toLowerCase().replace(/^'/, "");
           if (existing && existing === email) {
             const status = String(allData[r][statusColIdx] || "").trim() || "Pendente";
-            return jsonResponse({ ok: true, status: status });
+            return jsonResponse({ ok: true, status: status, kind: "equipe" });
           }
         }
       }
     }
+
+    // 3ª passada: aba "Inscricoes Individuais" — quem se inscreveu pelo modo
+    // individual não aparece na aba de equipes. Mesma estratégia (googleId
+    // primeiro, e-mail depois). Status fica na coluna A da aba individual.
+    const indSheet = ss.getSheetByName(INDIVIDUAL_SHEET_NAME);
+    if (indSheet) {
+      const indLast = indSheet.getLastRow();
+      if (indLast >= 2) {
+        const indCols = INDIVIDUAL_COLUMNS;
+        const indData = indSheet.getRange(2, 1, indLast - 1, indCols.length).getValues();
+        const indGoogleIdIdx = indCols.indexOf("Google ID");
+        const indGoogleEmailIdx = indCols.indexOf("E-mail Google");
+        // "E-mail" do integrante (single) está nos INTEGRANTE_FIELDS.
+        const indEmailFieldIdx = indCols.indexOf("E-mail");
+        for (let r = 0; r < indData.length; r++) {
+          if (googleId && indGoogleIdIdx >= 0) {
+            const existing = String(indData[r][indGoogleIdIdx] || "")
+              .trim().replace(/^'/, "");
+            if (existing && existing === googleId) {
+              const status = String(indData[r][0] || "").trim() || "Pendente";
+              return jsonResponse({ ok: true, status: status, kind: "individual" });
+            }
+          }
+          if (email) {
+            const candidates = [];
+            if (indGoogleEmailIdx >= 0) candidates.push(indData[r][indGoogleEmailIdx]);
+            if (indEmailFieldIdx >= 0) candidates.push(indData[r][indEmailFieldIdx]);
+            for (let k = 0; k < candidates.length; k++) {
+              const existing = String(candidates[k] || "")
+                .trim().toLowerCase().replace(/^'/, "");
+              if (existing && existing === email) {
+                const status = String(indData[r][0] || "").trim() || "Pendente";
+                return jsonResponse({ ok: true, status: status, kind: "individual" });
+              }
+            }
+          }
+        }
+      }
+    }
+
     return jsonResponse({ ok: true, status: null });
   } catch (err) {
     console.error("handleStatusQuery_ falhou:", err && err.message ? err.message : err);
@@ -2423,6 +2482,13 @@ function handleStatusChange(e) {
       if (range.getColumn() !== STATUS_COL) return;
       if (range.getRow() < 2) return;
       processStatusEdit_(range.getRow(), e.oldValue, "inscricoes");
+    } else if (name === INDIVIDUAL_SHEET_NAME) {
+      // Edit veio da aba "Inscricoes Individuais" — workflow paralelo ao de
+      // equipe. Mesmo padrão: muda Status → dispara e-mail correspondente
+      // pra pessoa.
+      if (range.getColumn() !== STATUS_COL) return;
+      if (range.getRow() < 2) return;
+      processIndividualStatusEdit_(range.getRow(), e.oldValue);
     } else if (name === TRIAGEM_SHEET_NAME) {
       // Edit veio da Triagem (workflow normal de aprovação)
       if (range.getColumn() !== TRIAGEM_STATUS_COL) return;
@@ -3114,4 +3180,516 @@ function limparDebugLog() {
   } catch (err) {
     console.error("limparDebugLog falhou:", err);
   }
+}
+
+// ============================================================================
+// ============================================================================
+// MODO INDIVIDUAL — aba "Inscricoes Individuais"
+// ----------------------------------------------------------------------------
+// Adicionado como modalidade complementar ao modo equipe. A pessoa se inscreve
+// sozinha e a organização forma a equipe (regras no aditivo do Edital).
+//
+// Estrutura da aba (49 colunas):
+//   META (6): Status, Data, Email enviado em, Observações, Google ID, E-mail Google
+//   INSCRIÇÃO (2): Trilha preferida, Aceite formação equipe
+//   INTEGRANTE (41): mesmos campos do integrante de equipe (INTEGRANTE_FIELDS)
+//
+// Dedup é CRUZADO: CPF/e-mail são checados contra a aba "Inscricoes" (equipes)
+// E contra a própria aba individual. Garante "1 CPF = 1 inscrição"
+// independente da modalidade (item 5.2 do Edital).
+//
+// E-mails (confirmação/aprovação/reprovação) usam templates próprios pra
+// referirem-se à pessoa, não à equipe.
+// ============================================================================
+const INDIVIDUAL_SHEET_NAME = "Inscricoes Individuais";
+
+const INDIVIDUAL_META_COLUMNS = [
+  "Status",
+  "Data inscrição",
+  "Email enviado em",
+  "Observações",
+  "Google ID",
+  "E-mail Google",
+];
+
+const INDIVIDUAL_INSCRICAO_FIELDS = [
+  "Trilha preferida",
+  "Aceite formação equipe",
+];
+
+const INDIVIDUAL_COLUMNS = INDIVIDUAL_META_COLUMNS
+  .concat(INDIVIDUAL_INSCRICAO_FIELDS)
+  .concat(INTEGRANTE_FIELDS);
+
+// Limites adicionais usados no checkIndividualLengths_. Reaproveita FIELD_MAX
+// dos integrantes; só agrega os campos novos do individual.
+const FIELD_MAX_INDIVIDUAL = {
+  trilhaPreferida: 120,
+};
+
+// ============================================================================
+// setupIndividualSheet_ — cria a aba "Inscricoes Individuais" se não existir
+// ----------------------------------------------------------------------------
+// IDEMPOTENTE: se a aba já existe, não toca em nada (preserva dados). Isso
+// permite rodar setup() em uma planilha de produção sem destruir registros.
+// Pra recriar do zero (ex.: trocou colunas), apague a aba antes manualmente.
+// ============================================================================
+function setupIndividualSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(INDIVIDUAL_SHEET_NAME);
+  if (sheet) {
+    // Já existe — não mexer. Se admin precisa recriar, apaga a aba antes.
+    return;
+  }
+  sheet = ss.insertSheet(INDIVIDUAL_SHEET_NAME);
+  sheet.getRange(1, 1, 1, INDIVIDUAL_COLUMNS.length).setValues([INDIVIDUAL_COLUMNS]);
+  sheet.getRange(1, 1, 1, INDIVIDUAL_COLUMNS.length)
+    .setFontWeight("bold")
+    .setBackground("#0e7490") // ciano-escuro pra diferenciar da Inscricoes (roxo)
+    .setFontColor("#ffffff")
+    .setVerticalAlignment("middle");
+  sheet.setFrozenRows(1);
+  sheet.setFrozenColumns(2);
+  sheet.setRowHeight(1, 36);
+
+  // Dropdown de Status
+  const statusRange = sheet.getRange(2, STATUS_COL, 1000, 1);
+  const rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(["Pendente", "Aprovado", "Reprovado"], true)
+    .setAllowInvalid(false)
+    .build();
+  statusRange.setDataValidation(rule);
+
+  // Formatação condicional por status (mesmo padrão da Inscricoes)
+  const rules = sheet.getConditionalFormatRules();
+  rules.push(
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo("Aprovado").setBackground("#d1fae5").setFontColor("#064e3b")
+      .setRanges([statusRange]).build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo("Reprovado").setBackground("#fee2e2").setFontColor("#7f1d1d")
+      .setRanges([statusRange]).build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenTextEqualTo("Pendente").setBackground("#fef3c7").setFontColor("#78350f")
+      .setRanges([statusRange]).build()
+  );
+  sheet.setConditionalFormatRules(rules);
+
+  // Larguras
+  for (let i = 0; i < INDIVIDUAL_COLUMNS.length; i++) {
+    const col = INDIVIDUAL_COLUMNS[i];
+    let w = 140;
+    if (col === "Status") w = 110;
+    else if (col === "Observações") w = 200;
+    else if (col === "Experiência relevante") w = 280;
+    else if (col === "Logradouro") w = 220;
+    sheet.setColumnWidth(i + 1, w);
+  }
+}
+
+// ============================================================================
+// handleIndividual_ — grava inscrição individual e envia confirmação
+// ----------------------------------------------------------------------------
+// Roteado pelo doPost quando `data.kind === "individual"`. Faz:
+//   1. Validação estrutural
+//   2. Length checks
+//   3. Aceites obrigatórios (9 individuais + formação equipe)
+//   4. LOCK (mesmo lock global do equipe — serializa tudo)
+//   5. Idempotência por googleId/e-mail na aba individual (retry-safe)
+//   6. Dedup cruzado por CPF e e-mail (aba equipe + aba individual)
+//   7. Append da linha
+//   8. E-mail de confirmação individual via enviarComFila_
+// ============================================================================
+function handleIndividual_(data) {
+  const leaderInfo = {
+    email: String(data.leaderGoogleEmail || ""),
+    googleId: String(data.leaderGoogleId || ""),
+    equipeNome: "[INDIVIDUAL] " + String((data.integrante && data.integrante.nomeCompleto) || ""),
+  };
+
+  if (!inscricoesAbertas_()) {
+    logDebug_({ action: "rejeitado_inscricoes_fechadas", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome });
+    return jsonResponse({ ok: false, error: "inscriptions_closed" });
+  }
+
+  if (!data || !data.integrante || typeof data.trilhaPreferida !== "string") {
+    logDebug_({ action: "rejeitado_estrutura_invalida_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome });
+    return jsonResponse({ ok: false, error: "Bad request" });
+  }
+
+  // Length check do integrante (reusa o do equipe; aceita "1" como numeração
+  // arbitrária pra mensagem de erro).
+  const overflowInt = checkIntegranteLengths_(data.integrante, 1);
+  if (overflowInt) {
+    logDebug_({ action: "rejeitado_overflow_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome, detail: overflowInt });
+    return jsonResponse({ ok: false, error: overflowInt });
+  }
+  if (String(data.trilhaPreferida || "").length > FIELD_MAX_INDIVIDUAL.trilhaPreferida) {
+    logDebug_({ action: "rejeitado_overflow_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome, detail: "trilhaPreferida muito longa" });
+    return jsonResponse({ ok: false, error: "Trilha preferida muito longa" });
+  }
+
+  // Aceites individuais (mesmos 9 do equipe)
+  const a = data.integrante.aceites || {};
+  for (let k = 0; k < ACEITES_INDIVIDUAIS_KEYS.length; k++) {
+    if (a[ACEITES_INDIVIDUAIS_KEYS[k]] !== true) {
+      const reason = "Aceite individual faltando: " + ACEITES_INDIVIDUAIS_KEYS[k];
+      logDebug_({ action: "rejeitado_aceite_faltando_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome, detail: reason });
+      return jsonResponse({ ok: false, error: reason });
+    }
+  }
+  // Aceite específico do individual (autoriza organização a formar equipe)
+  if (data.aceiteFormacaoEquipe !== true) {
+    logDebug_({ action: "rejeitado_aceite_faltando_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome, detail: "aceiteFormacaoEquipe ausente" });
+    return jsonResponse({ ok: false, error: "Aceite de formação de equipe pela organização faltando" });
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const indSheet = ss.getSheetByName(INDIVIDUAL_SHEET_NAME);
+  if (!indSheet) {
+    console.error("Sheet '" + INDIVIDUAL_SHEET_NAME + "' não encontrada. Rode setup() ou setupIndividualSheet_().");
+    logDebug_({ action: "internal_error_sheet_not_found_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome, detail: "aba '" + INDIVIDUAL_SHEET_NAME + "' ausente" });
+    return jsonResponse({ ok: false, error: "internal_error" });
+  }
+  const equipeSheet = ss.getSheetByName(CONFIG.SHEET_NAME);
+
+  // ---------- LOCK ----------
+  // Mesmo lock global usado pelo doPost de equipe. Evita race entre individual
+  // e equipe (ex.: mesmo CPF chegando nos dois fluxos simultaneamente).
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(25000);
+  } catch (errLock) {
+    console.error("handleIndividual_: não conseguiu o lock:", errLock);
+    logDebug_({ action: "internal_error_lock_fail_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome, detail: String(errLock && errLock.message ? errLock.message : errLock).slice(0, 200) });
+    return jsonResponse({ ok: false, error: "internal_error" });
+  }
+
+  try {
+    // ---------- IDEMPOTÊNCIA + DEDUP na aba individual ----------
+    const cpfNorm = String(data.integrante.cpf || "").replace(/\D/g, "");
+    const emailNorm = String(data.integrante.emailPessoal || "").trim().toLowerCase();
+    const leaderGoogleId = String(data.leaderGoogleId || "").trim();
+    const leaderGoogleEmail = String(data.leaderGoogleEmail || "").trim().toLowerCase();
+
+    const indLast = indSheet.getLastRow();
+    if (indLast >= 2) {
+      const indCols = INDIVIDUAL_COLUMNS;
+      const indData = indSheet.getRange(2, 1, indLast - 1, indCols.length).getValues();
+      const idxGoogleId = indCols.indexOf("Google ID");
+      const idxGoogleEmail = indCols.indexOf("E-mail Google");
+      const idxCPF = indCols.indexOf("CPF");
+      const idxEmail = indCols.indexOf("E-mail");
+      for (let r = 0; r < indData.length; r++) {
+        // Idempotência: mesma conta Google já gravada → retorna ok sem regravar
+        if (leaderGoogleId && idxGoogleId >= 0) {
+          const existing = String(indData[r][idxGoogleId] || "").replace(/^'/, "").trim();
+          if (existing && existing === leaderGoogleId) {
+            logDebug_({ action: "idempotencia_googleid_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome });
+            return jsonResponse({ ok: true });
+          }
+        }
+        if (leaderGoogleEmail && idxGoogleEmail >= 0) {
+          const existing = String(indData[r][idxGoogleEmail] || "").replace(/^'/, "").trim().toLowerCase();
+          if (existing && existing === leaderGoogleEmail) {
+            logDebug_({ action: "idempotencia_email_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome });
+            return jsonResponse({ ok: true });
+          }
+        }
+        // Dedup CPF dentro da aba individual
+        if (cpfNorm && idxCPF >= 0) {
+          const existing = String(indData[r][idxCPF] || "").replace(/\D/g, "").replace(/^'/, "");
+          if (existing && existing === cpfNorm) {
+            logDebug_({ action: "rejeitado_duplicate_cpf_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome });
+            return jsonResponse({ ok: false, error: "duplicate_cpf" });
+          }
+        }
+        // Dedup e-mail dentro da aba individual
+        if (emailNorm && idxEmail >= 0) {
+          const existing = String(indData[r][idxEmail] || "").trim().toLowerCase().replace(/^'/, "");
+          if (existing && existing === emailNorm) {
+            logDebug_({ action: "rejeitado_duplicate_email_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome });
+            return jsonResponse({ ok: false, error: "duplicate_email" });
+          }
+        }
+      }
+    }
+
+    // ---------- DEDUP CRUZADO contra a aba de equipes ----------
+    // Item 5.2 do Edital: 1 CPF = 1 inscrição, independente da modalidade.
+    if (equipeSheet) {
+      const eqLast = equipeSheet.getLastRow();
+      if (eqLast >= 2) {
+        const eqData = equipeSheet.getRange(2, 1, eqLast - 1, COLUMNS.length).getValues();
+        const cpfColIdxs = [], emailColIdxs = [];
+        for (let i = 0; i < COLUMNS.length; i++) {
+          if (COLUMNS[i].indexOf("— CPF") >= 0) cpfColIdxs.push(i);
+          if (COLUMNS[i].indexOf("E-mail oficial") >= 0 || COLUMNS[i].indexOf("— E-mail") >= 0) emailColIdxs.push(i);
+        }
+        for (let r = 0; r < eqData.length; r++) {
+          if (cpfNorm) {
+            for (let c = 0; c < cpfColIdxs.length; c++) {
+              const existing = String(eqData[r][cpfColIdxs[c]] || "").replace(/\D/g, "").replace(/^'/, "");
+              if (existing && existing === cpfNorm) {
+                logDebug_({ action: "rejeitado_duplicate_cpf_cross", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome, detail: "CPF já consta em equipe linha " + (r + 2) });
+                return jsonResponse({ ok: false, error: "duplicate_cpf" });
+              }
+            }
+          }
+          if (emailNorm) {
+            for (let c = 0; c < emailColIdxs.length; c++) {
+              const existing = String(eqData[r][emailColIdxs[c]] || "").trim().toLowerCase().replace(/^'/, "");
+              if (existing && existing === emailNorm) {
+                logDebug_({ action: "rejeitado_duplicate_email_cross", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome, detail: "e-mail já consta em equipe linha " + (r + 2) });
+                return jsonResponse({ ok: false, error: "duplicate_email" });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Monta e grava a linha
+    const row = buildIndividualRow_(data);
+    indSheet.appendRow(row.map(sanitizeCell_));
+    const indRow = indSheet.getLastRow();
+    lock.releaseLock();
+
+    // E-mail de confirmação individual via fila (cota-safe)
+    try {
+      const dest = leaderGoogleEmail || emailNorm;
+      const nome = String(data.integrante.nomeCompleto || "").trim();
+      if (dest) {
+        enviarComFila_("confirmacao_individual", dest, nome, "");
+      }
+    } catch (errMail) {
+      console.error("Falha inesperada no e-mail de confirmação individual:", errMail);
+    }
+
+    logDebug_({ action: "individual_gravado", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome, detail: "linha " + indRow });
+    return jsonResponse({ ok: true });
+  } catch (err) {
+    console.error("handleIndividual_ falhou:", err && err.stack ? err.stack : err);
+    logDebug_({ action: "internal_error_unhandled_exception_individual", email: leaderInfo.email, googleId: leaderInfo.googleId, equipeNome: leaderInfo.equipeNome, detail: String(err && err.message ? err.message : err).slice(0, 250) });
+    return jsonResponse({ ok: false, error: "internal_error" });
+  } finally {
+    // Garante release mesmo se algo escapou. tryLock idempotente — release
+    // duplicado é no-op.
+    try { lock.releaseLock(); } catch (e) { /* */ }
+  }
+}
+
+// ============================================================================
+// buildIndividualRow_ — monta linha pra aba individual (ordem de INDIVIDUAL_COLUMNS)
+// ============================================================================
+function buildIndividualRow_(data) {
+  const now = new Date();
+  const stamp = Utilities.formatDate(now, CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm");
+  const it = data.integrante;
+
+  const row = [];
+  // META (6)
+  row.push("Pendente");
+  row.push(stamp);
+  row.push(""); // Email enviado em
+  row.push(""); // Observações
+  row.push(String(data.leaderGoogleId || ""));
+  row.push(String(data.leaderGoogleEmail || ""));
+
+  // INSCRIÇÃO (2)
+  row.push(String(data.trilhaPreferida || ""));
+  row.push(data.aceiteFormacaoEquipe === true ? "Sim" : "Não");
+
+  // INTEGRANTE (41) — mesma ordem de INTEGRANTE_FIELDS
+  row.push(String(it.nomeCompleto || ""));
+  row.push(String(it.nomeSocial || ""));
+  row.push(String(it.cpf || ""));
+  row.push(String(it.rg || ""));
+  row.push(String(it.dataNascimento || ""));
+  row.push(String(it.nacionalidade || ""));
+  row.push(String(it.naturalidade || ""));
+  row.push(String(it.cidade || ""));
+  row.push(String(it.estado || ""));
+  row.push(String(it.cep || ""));
+  row.push(String(it.logradouro || ""));
+  row.push(String(it.numero || ""));
+  row.push(String(it.complemento || ""));
+  row.push(String(it.bairro || ""));
+  row.push(String(it.emailPessoal || ""));
+  row.push(String(it.telefoneCelular || ""));
+  row.push(String(it.contatoEmergenciaNome || ""));
+  row.push(String(it.contatoEmergenciaTelefone || ""));
+  row.push(String(it.contatoEmergenciaParentesco || ""));
+  row.push(String(it.genero || ""));
+  row.push((it.areasConhecimento || []).join(", "));
+  row.push(String(it.ocupacaoAtual || ""));
+  row.push(String(it.tempoExperiencia || ""));
+  row.push(String(it.nivelFormacao || ""));
+  row.push(String(it.cursoFormacao || ""));
+  row.push(String(it.anoFormacao || ""));
+  row.push(String(it.instituicao || ""));
+  row.push(String(it.instituicaoUF || ""));
+  row.push(String(it.instituicaoMunicipio || ""));
+  row.push(String(it.projetoAcademico || ""));
+  row.push(String(it.linkedin || ""));
+  row.push(String(it.portfolio || ""));
+  row.push(String(it.outrasRedes || ""));
+  row.push(String(it.experienciaRelevante || ""));
+  row.push(String(it.restricoesAlimentares || ""));
+  row.push(String(it.alergias || ""));
+  row.push(String(it.medicamentos || ""));
+  row.push(String(it.acessibilidade || ""));
+  row.push(String(it.outrasObservacoes || ""));
+  row.push(String(it.comoSoube || ""));
+  const indTrue = ACEITES_INDIVIDUAIS_KEYS.filter(function (k) {
+    return it.aceites && it.aceites[k] === true;
+  });
+  row.push(indTrue.join(", "));
+  return row;
+}
+
+// ============================================================================
+// processIndividualStatusEdit_ — chamado pelo handleStatusChange ao editar
+// o Status na aba individual. Dispara o e-mail correspondente pra pessoa.
+// ============================================================================
+function processIndividualStatusEdit_(row, oldValueRaw) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(INDIVIDUAL_SHEET_NAME);
+  if (!sheet) return;
+
+  const newStatus = String(sheet.getRange(row, STATUS_COL).getValue()).trim();
+  const oldStatus = String(oldValueRaw || "").trim();
+  if (newStatus === oldStatus) return;
+  if (["Aprovado", "Reprovado"].indexOf(newStatus) < 0) return;
+
+  const rowData = sheet.getRange(row, 1, 1, INDIVIDUAL_COLUMNS.length).getValues()[0];
+  function colIdx(name) {
+    for (let i = 0; i < INDIVIDUAL_COLUMNS.length; i++) {
+      if (INDIVIDUAL_COLUMNS[i] === name) return i;
+    }
+    return -1;
+  }
+  const leaderGoogleEmail = String(rowData[colIdx("E-mail Google")] || "").replace(/^'/, "").trim();
+  const emailPessoal = String(rowData[colIdx("E-mail")] || "").replace(/^'/, "").trim();
+  const dest = leaderGoogleEmail || emailPessoal;
+  const nome = String(rowData[colIdx("Nome completo")] || "").trim();
+
+  if (!dest) {
+    sheet.getRange(row, EMAIL_SENT_COL).setValue("ERRO: sem e-mail");
+    return;
+  }
+
+  // Bloqueia reenvio do MESMO tipo
+  const already = String(rowData[EMAIL_SENT_COL - 1] || "").trim();
+  if (already && already.indexOf("ERRO") !== 0) {
+    const lastType = already.indexOf("Aprovação") === 0 ? "Aprovado" :
+                     already.indexOf("Reprovação") === 0 ? "Reprovado" : null;
+    if (lastType === newStatus) return;
+  }
+
+  if (newStatus === "Aprovado") {
+    enviarComFila_("aprovacao_individual", dest, nome, "");
+  } else {
+    enviarComFila_("reprovacao_individual", dest, nome, "");
+  }
+
+  const tipo = newStatus === "Aprovado" ? "Aprovação" : "Reprovação";
+  sheet.getRange(row, EMAIL_SENT_COL).setValue(
+    tipo + " · " + Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm")
+  );
+}
+
+// ============================================================================
+// E-mails do modo individual — usam o mesmo emailShell_ do equipe,
+// mas com textos endereçados à pessoa (não à equipe).
+// ----------------------------------------------------------------------------
+// Engatados via despacharEmail_ — ver patch logo abaixo.
+// ============================================================================
+function sendIndividualConfirmationEmail_(email, nome) {
+  MailApp.sendEmail({
+    to: email,
+    subject: "Recebemos sua inscrição individual — " + CONFIG.EVENT_NAME,
+    htmlBody: buildIndividualConfirmationHTML_(nome),
+    name: CONFIG.EMAIL_FROM_NAME,
+  });
+}
+function sendIndividualApprovalEmail_(email, nome) {
+  MailApp.sendEmail({
+    to: email,
+    subject: "Você está dentro — " + CONFIG.EVENT_NAME,
+    htmlBody: buildIndividualApprovalHTML_(nome),
+    name: CONFIG.EMAIL_FROM_NAME,
+  });
+}
+function sendIndividualRejectionEmail_(email, nome) {
+  MailApp.sendEmail({
+    to: email,
+    subject: "Sobre sua inscrição — " + CONFIG.EVENT_NAME,
+    htmlBody: buildIndividualRejectionHTML_(nome),
+    name: CONFIG.EMAIL_FROM_NAME,
+  });
+}
+
+function buildIndividualConfirmationHTML_(nome) {
+  const first = escapeHtml(String(nome || "").trim().split(/\s+/)[0] || "pessoa");
+  const instagramHandle = CONFIG.EVENT_INSTAGRAM.replace("@", "");
+  return emailShell_(
+    "Recebemos sua inscrição individual",
+    "✦ Inscrição recebida",
+    "Obrigado, " + first + "!",
+    [
+      "Sua inscrição individual no <strong>" + CONFIG.EVENT_NAME + "</strong> foi recebida. Você está oficialmente na lista de análise.",
+      "A organização vai ler cada inscrição com atenção e te envia o resultado por e-mail. Caso seu nome seja aprovado, você será alocado(a) em uma equipe formada pela própria comissão organizadora, conforme as regras do aditivo do Edital.",
+      "Não precisa fazer nada agora.",
+    ],
+    "Só pra lembrar",
+    CONFIG.EVENT_DATE + " · " + CONFIG.EVENT_LOCATION,
+    {
+      ctaText: "Seguir " + CONFIG.EVENT_INSTAGRAM + " →",
+      ctaHref: "https://instagram.com/" + instagramHandle,
+      ctaStyle: "soft",
+    }
+  );
+}
+
+function buildIndividualApprovalHTML_(nome) {
+  const first = escapeHtml(String(nome || "").trim().split(/\s+/)[0] || "pessoa");
+  return emailShell_(
+    "Você está dentro",
+    "✦ Inscrição confirmada",
+    first + ", você está dentro!",
+    [
+      "Sua inscrição individual no <strong>" + CONFIG.EVENT_NAME + "</strong> foi aprovada. Agora você faz parte de uma comunidade que acredita que código, design e colaboração podem transformar a realidade.",
+      "<strong>Sua equipe será formada no dia do credenciamento</strong> — a organização vai juntar todos os inscritos individuais presentes em equipes de 4 pessoas. Chegue no horário pra conhecer com quem você vai trabalhar nos 3 dias do hackathon.",
+      "<strong>Credenciamento presencial:</strong> 24/06/2026 das 10h às 14h no Hotel Praiamar Arena, Natal/RN (item 5.3.3 do Edital). Confirmação de presença até 16/06/2026.",
+    ],
+    "Detalhes do evento",
+    CONFIG.EVENT_DATE + " · " + CONFIG.EVENT_LOCATION + " · " + CONFIG.EVENT_PRIZE,
+    {
+      ctaText: "Acessar o site do evento →",
+      ctaHref: CONFIG.SITE_URL,
+      ctaStyle: "solid",
+    }
+  );
+}
+
+function buildIndividualRejectionHTML_(nome) {
+  const first = escapeHtml(String(nome || "").trim().split(/\s+/)[0] || "pessoa");
+  const instagramHandle = CONFIG.EVENT_INSTAGRAM.replace("@", "");
+  return emailShell_(
+    "Sobre sua inscrição",
+    "✦ Resultado da inscrição",
+    "Obrigado pelo interesse, " + first + ".",
+    [
+      "Recebemos um número de inscrições bem acima das <strong>160 vagas</strong> disponíveis. Cada formulário foi lido com atenção, e infelizmente não foi possível confirmar sua vaga desta vez.",
+      "Isso não reflete o valor do que você construiu — é só uma questão de capacidade pra esta edição específica. Valorizamos demais o tempo investido na inscrição.",
+      "Se quiser continuar por perto, a comunidade tá sempre ativa. Vem meetup, workshop e novas edições — e adoraríamos ter você junto.",
+    ],
+    null, null,
+    {
+      ctaText: "Seguir " + CONFIG.EVENT_INSTAGRAM + " →",
+      ctaHref: "https://instagram.com/" + instagramHandle,
+      ctaStyle: "soft",
+    }
+  );
 }

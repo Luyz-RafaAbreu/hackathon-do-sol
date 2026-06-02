@@ -71,13 +71,13 @@ export default function InscricaoIntro({
         ))}
       </div>
 
-      {/* Expectativa antes do formulário longo: avisa que é inscrição por
-          equipe — bom juntar os dados dos 4 antes de começar. O auto-save
-          já é comunicado no modal de login e no indicador do wizard. */}
+      {/* Texto neutro: cobre os dois modos (equipe e individual). O detalhe
+          de "junte os dados dos 4 antes" agora vive dentro do seletor de
+          modo (apenas no card "Tenho equipe de 4 pessoas"). */}
       {inscriptionsOpen && (
         <p className="mt-4 max-w-xl mx-auto text-xs md:text-sm text-white/55 leading-relaxed">
-          Inscrição por equipe de 4 integrantes — vale juntar os dados de
-          todos antes de começar.
+          Escolha o tipo de inscrição e siga as etapas. O rascunho é salvo
+          automaticamente no navegador.
         </p>
       )}
     </section>
