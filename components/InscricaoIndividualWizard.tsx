@@ -17,6 +17,7 @@ import { ArrowLeft, ArrowRight, Check, Send, User, Layers, ShieldCheck } from "l
 import { useSession, signOut } from "next-auth/react";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { useInscricaoStatus } from "./InscricaoStatusProvider";
+import JaInscritoModal from "./JaInscritoModal";
 import {
   ACEITES_INDIVIDUAIS,
   ACEITE_INDIVIDUAL_FORMACAO_EQUIPE,
@@ -439,25 +440,21 @@ export default function InscricaoIndividualWizard({ onBack, previewMode = false 
   };
 
   if (submitStatus === "success") {
+    // Mesmo padrão do fluxo de equipe: pop-up centralizado bloqueando o
+    // formulário, com botão "Voltar à página principal". Sem opção de
+    // fechar — a inscrição já está no servidor, não há mais o que fazer
+    // nessa página.
     return (
       <section className="relative px-6 md:px-10 max-w-3xl mx-auto pb-20 md:pb-24">
-        <div className="card text-center py-12 md:py-16">
-          <div className="inline-flex items-center justify-center w-16 h-16 mb-6 rounded-full bg-emerald-500/20 text-emerald-300">
-            <Check className="w-8 h-8" strokeWidth={2.5} />
-          </div>
-          <span className="eyebrow">Tudo certo</span>
-          <h2 className="section-title">Inscrição registrada</h2>
-          <p className="section-subtitle max-w-xl mx-auto">
-            Você vai receber um e-mail de confirmação em instantes. A organização
-            vai analisar sua inscrição e, se aprovada, te alocará em uma equipe
-            antes do evento.
-          </p>
-          {previewMode && (
-            <p className="text-amber-200/70 text-xs mt-6">
-              ⚠️ Modo preview — nenhum dado foi enviado pra produção.
-            </p>
-          )}
-        </div>
+        <JaInscritoModal
+          title="Inscrição"
+          titleHighlight="enviada"
+          message={
+            previewMode
+              ? "Modo preview — nenhum dado foi enviado pra produção."
+              : "Sua inscrição individual entrou na lista de análise do Hackathon do Sol. Enviamos um e-mail de confirmação pra esta conta Google — confira a caixa de entrada. A organização vai te alocar numa equipe no dia do credenciamento."
+          }
+        />
       </section>
     );
   }
