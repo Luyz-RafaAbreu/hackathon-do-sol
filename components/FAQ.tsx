@@ -16,7 +16,7 @@ const faqs = [
   },
   {
     q: "Qual o período de inscrição?",
-    a: "De 22 de maio a 05 de junho de 2026 (até 23h59, horário de Brasília). A análise das inscrições roda de 6 a 10/06 e a lista de selecionados sai no dia 11/06 por e-mail e no site. Se houver mais de 160 inscritos, a seleção considera portfólio, perfil no LinkedIn e aderência ao tema do hackathon.",
+    a: "De 22 de maio a 12 de junho de 2026 (até 23h59, horário de Brasília). A análise das inscrições roda de 13 a 17/06 e a lista de selecionados sai no dia 18/06 por e-mail e no site. Se houver mais de 160 inscritos, a seleção considera portfólio, perfil no LinkedIn e aderência ao tema do hackathon.",
   },
   {
     q: "Onde acontece o evento?",

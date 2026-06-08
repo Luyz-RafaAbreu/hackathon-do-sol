@@ -18,8 +18,9 @@
 
 const startDate = new Date("2026-06-26T09:00:00-03:00");
 const endDate = new Date("2026-06-28T20:00:00-03:00");
-// Item 5.3 do Edital — 05/06/2026 às 23:59 BRT é o último momento aceito.
-const inscriptionsCloseDate = new Date("2026-06-05T23:59:59-03:00");
+// Item 5.3 do Edital — 12/06/2026 às 23:59 BRT é o último momento aceito
+// (janela prorrogada).
+const inscriptionsCloseDate = new Date("2026-06-12T23:59:59-03:00");
 
 const MONTHS_PT = [
   "janeiro",
@@ -96,9 +97,10 @@ export const EVENT = {
   PRIZE: "R$ 21 mil", // premiação total do evento (Seção 4 do Edital)
   SLOTS: 160,
 
-  // Janela de inscrições (item 2.3.1 do Edital — 22/05 a 05/06/2026)
+  // Janela de inscrições (item 2.3.1 do Edital — 22/05 a 12/06/2026,
+  // janela prorrogada).
   INSCRIPTIONS_OPEN: "22 de maio de 2026",
-  INSCRIPTIONS_CLOSE: "05 de junho de 2026",
+  INSCRIPTIONS_CLOSE: "12 de junho de 2026",
   // Mesmo valor de INSCRIPTIONS_CLOSE, mas como Date — pra comparações
   // tipo `Date.now() > EVENT.INSCRIPTIONS_CLOSE_DATE.getTime()` (usado no
   // fallback de lib/inscriptions.ts).
