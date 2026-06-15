@@ -39,8 +39,9 @@ const materiais: MaterialItem[] = [
       "Equipes selecionadas para o Hackathon do Sol 2026, divulgada após o processo seletivo do Edital.",
     Icon: ListChecks,
     cor: "from-sol-pink to-sol-purpleLight",
-    href: "/materiais/aprovados.pdf",
-    ctaLabel: "Baixar PDF",
+    // Sem href ainda → card aparece como "Em breve". Quando o PDF estiver
+    // pronto, suba pra public/materiais/ e adicione:
+    //   href: "/materiais/aprovados.pdf", ctaLabel: "Baixar PDF",
   },
   {
     titulo: "Termos e Privacidade",
