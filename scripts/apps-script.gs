@@ -311,6 +311,17 @@ const APROVADOS_HEADERS = [
 ];
 const APROVADOS_REF_COL = 8; // coluna H (oculta) — linha na aba Inscricoes
 
+// Aba paralela pros aprovados individuais — mesmo conceito, mas 1 linha
+// por pessoa em vez de 1 por equipe. Alimentada por addToAprovadosIndividuais_
+// chamada de processIndividualStatusEdit_ quando o admin muda Status pra
+// "Aprovado" na aba "Inscricoes Individuais".
+const APROVADOS_INDIVIDUAIS_SHEET_NAME = "Aprovados Individuais";
+const APROVADOS_INDIVIDUAIS_HEADERS = [
+  "Data de aprovação", "Nome", "CPF", "E-mail", "Telefone",
+  "Trilha preferida", "Cidade",
+];
+const APROVADOS_INDIVIDUAIS_REF_COL = 8; // coluna H (oculta) — linha na aba "Inscricoes Individuais"
+
 // ============================================================================
 // SETUP — rode 1x para preparar a planilha
 // ============================================================================
@@ -961,6 +972,111 @@ function backfillAprovados_() {
     .getRange(2, STATUS_COL, inscricoes.getLastRow() - 1, 1).getValues();
   for (let i = 0; i < statuses.length; i++) {
     if (String(statuses[i][0]).trim() === "Aprovado") addToAprovados_(i + 2);
+  }
+}
+
+// ============================================================================
+// APROVADOS INDIVIDUAIS — espelho da aba Aprovados, mas pro modo individual
+// ----------------------------------------------------------------------------
+// Mesmo padrão do equipe: a aba "Aprovados Individuais" lista uma linha por
+// pessoa aprovada na aba "Inscricoes Individuais". Coluna H (oculta) guarda
+// a linha original pra localizar/remover sem ambiguidade.
+//
+// Rode setupAprovadosIndividuaisSheet uma vez no editor pra criar a aba
+// (idempotente; se já existir, não faz nada). A função add/remove cria a
+// aba sob demanda também — você só precisa do setup manual se quiser
+// pré-criar antes da primeira aprovação.
+// ============================================================================
+
+// Idempotente: cria a aba "Aprovados Individuais" com cabeçalho se não existir.
+// Nome SEM underscore final pra aparecer no dropdown "Executar" do editor
+// (mesma convenção que usei pro setupIndividualSheet).
+function setupAprovadosIndividuaisSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (ss.getSheetByName(APROVADOS_INDIVIDUAIS_SHEET_NAME)) return;
+  const sheet = ss.insertSheet(APROVADOS_INDIVIDUAIS_SHEET_NAME);
+  sheet.getRange(1, 1, 1, APROVADOS_INDIVIDUAIS_HEADERS.length)
+    .setValues([APROVADOS_INDIVIDUAIS_HEADERS]);
+  sheet.getRange(1, 1, 1, APROVADOS_INDIVIDUAIS_HEADERS.length)
+    .setFontWeight("bold").setBackground("#065f46").setFontColor("#ffffff")
+    .setVerticalAlignment("middle");
+  sheet.setFrozenRows(1);
+  sheet.setRowHeight(1, 32);
+  sheet.setColumnWidth(1, 150); // Data
+  sheet.setColumnWidth(2, 220); // Nome
+  sheet.setColumnWidth(3, 130); // CPF
+  sheet.setColumnWidth(4, 240); // E-mail
+  sheet.setColumnWidth(5, 140); // Telefone
+  sheet.setColumnWidth(6, 220); // Trilha
+  sheet.setColumnWidth(7, 180); // Cidade
+  sheet.hideColumns(APROVADOS_INDIVIDUAIS_REF_COL);
+}
+
+// Localiza a linha da aba "Aprovados Individuais" que referencia `indRow`.
+// -1 se não há (idempotência: evita duplicação na add).
+function findAprovadosIndividuaisRow_(sheet, indRow) {
+  const last = sheet.getLastRow();
+  if (last < 2) return -1;
+  const refs = sheet.getRange(2, APROVADOS_INDIVIDUAIS_REF_COL, last - 1, 1).getValues();
+  for (let i = 0; i < refs.length; i++) {
+    if (Number(refs[i][0]) === indRow) return i + 2;
+  }
+  return -1;
+}
+
+// Adiciona a pessoa da linha `indRow` (da aba "Inscricoes Individuais")
+// na aba "Aprovados Individuais". Idempotente — se já estiver lá, não
+// duplica. Cria a aba sob demanda se ainda não existe.
+function addToAprovadosIndividuais_(indRow) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(APROVADOS_INDIVIDUAIS_SHEET_NAME);
+  if (!sheet) { setupAprovadosIndividuaisSheet(); sheet = ss.getSheetByName(APROVADOS_INDIVIDUAIS_SHEET_NAME); }
+  if (!sheet) return;
+  if (findAprovadosIndividuaisRow_(sheet, indRow) > 0) return;
+
+  const ind = ss.getSheetByName(INDIVIDUAL_SHEET_NAME);
+  if (!ind) return;
+  const rowData = ind.getRange(indRow, 1, 1, INDIVIDUAL_COLUMNS.length).getValues()[0];
+  function colVal(name) {
+    const i = INDIVIDUAL_COLUMNS.indexOf(name);
+    return i >= 0 ? String(rowData[i] || "").replace(/^'/, "") : "";
+  }
+  const nome = (colVal("Nome social").trim() || colVal("Nome completo").trim());
+  const cidade = colVal("Cidade").trim();
+  const estado = colVal("Estado").trim();
+  const linha = [
+    Utilities.formatDate(new Date(), CONFIG.TIMEZONE, "dd/MM/yyyy HH:mm"),
+    nome,
+    colVal("CPF"),
+    colVal("E-mail"), // e-mail pessoal do integrante
+    colVal("Telefone"),
+    colVal("Trilha preferida"),
+    cidade ? cidade + (estado ? "/" + estado : "") : "",
+    indRow,
+  ];
+  sheet.appendRow(linha.map(sanitizeCell_));
+}
+
+// Remove a pessoa da linha `indRow` da aba "Aprovados Individuais", se
+// estiver lá. Chamado quando o admin volta o Status pra Pendente/Reprovado
+// depois de ter aprovado.
+function removeFromAprovadosIndividuais_(indRow) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName(APROVADOS_INDIVIDUAIS_SHEET_NAME);
+  if (!sheet) return;
+  const row = findAprovadosIndividuaisRow_(sheet, indRow);
+  if (row > 0) sheet.deleteRow(row);
+}
+
+// Backfill opcional — popula a aba a partir do que já está marcado Aprovado.
+// Roda manualmente no editor pra trazer histórico se já tiver gente aprovada.
+function backfillAprovadosIndividuais() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ind = ss.getSheetByName(INDIVIDUAL_SHEET_NAME);
+  if (!ind || ind.getLastRow() < 2) return;
+  const statuses = ind.getRange(2, STATUS_COL, ind.getLastRow() - 1, 1).getValues();
+  for (let i = 0; i < statuses.length; i++) {
+    if (String(statuses[i][0]).trim() === "Aprovado") addToAprovadosIndividuais_(i + 2);
   }
 }
 
@@ -3673,6 +3789,18 @@ function processIndividualStatusEdit_(row, oldValueRaw) {
     enviarComFila_("aprovacao_individual", dest, nome, "");
   } else {
     enviarComFila_("reprovacao_individual", dest, nome, "");
+  }
+
+  // Sincroniza a aba "Aprovados Individuais" (best-effort): entra ao virar
+  // Aprovado, sai ao deixar de ser. Mesmo padrão do equipe (ver
+  // processStatusEdit_ → addToAprovados_ / removeFromAprovados_). Se algo
+  // der erro aqui, o e-mail já foi enviado e o status segue marcado — o
+  // try/catch impede que isso derrube o fluxo do trigger.
+  try {
+    if (newStatus === "Aprovado") addToAprovadosIndividuais_(row);
+    else removeFromAprovadosIndividuais_(row);
+  } catch (errAprov) {
+    console.error("Falha ao sincronizar aba Aprovados Individuais:", errAprov);
   }
 
   const tipo = newStatus === "Aprovado" ? "Aprovação" : "Reprovação";
