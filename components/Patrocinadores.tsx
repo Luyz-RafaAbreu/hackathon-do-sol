@@ -18,6 +18,27 @@ const patrocinadores = [
     h: 746,
     heightClass: "max-h-14",
   },
+  {
+    nome: "Sebrae",
+    logo: "/patrocinadores/sebrae.png",
+    w: 3000,
+    h: 1622,
+    heightClass: "max-h-16",
+  },
+  {
+    nome: "Alares",
+    logo: "/patrocinadores/alares.png",
+    w: 2560,
+    h: 773,
+    heightClass: "max-h-12",
+  },
+  {
+    nome: "Unimed Natal",
+    logo: "/patrocinadores/unimed.png",
+    w: 934,
+    h: 238,
+    heightClass: "max-h-14",
+  },
 ];
 
 export default function Patrocinadores() {
@@ -37,7 +58,7 @@ export default function Patrocinadores() {
       </Reveal>
 
       <Reveal delay={150}>
-        <div className="relative rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur overflow-hidden max-w-2xl mx-auto">
+        <div className="relative rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur overflow-hidden max-w-6xl mx-auto">
           {/* glow central sutil */}
           <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-sol-orange/10 to-transparent pointer-events-none" />
           <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 w-[70%] h-32 bg-sol-pink/10 blur-3xl pointer-events-none" />
@@ -47,7 +68,7 @@ export default function Patrocinadores() {
               {patrocinadores.map((p) => (
                 <div
                   key={p.nome}
-                  className="group h-24 min-w-[14rem] px-8 flex items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] transition-all duration-500 hover:border-sol-orange/50 hover:from-white/[0.1] hover:-translate-y-1 hover:shadow-[0_1.25rem_2.5rem_-1.25rem_rgba(255,140,0,0.4)]"
+                  className="group h-20 md:h-24 min-w-[9rem] md:min-w-[12rem] flex-1 max-w-[11rem] md:max-w-[15rem] px-4 md:px-6 flex items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-white/[0.02] transition-all duration-500 hover:border-sol-orange/50 hover:from-white/[0.1] hover:-translate-y-1 hover:shadow-[0_1.25rem_2.5rem_-1.25rem_rgba(255,140,0,0.4)]"
                 >
                   <Image
                     src={p.logo}
