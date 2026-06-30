@@ -9,6 +9,7 @@ import Sobre from "@/components/Sobre";
 import Informacoes from "@/components/Informacoes";
 import Cronograma from "@/components/Cronograma";
 import Materiais from "@/components/Materiais";
+import Galeria from "@/components/Galeria";
 import FAQ from "@/components/FAQ";
 import Patrocinadores from "@/components/Patrocinadores";
 import Footer from "@/components/Footer";
@@ -24,6 +25,7 @@ export default async function Home() {
         <Hero inscriptionsOpen={inscriptionsOpen} />
         <Marquee />
         <Sobre />
+        <Galeria />
         <Informacoes />
         <Cronograma />
         <Materiais />

@@ -10,6 +10,7 @@ import { BLUR } from "@/lib/blur-data";
 
 const links = [
   { href: "#sobre", label: "Sobre" },
+  { href: "#galeria", label: "Galeria" },
   { href: "#informacoes", label: "Informações" },
   { href: "#cronograma", label: "Cronograma" },
   { href: "#materiais", label: "Materiais" },

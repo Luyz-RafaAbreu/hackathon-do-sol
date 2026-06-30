@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useRef } from "react";
-import { ArrowRight, Lock, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Images, CheckCircle2 } from "lucide-react";
 import Countdown from "./Countdown";
 import MagneticButton from "./MagneticButton";
 import InscrevaSeButton from "./InscrevaSeButton";
@@ -145,37 +145,40 @@ export default function Hero({
           </p>
         </div>
 
-        <div className="mt-3 md:mt-4 animate-fade-up" style={{ animationDelay: "480ms" }}>
+        <div className="mt-2 md:mt-3 animate-fade-up" style={{ animationDelay: "480ms" }}>
           <Countdown />
         </div>
 
         {!inscriptionsOpen && (
           <div
-            className="mt-5 md:mt-6 mx-auto max-w-2xl animate-fade-up"
+            className="mt-3 md:mt-4 flex justify-center animate-fade-up"
             style={{ animationDelay: "540ms" }}
           >
-            <div className="relative rounded-2xl border-[0.125rem] border-sol-orange/40 bg-sol-orange/[0.06] backdrop-blur-sm px-5 py-4 md:px-6 md:py-5 flex items-center gap-4 overflow-hidden">
-              <div
+            {/* Inscrições fechadas: o selo do topo do Hero já comunica isso, então
+                o CTA de destaque vira a galeria de fotos do evento. Continua dentro
+                do guard !inscriptionsOpen: quando as inscrições reabrirem, este
+                bloco some e volta o fluxo "Inscreva-se". */}
+            <a
+              href="#galeria"
+              className="group relative inline-flex items-center justify-center gap-2.5 rounded-full px-7 py-3.5 font-display font-bold text-sm md:text-base text-sol-bgDeep bg-gradient-to-r from-sol-yellow via-sol-orange to-sol-pink shadow-[0_0.75rem_2rem_-0.5rem_rgba(255,140,0,0.6)] overflow-hidden transition-transform duration-300 hover:scale-[1.04] focus-visible:scale-[1.04]"
+            >
+              {/* brilho que varre da esquerda pra direita no hover */}
+              <span
                 aria-hidden
-                className="absolute inset-x-0 top-0 h-[0.125rem] bg-gradient-to-r from-transparent via-sol-orange to-transparent"
+                className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/40 to-transparent"
               />
-              <div className="shrink-0 w-11 h-11 rounded-xl bg-sol-orange/15 border border-sol-orange/40 flex items-center justify-center">
-                <Lock className="w-5 h-5 text-sol-orange" strokeWidth={2.2} />
-              </div>
-              <div className="text-left">
-                <div className="font-display font-bold text-base md:text-lg leading-tight text-white">
-                  Inscrições encerradas
-                </div>
-                <div className="text-xs md:text-sm text-white/70 leading-snug mt-0.5">
-                  Acompanhe o @hackathondosol pra ser avisado da próxima edição.
-                </div>
-              </div>
-            </div>
+              <Images className="relative z-10 w-5 h-5" strokeWidth={2.4} />
+              <span className="relative z-10">Veja como foi a edição 2026</span>
+              <ArrowRight
+                className="relative z-10 w-4 h-4 transition-transform group-hover:translate-x-1"
+                strokeWidth={2.6}
+              />
+            </a>
           </div>
         )}
 
         <div
-          className="mt-4 md:mt-5 flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 animate-fade-up"
+          className="mt-3 md:mt-4 flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 animate-fade-up"
           style={{ animationDelay: "600ms" }}
         >
           {inscriptionsOpen && statusLoading ? (
